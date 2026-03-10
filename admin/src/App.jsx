@@ -1,7 +1,7 @@
 import React, { Suspense, lazy } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 // import AdminNavbar from "./components/AdminNavbar"; // Your updated Navbar
-import AdminInquiryRoutes from "./routes/adminInquiryRoutes";
+import AdminInquiryRoutes from "./routes/AdminInquiryRoutes";
 import AdminLayoutRoutes from "./routes/adminLayoutRoutes";
 import AdminSignupPage from "./pages/AdminSignUpPage";
 import AdminLoginPage from "./pages/AdminLoginPage";

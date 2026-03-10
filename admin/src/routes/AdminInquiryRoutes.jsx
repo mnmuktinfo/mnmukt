@@ -11,6 +11,7 @@ const AdminInquiryRoutes = () => {
       <Route element={<AdminInquiryLayout />}>
         <Route index element={<AdminMessages />} />
         <Route path="messages" element={<AdminMessages />} />
+        <Route path="messages/new" element={<AdminMessages />} />
 
         <Route path="lists" element={<AdminCustomers />} />
       </Route>
