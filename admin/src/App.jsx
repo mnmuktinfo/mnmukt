@@ -1,8 +1,8 @@
-import React, { Suspense, lazy } from "react";
+import React, { Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 // import AdminNavbar from "./components/AdminNavbar"; // Your updated Navbar
 import AdminInquiryRoutes from "./routes/AdminInquiryRoutes";
-import AdminLayoutRoutes from "./routes/adminLayoutRoutes";
+import AdminLayoutRoutes from "./routes/AdminLayoutRoutes";
 import AdminSignupPage from "./pages/AdminSignUpPage";
 import AdminLoginPage from "./pages/AdminLoginPage";
 
@@ -31,17 +31,10 @@ const App = () => {
       <main className="animate-in fade-in duration-1000">
         <Suspense fallback={<InitializingSystem />}>
           <Routes>
-            {/* Root is now the Dashboard */}
-            <Route path="/*" element={<AdminLayoutRoutes />} />{" "}
-            {/* Direct Sub-Routes (No /admin/ prefix needed) */}
-            {/* <Route path="/products/*" element={<Products />} />
-            <Route path="/orders/*" element={<Orders />} /> */}
+            <Route path="/login" element={<AdminLoginPage />} />
+            <Route path="/signup" element={<AdminSignupPage />} />
             <Route path="/customers/*" element={<AdminInquiryRoutes />} />
-            {/* <Route path="/content/*" element={<Content />} /> */}
-            <Route path="login" element={<AdminLoginPage />} />
-            <Route path="signup" element={<AdminSignupPage />} />
-            {/* Void Redirect */}
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="/*" element={<AdminLayoutRoutes />} />
           </Routes>
         </Suspense>
       </main>
