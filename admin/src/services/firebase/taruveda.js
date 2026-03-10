@@ -1,113 +1,237 @@
-
- 
- 
-
 import {
   collection,
   doc,
   getDocs,
   getDoc,
-  query,
-  where,
   addDoc,
   updateDoc,
   deleteDoc,
   serverTimestamp,
+  query,
+  orderBy,
+  limit,
+  startAfter,
+  where,
+  writeBatch
 } from "firebase/firestore";
+
 import { db } from "../../config/firebase";
 
-// const PRODUCTS_COLLECTION = "products";
 const TARUVEDA_COLLECTION = "taruvedaProducts";
 
 export const productService = {
 
   /* -------------------------------------------------- */
-  /* EXISTING PRODUCTS COLLECTION (unchanged) */
+  /* GET PRODUCTS WITH PAGINATION (BEST FOR 10k+ ITEMS) */
   /* -------------------------------------------------- */
 
-  getProducts: async () => {
+  getTaruvedaProducts: async (lastDoc = null, pageSize = 20) => {
     try {
-      const snapshot = await getDocs(collection(db, PRODUCTS_COLLECTION));
-      return snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
+
+      const productsRef = collection(db, TARUVEDA_COLLECTION);
+
+      let q;
+
+      if (lastDoc) {
+        q = query(
+          productsRef,
+          orderBy("createdAt", "desc"),
+          startAfter(lastDoc),
+          limit(pageSize)
+        );
+      } else {
+        q = query(
+          productsRef,
+          orderBy("createdAt", "desc"),
+          limit(pageSize)
+        );
+      }
+
+      const snapshot = await getDocs(q);
+
+      const products = snapshot.docs.map((docItem) => ({
+        id: docItem.id,
+        ...docItem.data(),
       }));
+
+      const lastVisible = snapshot.docs[snapshot.docs.length - 1];
+
+      return {
+        products,
+        lastDoc: lastVisible
+      };
+
     } catch (error) {
-      throw new Error(`Failed to fetch products: ${error.message}`);
+      throw new Error(`Failed to fetch Taruveda products: ${error.message}`);
     }
   },
 
-  getProductById: async (id) => {
+  /* -------------------------------------------------- */
+  /* GET ACTIVE PRODUCTS (FOR SHOP PAGE) */
+  /* -------------------------------------------------- */
+
+  getActiveProducts: async (lastDoc = null, pageSize = 20) => {
+
     try {
-      const docRef = doc(db, PRODUCTS_COLLECTION, id);
+
+      const productsRef = collection(db, TARUVEDA_COLLECTION);
+
+      let q;
+
+      if (lastDoc) {
+        q = query(
+          productsRef,
+          where("isActive", "==", true),
+          orderBy("createdAt", "desc"),
+          startAfter(lastDoc),
+          limit(pageSize)
+        );
+      } else {
+        q = query(
+          productsRef,
+          where("isActive", "==", true),
+          orderBy("createdAt", "desc"),
+          limit(pageSize)
+        );
+      }
+
+      const snapshot = await getDocs(q);
+
+      const products = snapshot.docs.map((docItem) => ({
+        id: docItem.id,
+        ...docItem.data(),
+      }));
+
+      const lastVisible = snapshot.docs[snapshot.docs.length - 1];
+
+      return {
+        products,
+        lastDoc: lastVisible
+      };
+
+    } catch (error) {
+      throw new Error(`Failed to fetch active products: ${error.message}`);
+    }
+  },
+
+  /* -------------------------------------------------- */
+  /* GET SINGLE PRODUCT */
+  /* -------------------------------------------------- */
+
+  getTaruvedaProductById: async (id) => {
+
+    try {
+
+      const docRef = doc(db, TARUVEDA_COLLECTION, id);
       const docSnap = await getDoc(docRef);
 
       if (!docSnap.exists()) {
         throw new Error("Product not found");
       }
 
-      return { id: docSnap.id, ...docSnap.data() };
+      return {
+        id: docSnap.id,
+        ...docSnap.data()
+      };
+
     } catch (error) {
       throw new Error(`Failed to fetch product: ${error.message}`);
     }
   },
 
   /* -------------------------------------------------- */
-  /* TARUVEDA COLLECTION */
+  /* CREATE PRODUCT */
   /* -------------------------------------------------- */
 
-  // GET ALL TARUVEDA PRODUCTS
-  getTaruvedaProducts: async () => {
-    try {
-      const snapshot = await getDocs(collection(db, TARUVEDA_COLLECTION));
-      return snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-    } catch (error) {
-      throw new Error(`Failed to fetch Taruveda products: ${error.message}`);
-    }
-  },
-
-  // CREATE TARUVEDA PRODUCT
   createTaruvedaProduct: async (productData) => {
+
     try {
+
       const docRef = await addDoc(
         collection(db, TARUVEDA_COLLECTION),
         {
           ...productData,
           isActive: true,
-          createdAt: serverTimestamp(),
+          createdAt: serverTimestamp()
         }
       );
 
       return docRef.id;
+
     } catch (error) {
-      throw new Error(`Failed to create Taruveda product: ${error.message}`);
+      throw new Error(`Failed to create product: ${error.message}`);
     }
   },
 
-  // UPDATE TARUVEDA PRODUCT
+  /* -------------------------------------------------- */
+  /* UPDATE PRODUCT */
+  /* -------------------------------------------------- */
+
   updateTaruvedaProduct: async (id, updatedData) => {
+
     try {
+
       const docRef = doc(db, TARUVEDA_COLLECTION, id);
+
       await updateDoc(docRef, {
         ...updatedData,
-        updatedAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
       });
+
+      return true;
+
     } catch (error) {
-      throw new Error(`Failed to update Taruveda product: ${error.message}`);
+      throw new Error(`Failed to update product: ${error.message}`);
     }
   },
 
-  // DELETE TARUVEDA PRODUCT
+  /* -------------------------------------------------- */
+  /* DELETE PRODUCT */
+  /* -------------------------------------------------- */
+
   deleteTaruvedaProduct: async (id) => {
+
     try {
+
       const docRef = doc(db, TARUVEDA_COLLECTION, id);
+
       await deleteDoc(docRef);
+
+      return true;
+
     } catch (error) {
-      throw new Error(`Failed to delete Taruveda product: ${error.message}`);
+      throw new Error(`Failed to delete product: ${error.message}`);
     }
   },
+
+  /* -------------------------------------------------- */
+  /* BULK UPDATE PRODUCTS (UP TO 500 AT A TIME) */
+  /* -------------------------------------------------- */
+
+  bulkUpdateProducts: async (products) => {
+
+    try {
+
+      const batch = writeBatch(db);
+
+      products.forEach((product) => {
+
+        const ref = doc(db, TARUVEDA_COLLECTION, product.id);
+
+        batch.update(ref, {
+          ...product.data,
+          updatedAt: serverTimestamp()
+        });
+
+      });
+
+      await batch.commit();
+
+      return true;
+
+    } catch (error) {
+      throw new Error(`Bulk update failed: ${error.message}`);
+    }
+  }
 
 };

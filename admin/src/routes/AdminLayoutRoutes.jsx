@@ -1,14 +1,13 @@
 import { Route, Routes } from "react-router-dom";
 import { lazy, Suspense } from "react";
 import AdminLayout from "../layouts/AdminLayout";
-import ProductsManagementPage from "../pages/ProductsManagementPage";
-import ProductCreatePage from "../pages/ProductCreatePages";
+import ProductsManagementPage from "../pages/product/ProductsManagementPage";
+import ProductCreatePage from "../pages/product/ProductCreatePages";
 import AdminOrdersPage from "../pages/AdminOrdersPage";
 import TestimonialsAdminPage from "../pages/TestimonialsAdminPage";
-import TaruvedaAdminCreateProduct from "../pages/TaruvedaAdminCreateProduct";
 
 // Standardizing imports
-const AdminDashboard = lazy(() => import("../pages/AdminDashboard"));
+// const AdminDashboard = lazy(() => import("../pages/AdminDashboard"));
 const AdminCategories = lazy(() => import("../pages/AdminAllCategories"));
 const CategoryCreatePage = lazy(() => import("../pages/CategoryCreatePage"));
 const AdminLayoutRoutes = () => {
@@ -18,7 +17,7 @@ const AdminLayoutRoutes = () => {
       <Routes>
         <Route element={<AdminLayout />}>
           {/* Use absolute paths or relative paths consistently */}
-          <Route index element={<AdminDashboard />} />
+          <Route index element={<ProductsManagementPage />} />
 
           {/* CATEGORY PROTOCOLS */}
           <Route path="categories" element={<AdminCategories />} />
@@ -34,11 +33,6 @@ const AdminLayoutRoutes = () => {
           {/* ORDER & CONTENT */}
           <Route path="orders" element={<AdminOrdersPage />} />
           <Route path="testimonials" element={<TestimonialsAdminPage />} />
-
-          <Route
-            path="taruveda/create"
-            element={<TaruvedaAdminCreateProduct />}
-          />
 
           {/* AUTH */}
         </Route>

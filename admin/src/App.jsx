@@ -1,53 +1,70 @@
-import React, { Suspense } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
-// import AdminNavbar from "./components/AdminNavbar"; // Your updated Navbar
-import AdminInquiryRoutes from "./routes/AdminInquiryRoutes";
-import AdminLayoutRoutes from "./routes/AdminLayoutRoutes";
-import AdminSignupPage from "./pages/AdminSignUpPage";
-import AdminLoginPage from "./pages/AdminLoginPage";
+import React, { Suspense, lazy } from "react";
+import { Routes, Route } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 
-// High-Performance Lazy Loading
-// const Dashboard = lazy(() => import("./pages/Dashboard"));
-// const Products = lazy(() => import("./pages/Products"));
-// const Orders = lazy(() => import("./pages/Orders"));
-// const Settings = lazy(() => import("./pages/Settings"));
+/* ---------------- LAZY ROUTES ---------------- */
+const AdminInquiryRoutes = lazy(() => import("./routes/AdminInquiryRoutes"));
+const AdminLayoutRoutes = lazy(() => import("./routes/AdminLayoutRoutes"));
+const TaruvedaRoutes = lazy(() => import("./routes/TaruvedaRoutes"));
 
-// Elite Architectural Loader
+const AdminSignupPage = lazy(() => import("./pages/AdminSignUpPage"));
+const AdminLoginPage = lazy(() => import("./pages/AdminLoginPage"));
+
+/* ---------------- PROFESSIONAL SYSTEM LOADER (FLIPKART STYLE) ---------------- */
 const InitializingSystem = () => (
-  <div className="min-h-screen bg-white flex flex-col items-center justify-center p-12">
-    <div className="w-[1px] h-24 bg-slate-100 animate-pulse mb-6" />
-    <p className="text-[10px] font-black uppercase tracking-[0.5em] text-slate-300 animate-pulse">
-      Syncing Command Central
-    </p>
+  <div className="min-h-screen flex flex-col items-center justify-center bg-[#f1f3f6] antialiased">
+    <div className="flex flex-col items-center animate-in fade-in zoom-in-95 duration-500">
+      {/* Brand Logo Box (Flipkart Style) */}
+      <div className="flex items-center gap-3 mb-8">
+        <div className="w-12 h-12 bg-[#2874f0] rounded-sm flex items-center justify-center shadow-md relative overflow-hidden animate-pulse">
+          <span className="text-white font-bold text-2xl italic tracking-tighter pr-1">
+            M
+          </span>
+          {/* Signature Yellow Accent */}
+          <div className="absolute bottom-2 right-2 w-1.5 h-1.5 bg-[#ffe500] rounded-full"></div>
+        </div>
+        <div className="flex flex-col">
+          <span className="text-2xl font-bold italic tracking-tight text-[#212121] leading-none">
+            Mnmukt
+          </span>
+          <span className="text-[10px] font-bold text-[#878787] uppercase tracking-widest mt-1">
+            Seller Hub
+          </span>
+        </div>
+      </div>
+
+      {/* Loading Indicator */}
+      <div className="flex flex-col items-center gap-3 bg-white px-8 py-4 rounded-sm border border-gray-200 shadow-sm">
+        <Loader2 size={24} className="animate-spin text-[#2874f0]" />
+        <span className="text-sm font-semibold text-[#878787]">
+          Loading workspace...
+        </span>
+      </div>
+    </div>
   </div>
 );
 
+/* ---------------- APP ENTRY POINT ---------------- */
 const App = () => {
   return (
-    <div className="min-h-screen bg-[#FBFBFA] font-sans text-slate-900 selection:bg-[#ff356c] selection:text-white">
-      {/* Persistent Admin Interface */}
-
-      {/* Main Command Surface */}
-      <main className="animate-in fade-in duration-1000">
+    <div className="min-h-screen bg-[#f1f3f6] font-sans text-[#212121] selection:bg-[#2874f0] selection:text-white antialiased">
+      {/* MAIN SURFACE */}
+      <main className="animate-in fade-in duration-500">
         <Suspense fallback={<InitializingSystem />}>
           <Routes>
+            {/* AUTH ROUTES */}
             <Route path="/login" element={<AdminLoginPage />} />
             <Route path="/signup" element={<AdminSignupPage />} />
+
+            {/* FEATURE MODULES */}
             <Route path="/customers/*" element={<AdminInquiryRoutes />} />
+            <Route path="/taruveda/*" element={<TaruvedaRoutes />} />
+
+            {/* MAIN ADMIN PANEL */}
             <Route path="/*" element={<AdminLayoutRoutes />} />
           </Routes>
         </Suspense>
       </main>
-
-      {/* Footer HUD */}
-      <footer className="max-w-[1600px] mx-auto px-12 py-10 border-t border-slate-50 flex justify-between items-center opacity-30">
-        <p className="text-[9px] font-black uppercase tracking-widest">
-          Mnmukt Registry Control
-        </p>
-        <p className="text-[8px] font-bold uppercase tracking-tighter">
-          Secure Admin Session // 2026
-        </p>
-      </footer>
     </div>
   );
 };

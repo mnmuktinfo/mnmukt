@@ -1,110 +1,119 @@
 import React from "react";
 import { Link, useLocation, Outlet } from "react-router-dom";
 import {
-  FaChartPie,
-  FaRegCommentDots,
-  FaUserGroup,
-  FaSliders,
-  FaArrowLeft,
-} from "react-icons/fa6"; // Fa6 for high-precision icons
+  PieChart,
+  MessageSquare,
+  Users,
+  Settings,
+  LogOut,
+  Store,
+} from "lucide-react";
 
 const AdminInquiryLayout = () => {
   return (
-    <div className="h-screen bg-white flex font-sans text-slate-950 overflow-hidden">
-      {/* --- ARCHITECTURAL SIDEBAR --- */}
-      <aside className="w-20 lg:w-64 bg-slate-50 border-r border-slate-100 flex flex-col justify-between shrink-0 transition-all duration-500">
-        <div>
-          {/* Mnmukt Identity HUD */}
-          <div className="h-20 flex items-center justify-center lg:justify-start lg:px-8 border-b border-slate-100">
-            <div className="h-9 w-9 bg-slate-950 rounded-sm flex items-center justify-center text-white font-black italic font-serif text-xl">
-              M.
+    <div className="h-screen bg-[#F1F3F6] flex font-sans text-[#212121] overflow-hidden antialiased">
+      {/* --- FLIPKART STYLE SIDEBAR --- */}
+      <aside className="w-[72px] lg:w-64 bg-white border-r border-gray-200 flex flex-col justify-between shrink-0 shadow-sm z-20 transition-all duration-300">
+        <div className="flex flex-col h-full">
+          {/* Brand Identity Header */}
+          <div className="h-16 flex items-center justify-center lg:justify-start lg:px-6 border-b border-gray-100 shrink-0">
+            <div className="h-9 w-9 bg-[#2874F0] rounded-sm flex items-center justify-center text-white font-bold text-xl shadow-sm shrink-0">
+              M
             </div>
-            <div className="ml-4 hidden lg:block">
-              <span className="block font-black text-[10px] uppercase tracking-[0.3em] leading-none">
-                Command
+            <div className="ml-3 hidden lg:block overflow-hidden">
+              <span className="block font-bold text-gray-900 text-sm truncate leading-tight">
+                Mnmukt Store
               </span>
-              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1 italic font-serif">
-                Registry
+              <span className="text-[11px] font-bold text-[#878787] uppercase tracking-wider block mt-0.5">
+                Seller Hub
               </span>
             </div>
           </div>
 
-          {/* Navigation Engine */}
-          <nav className="p-3 space-y-2 mt-6">
-            <NavItem to="/" icon={<FaChartPie size={18} />} label="Overview" />
+          {/* Main Navigation */}
+          <nav className="flex-1 py-4 flex flex-col gap-1 overflow-y-auto">
+            <p className="px-6 text-[10px] font-bold text-[#878787] uppercase tracking-wider mb-2 hidden lg:block">
+              Main Menu
+            </p>
+            <NavItem to="/" icon={PieChart} label="Overview" />
             <NavItem
               to="/customers/messages"
-              icon={<FaRegCommentDots size={18} />}
-              label="Inquiries"
+              icon={MessageSquare}
+              label="Customer Inquiries"
             />
             <NavItem
               to="/customers/lists"
-              icon={<FaUserGroup size={18} />}
-              label="Customers"
+              icon={Users}
+              label="Customer Directory"
             />
           </nav>
         </div>
 
-        {/* Global Control HUD */}
-        <div className="p-3 mb-6 space-y-2">
-          <NavItem
-            to="/settings"
-            icon={<FaSliders size={18} />}
-            label="Settings"
-          />
+        {/* Global Settings & Exit */}
+        <div className="p-3 mb-2 space-y-1 border-t border-gray-100 bg-gray-50/50">
+          <NavItem to="/settings" icon={Settings} label="Store Settings" />
+
           <Link
             to="/"
-            className="flex items-center gap-4 px-4 py-3 mx-2 text-slate-400 hover:text-slate-950 transition-all group">
-            <FaArrowLeft
-              size={14}
-              className="group-hover:-translate-x-1 transition-transform"
+            title="Exit Seller Hub"
+            className="flex items-center justify-center lg:justify-start gap-3 px-3 lg:px-4 py-3 lg:py-2.5 rounded-lg lg:rounded-sm transition-colors text-gray-500 hover:bg-gray-200 hover:text-gray-900 group">
+            <LogOut
+              size={20}
+              className="shrink-0 group-hover:-translate-x-1 transition-transform"
             />
-            <span className="text-[10px] font-black uppercase tracking-widest hidden lg:block">
-              Exit Hub
+            <span className="text-sm font-semibold hidden lg:block">
+              Exit to Website
             </span>
           </Link>
         </div>
       </aside>
 
-      {/* --- DATA SURFACE --- */}
-      <main className="flex-1 flex overflow-hidden relative bg-white animate-in fade-in duration-1000">
-        <Outlet />
+      {/* --- MAIN DATA SURFACE --- */}
+      <main className="flex-1 flex flex-col overflow-hidden relative bg-[#F1F3F6]">
+        <div className="flex-1 overflow-y-auto">
+          {/* This Outlet renders the nested pages (like AdminCustomers) */}
+          <Outlet />
+        </div>
       </main>
     </div>
   );
 };
 
-// High-Performance Nav Component
-const NavItem = ({ icon, label, to }) => {
+// --- HIGH-PERFORMANCE NAV COMPONENT ---
+const NavItem = ({ icon: Icon, label, to }) => {
   const location = useLocation();
 
-  // Logic for root-based active states (Since we removed /admin)
+  // Highlight active link accurately
   const isActive =
     to === "/" ? location.pathname === "/" : location.pathname.startsWith(to);
 
   return (
     <Link
       to={to}
+      title={label} // Helpful tooltip when sidebar is collapsed
       className={`
-        flex items-center gap-4 px-4 py-3.5 mx-2 rounded-sm cursor-pointer transition-all duration-300 group active:scale-[0.97]
+        flex items-center justify-center lg:justify-start gap-3 px-3 lg:px-6 py-3.5 lg:py-3 
+        mx-2 lg:mx-0 rounded-lg lg:rounded-none transition-colors relative group
         ${
           isActive
-            ? "bg-slate-950 text-white shadow-[0_10px_20px_-10px_rgba(0,0,0,0.3)]"
-            : "text-slate-400 hover:bg-white hover:text-slate-950 border border-transparent hover:border-slate-100"
+            ? "bg-[#f4f8ff] lg:bg-blue-50/50 text-[#2874F0]"
+            : "text-[#666666] hover:bg-gray-100 hover:text-gray-900"
         }
       `}>
-      <div
-        className={`transition-colors duration-300 ${isActive ? "text-[#ff356c]" : "group-hover:text-slate-950"}`}>
-        {icon}
-      </div>
-      <span className="text-[10px] font-black uppercase tracking-[0.2em] hidden lg:block">
+      {/* Active Indicator Line (Desktop only) */}
+      {isActive && (
+        <div className="hidden lg:block absolute left-0 top-0 bottom-0 w-1 bg-[#2874F0]" />
+      )}
+
+      <Icon
+        size={20}
+        className={`shrink-0 ${isActive ? "text-[#2874F0]" : "text-gray-400 group-hover:text-gray-700"}`}
+      />
+
+      <span
+        className={`text-sm font-medium hidden lg:block ${isActive ? "font-bold text-[#2874F0]" : ""}`}>
         {label}
       </span>
-
-      {/* Active Indicator Dot */}
-      {isActive && (
-        <div className="ml-auto w-1 h-1 rounded-full bg-[#ff356c] hidden lg:block" />
-      )}
     </Link>
   );
 };
