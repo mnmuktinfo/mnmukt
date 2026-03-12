@@ -15,7 +15,7 @@ import {
   writeBatch
 } from "firebase/firestore";
 
-import { db } from "../../config/firebase";
+import { db } from "../../../config/firebase";
 
 const TARUVEDA_COLLECTION = "taruvedaProducts";
 

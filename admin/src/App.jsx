@@ -1,22 +1,22 @@
 import React, { Suspense, lazy } from "react";
 import { Routes, Route } from "react-router-dom";
-import { Loader2 } from "lucide-react";
 
 /* ---------------- LAZY ROUTES ---------------- */
+// Lazy loading splits your code into smaller chunks, speeding up initial load
 const AdminInquiryRoutes = lazy(() => import("./routes/AdminInquiryRoutes"));
 const AdminLayoutRoutes = lazy(() => import("./routes/AdminLayoutRoutes"));
 const TaruvedaRoutes = lazy(() => import("./routes/TaruvedaRoutes"));
-
 const AdminSignupPage = lazy(() => import("./pages/AdminSignUpPage"));
 const AdminLoginPage = lazy(() => import("./pages/AdminLoginPage"));
 
-/* ---------------- PROFESSIONAL SYSTEM LOADER (FLIPKART STYLE) ---------------- */
+/* ---------------- ULTRA-FAST SYSTEM LOADER ---------------- */
+// Removed external icon libraries here. Using pure CSS/Tailwind for instant rendering.
 const InitializingSystem = () => (
-  <div className="min-h-screen flex flex-col items-center justify-center bg-[#f1f3f6] antialiased">
-    <div className="flex flex-col items-center animate-in fade-in zoom-in-95 duration-500">
+  <div className="min-h-screen flex flex-col items-center justify-center bg-[#f1f3f6] antialiased fixed inset-0 z-[9999]">
+    <div className="flex flex-col items-center animate-in fade-in zoom-in-95 duration-300 ease-out">
       {/* Brand Logo Box (Flipkart Style) */}
       <div className="flex items-center gap-3 mb-8">
-        <div className="w-12 h-12 bg-[#2874f0] rounded-sm flex items-center justify-center shadow-md relative overflow-hidden animate-pulse">
+        <div className="w-12 h-12 bg-[#2874f0] rounded-sm flex items-center justify-center shadow-[0_2px_4px_rgba(0,0,0,0.15)] relative overflow-hidden">
           <span className="text-white font-bold text-2xl italic tracking-tighter pr-1">
             M
           </span>
@@ -33,11 +33,12 @@ const InitializingSystem = () => (
         </div>
       </div>
 
-      {/* Loading Indicator */}
-      <div className="flex flex-col items-center gap-3 bg-white px-8 py-4 rounded-sm border border-gray-200 shadow-sm">
-        <Loader2 size={24} className="animate-spin text-[#2874f0]" />
-        <span className="text-sm font-semibold text-[#878787]">
-          Loading workspace...
+      {/* Pure CSS Loading Indicator (Zero Dependencies) */}
+      <div className="flex flex-col items-center gap-4 bg-white px-8 py-5 rounded-sm border border-gray-200 shadow-[0_1px_2px_0_rgba(0,0,0,0.05)]">
+        {/* Tailwind CSS Spinner */}
+        <div className="w-7 h-7 border-[3px] border-[#e0e0e0] border-t-[#2874f0] rounded-full animate-spin"></div>
+        <span className="text-[13px] font-medium text-[#878787] tracking-wide">
+          Securely connecting to workspace...
         </span>
       </div>
     </div>
@@ -48,8 +49,7 @@ const InitializingSystem = () => (
 const App = () => {
   return (
     <div className="min-h-screen bg-[#f1f3f6] font-sans text-[#212121] selection:bg-[#2874f0] selection:text-white antialiased">
-      {/* MAIN SURFACE */}
-      <main className="animate-in fade-in duration-500">
+      <main>
         <Suspense fallback={<InitializingSystem />}>
           <Routes>
             {/* AUTH ROUTES */}

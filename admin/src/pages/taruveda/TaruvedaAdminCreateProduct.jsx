@@ -11,7 +11,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 
-import { productService } from "../../services/firebase/taruveda";
+import { productService } from "../../services/firebase/taruveda/taruveda";
 import { uploadMultipleImages } from "../../services/cloudinary/uploadImage";
 
 export default function TaruvedaAdminCreateProduct() {

@@ -19,11 +19,12 @@ import {
   Image as ImageIcon,
   Palette,
   Ruler,
+  FolderTree,
 } from "lucide-react";
 
 import { CATEGORIES } from "../../constants/categories";
 import { COLLECTIONS } from "../../constants/collections";
-import { productService } from "../../services/firebase/productService";
+import { productService } from "../../services/firebase/product/productService";
 import {
   uploadImageToCloudinary,
   uploadMultipleImages,
@@ -31,7 +32,6 @@ import {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-// Quick-select standard sizes
 const PRESET_SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
 
 const INITIAL_PRODUCT = {
@@ -59,23 +59,24 @@ const generateSlug = (name) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)+/g, "");
 
-// ─── Reusable UI ──────────────────────────────────────────────────────────────
+// ─── Premium Reusable UI (Seller Hub Style) ───────────────────────────────────
 
-const Input = ({ className = "", ...props }) => (
+const Input = React.forwardRef(({ className = "", ...props }, ref) => (
   <input
-    className={`w-full px-4 py-3 border border-gray-300 rounded-sm text-sm
-      text-gray-900 placeholder:text-gray-400 bg-white outline-none
-      focus:border-[#2874F0] focus:ring-1 focus:ring-[#2874F0]
-      transition-all disabled:bg-gray-50 ${className}`}
+    ref={ref}
+    className={`w-full px-4 py-2.5 border border-gray-300 rounded-sm text-[15px]
+      text-[#212121] placeholder:text-[#878787] bg-white outline-none
+      focus:border-[#2874F0] focus:ring-2 focus:ring-[#2874F0]/20
+      transition-all disabled:bg-[#f9fafb] disabled:text-gray-500 ${className}`}
     {...props}
   />
-);
+));
 
 const Textarea = ({ className = "", ...props }) => (
   <textarea
-    className={`w-full px-4 py-3 border border-gray-300 rounded-sm text-sm
-      text-gray-900 placeholder:text-gray-400 bg-white outline-none resize-none
-      focus:border-[#2874F0] focus:ring-1 focus:ring-[#2874F0] transition-all
+    className={`w-full px-4 py-3 border border-gray-300 rounded-sm text-[15px]
+      text-[#212121] placeholder:text-[#878787] bg-white outline-none resize-none
+      focus:border-[#2874F0] focus:ring-2 focus:ring-[#2874F0]/20 transition-all
       ${className}`}
     {...props}
   />
@@ -83,31 +84,34 @@ const Textarea = ({ className = "", ...props }) => (
 
 const Select = ({ className = "", children, ...props }) => (
   <select
-    className={`w-full px-4 py-3 border border-gray-300 rounded-sm text-sm
-      text-gray-900 bg-white outline-none cursor-pointer
-      focus:border-[#2874F0] focus:ring-1 focus:ring-[#2874F0] transition-all
+    className={`w-full px-4 py-2.5 border border-gray-300 rounded-sm text-[15px]
+      text-[#212121] bg-white outline-none cursor-pointer
+      focus:border-[#2874F0] focus:ring-2 focus:ring-[#2874F0]/20 transition-all
       ${className}`}
     {...props}>
     {children}
   </select>
 );
 
-const FieldLabel = ({ children, required }) => (
-  <label className="block text-sm font-bold text-gray-700 mb-1.5">
-    {children}
-    {required && <span className="text-red-500 ml-1">*</span>}
-  </label>
+const FieldLabel = ({ children, required, subtitle }) => (
+  <div className="mb-1.5">
+    <label className="block text-sm font-medium text-[#212121]">
+      {children}
+      {required && <span className="text-red-500 ml-1">*</span>}
+    </label>
+    {subtitle && (
+      <p className="text-[12px] text-[#878787] mt-0.5">{subtitle}</p>
+    )}
+  </div>
 );
 
 const Card = ({ icon: Icon, title, children }) => (
-  <div className="bg-white border border-gray-200 rounded-sm shadow-sm">
-    <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100 bg-gray-50/60">
-      {Icon && <Icon size={16} className="text-gray-500 shrink-0" />}
-      <h2 className="text-sm font-bold text-gray-800 uppercase tracking-wide">
-        {title}
-      </h2>
+  <div className="bg-white border border-gray-200 rounded-sm shadow-[0_1px_2px_0_rgba(0,0,0,0.05)]">
+    <div className="flex items-center gap-2.5 px-6 py-4 border-b border-gray-100 bg-white">
+      {Icon && <Icon size={18} className="text-[#2874F0] shrink-0" />}
+      <h2 className="text-base font-medium text-[#212121]">{title}</h2>
     </div>
-    <div className="p-6 space-y-5">{children}</div>
+    <div className="p-6 space-y-6">{children}</div>
   </div>
 );
 
@@ -116,10 +120,10 @@ const Card = ({ icon: Icon, title, children }) => (
 const ProductCreatePage = () => {
   const navigate = useNavigate();
   const { id } = useParams();
-  a;
+
   const isEditing = Boolean(id);
 
-  const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+  const cloudName = import.meta.env.VITE_CLOUDINARY_COLLECTION;
   const uploadPreset = import.meta.env.VITE_CLOUDINARY_ADMIN_UPLOAD_PRESET;
 
   const [product, setProduct] = useState(INITIAL_PRODUCT);
@@ -131,11 +135,10 @@ const ProductCreatePage = () => {
   const [uploadingGallery, setUploadingGallery] = useState(false);
   const [uploadingColorIdx, setUploadingColorIdx] = useState(null);
 
-  // Custom size input state
   const [customSizeInput, setCustomSizeInput] = useState("");
   const customSizeRef = useRef(null);
 
-  // ── Load for editing ──────────────────────────────────────────────────────
+  // ── Load for editing ──
   useEffect(() => {
     if (!id) return;
     (async () => {
@@ -163,14 +166,14 @@ const ProductCreatePage = () => {
     })();
   }, [id]);
 
-  // ── Field change ──────────────────────────────────────────────────────────
+  // ── Field change ──
   const handleChange = useCallback((e) => {
     const { name, value } = e.target;
     setError(null);
     setProduct((p) => ({ ...p, [name]: value }));
   }, []);
 
-  // ── Image uploads ─────────────────────────────────────────────────────────
+  // ── Image uploads ──
   const handleBannerUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -224,7 +227,7 @@ const ProductCreatePage = () => {
     }
   };
 
-  // ── Colors CRUD ───────────────────────────────────────────────────────────
+  // ── Colors CRUD ──
   const addColor = () =>
     setProduct((p) => ({
       ...p,
@@ -238,9 +241,7 @@ const ProductCreatePage = () => {
       colors: p.colors.map((c, i) => (i === idx ? { ...c, name: val } : c)),
     }));
 
-  // ── Size helpers ──────────────────────────────────────────────────────────
-
-  // Toggle one of the preset chips (XS, S, M…)
+  // ── Size helpers ──
   const togglePresetSize = (size) =>
     setProduct((p) => ({
       ...p,
@@ -249,7 +250,6 @@ const ProductCreatePage = () => {
         : [...p.sizes, size],
     }));
 
-  // Add a custom size (number or free text)
   const addCustomSize = () => {
     const val = customSizeInput.trim();
     if (!val) return;
@@ -262,11 +262,10 @@ const ProductCreatePage = () => {
     customSizeRef.current?.focus();
   };
 
-  // Remove any size (preset or custom)
   const removeSize = (size) =>
     setProduct((p) => ({ ...p, sizes: p.sizes.filter((s) => s !== size) }));
 
-  // ── Submit ────────────────────────────────────────────────────────────────
+  // ── Submit ──
   const handleSubmit = async () => {
     setError(null);
     setSuccess(false);
@@ -295,7 +294,7 @@ const ProductCreatePage = () => {
       }
 
       setSuccess(true);
-      setTimeout(() => navigate("/admin/products"), 1400);
+      setTimeout(() => navigate("/products"), 1400);
     } catch (err) {
       setError(err.message || "Something went wrong. Please try again.");
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -309,6 +308,7 @@ const ProductCreatePage = () => {
     uploadingBanner ||
     uploadingGallery ||
     uploadingColorIdx !== null;
+
   const discount =
     product.price &&
     product.originalPrice &&
@@ -318,52 +318,40 @@ const ProductCreatePage = () => {
         )
       : 0;
 
-  // Separate sizes into preset vs custom for display
-  const presetSelected = product.sizes.filter((s) => PRESET_SIZES.includes(s));
-  const customSizes = product.sizes.filter((s) => !PRESET_SIZES.includes(s));
-
   if (pageLoading) {
     return (
       <div className="min-h-screen bg-[#F1F3F6] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3 text-[#2874F0]">
           <Loader2 className="w-10 h-10 animate-spin" />
-          <p className="text-sm font-bold uppercase tracking-widest text-gray-500">
-            Loading Product…
-          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#F1F3F6] font-sans text-gray-900 md:pt-5 pb-24">
+    <div className="min-h-screen bg-[#F1F3F6] font-sans text-[#212121] mt-5 pb-24">
       {/* ── Sticky header ── */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
-        <div
-          className="max-w-[1400px] mx-auto px-4 sm:px-6 py-3.5
-          flex items-center justify-between gap-4">
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-[0_1px_2px_0_rgba(0,0,0,0.05)]">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => navigate("/admin/products")}
-              className="p-2 rounded-full bg-gray-50 hover:bg-gray-100 text-gray-600 transition-colors">
+              onClick={() => navigate("/products")}
+              className="p-2 rounded-sm hover:bg-gray-100 text-gray-600 transition-colors">
               <ArrowLeft size={20} />
             </button>
             <div>
-              <h1 className="text-lg font-bold text-gray-900 leading-tight">
-                {isEditing ? "Edit Product" : "Add New Product"}
+              <h1 className="text-[18px] font-medium text-[#212121] leading-tight">
+                {isEditing ? "Edit Product Listing" : "Add New Product"}
               </h1>
-              <p className="text-xs text-gray-500 hidden sm:block">
-                Fill in the details below to list it on your store
-              </p>
             </div>
           </div>
 
           <button
             onClick={handleSubmit}
             disabled={isBusy}
-            className="hidden sm:flex items-center gap-2 bg-[#FB641B] text-white
-              px-7 py-2.5 rounded-sm font-bold text-sm shadow-sm
-              hover:bg-[#f4511e] active:scale-95 transition-all disabled:opacity-50">
+            className="hidden sm:flex items-center gap-2 bg-[#2874F0] text-white
+              px-8 py-2.5 rounded-sm font-medium text-[15px] shadow-sm
+              hover:bg-[#1c5fba] active:scale-95 transition-all disabled:opacity-60 min-w-[160px] justify-center">
             {loading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : success ? (
@@ -374,101 +362,98 @@ const ProductCreatePage = () => {
             {loading
               ? "Saving…"
               : success
-                ? "Saved!"
+                ? "Saved Successfully!"
                 : isEditing
                   ? "Save Changes"
-                  : "Publish to Store"}
+                  : "Publish Product"}
           </button>
         </div>
       </div>
 
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-7">
-        {/* Banners */}
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-6">
+        {/* Alerts */}
         {error && (
-          <div
-            className="mb-5 flex items-start gap-3 p-4 bg-red-50 border border-red-200
-            rounded-sm text-red-700 shadow-sm">
+          <div className="mb-6 flex items-start gap-3 p-4 bg-[#ffebee] border border-[#ffcdd2] rounded-sm text-[#c62828] shadow-sm">
             <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-            <p className="text-sm font-semibold flex-1">{error}</p>
+            <p className="text-[15px] font-medium flex-1">{error}</p>
             <button
               onClick={() => setError(null)}
-              className="text-red-400 hover:text-red-600">
-              <X className="w-4 h-4" />
+              className="text-[#e57373] hover:text-[#c62828]">
+              <X className="w-5 h-5" />
             </button>
           </div>
         )}
         {success && (
-          <div
-            className="mb-5 flex items-center gap-3 p-4 bg-green-50 border border-green-200
-            rounded-sm text-green-700 shadow-sm">
+          <div className="mb-6 flex items-center gap-3 p-4 bg-[#e8f5e9] border border-[#c8e6c9] rounded-sm text-[#2e7d32] shadow-sm">
             <CheckCircle2 className="w-5 h-5 shrink-0" />
-            <p className="text-sm font-bold">
-              Product {isEditing ? "updated" : "published"} successfully! Taking
-              you back…
+            <p className="text-[15px] font-medium">
+              Product {isEditing ? "updated" : "published"} successfully!
+              Redirecting...
             </p>
           </div>
         )}
 
-        <div className="flex flex-col lg:flex-row gap-5">
+        <div className="flex flex-col lg:flex-row gap-6">
           {/* ──────── LEFT COLUMN ──────── */}
-          <div className="flex-1 space-y-5">
+          <div className="flex-1 space-y-6">
             {/* 1. Basic Details */}
-            <Card icon={Package} title="Basic Details">
+            <Card icon={Package} title="Product Information">
               <div>
-                <FieldLabel required>Product Name</FieldLabel>
+                <FieldLabel required subtitle="Use a clear, descriptive name.">
+                  Product Name
+                </FieldLabel>
                 <Input
                   name="name"
                   value={product.name}
                   onChange={handleChange}
-                  placeholder="e.g. Women's Embroidered Blue Lawn Kurta"
+                  placeholder="e.g. Men's Solid Formal Cotton Shirt"
                 />
-                <p className="text-[11px] text-gray-400 mt-1">
-                  Use a clear name that customers can search for easily.
-                </p>
               </div>
 
               <div>
-                <FieldLabel>Description</FieldLabel>
+                <FieldLabel subtitle="Provide details about fit, fabric, and care instructions.">
+                  Description
+                </FieldLabel>
                 <Textarea
                   name="description"
                   rows={4}
                   value={product.description}
                   onChange={handleChange}
-                  placeholder="Describe the fabric, fit, occasion, and wash care instructions…"
+                  placeholder="Enter detailed product description..."
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div>
                   <FieldLabel>Fabric / Material</FieldLabel>
                   <Input
                     name="material"
                     value={product.material}
                     onChange={handleChange}
-                    placeholder="e.g. Lawn, Chiffon, Cotton"
+                    placeholder="e.g. 100% Cotton"
                   />
                 </div>
                 <div>
-                  <FieldLabel>Brand</FieldLabel>
+                  <FieldLabel>Brand Name</FieldLabel>
                   <Input
                     name="brand"
                     value={product.brand}
                     onChange={handleChange}
-                    placeholder="e.g. Libas"
+                    placeholder="e.g. Generic, Nike, Levi's"
                   />
                 </div>
               </div>
             </Card>
 
             {/* 2. Price & Stock */}
-            <Card icon={DollarSign} title="Price & Stock">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            <Card icon={DollarSign} title="Pricing & Inventory">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                 <div>
-                  <FieldLabel required>Selling Price (PKR)</FieldLabel>
+                  <FieldLabel required subtitle="Final price for the customer.">
+                    Selling Price (PKR)
+                  </FieldLabel>
                   <div className="relative">
-                    <span
-                      className="absolute left-3.5 top-1/2 -translate-y-1/2
-                      text-gray-500 text-sm font-bold select-none">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#878787] font-medium">
                       ₨
                     </span>
                     <Input
@@ -477,21 +462,18 @@ const ProductCreatePage = () => {
                       min="0"
                       value={product.price}
                       onChange={handleChange}
-                      placeholder="1,999"
-                      className="pl-8 font-bold text-gray-900"
+                      placeholder="1999"
+                      className="pl-8 font-medium text-[#212121]"
                     />
                   </div>
-                  <p className="text-[11px] text-gray-400 mt-1">
-                    Price customers will pay.
-                  </p>
                 </div>
 
                 <div>
-                  <FieldLabel>Original Price (PKR)</FieldLabel>
+                  <FieldLabel subtitle="Leave blank if no discount.">
+                    MRP / Original Price (PKR)
+                  </FieldLabel>
                   <div className="relative">
-                    <span
-                      className="absolute left-3.5 top-1/2 -translate-y-1/2
-                      text-gray-500 text-sm font-bold select-none">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#878787] font-medium">
                       ₨
                     </span>
                     <Input
@@ -500,58 +482,45 @@ const ProductCreatePage = () => {
                       min="0"
                       value={product.originalPrice}
                       onChange={handleChange}
-                      placeholder="2,999"
+                      placeholder="2999"
                       className="pl-8"
                     />
                   </div>
-                  <p className="text-[11px] text-gray-400 mt-1">
-                    Leave empty if no discount.
-                  </p>
                 </div>
 
                 <div>
-                  <FieldLabel>Stock (pieces)</FieldLabel>
+                  <FieldLabel subtitle="Total units available.">
+                    Stock Quantity
+                  </FieldLabel>
                   <Input
                     name="stock"
                     type="number"
                     min="0"
                     value={product.stock}
                     onChange={handleChange}
-                    placeholder="e.g. 50"
+                    placeholder="50"
                   />
-                  <p className="text-[11px] text-gray-400 mt-1">
-                    How many pieces available?
-                  </p>
                 </div>
               </div>
 
               {discount > 0 && (
-                <div
-                  className="flex items-center gap-2.5 p-3.5 bg-green-50 border
-                  border-green-200 rounded-sm text-green-800 text-sm font-bold">
-                  <Sparkles size={16} className="shrink-0" />
-                  Customers will see a{" "}
-                  <span className="text-green-900 font-black">
-                    {discount}% OFF
-                  </span>{" "}
-                  badge on this product!
+                <div className="flex items-center gap-2 p-3 bg-[#e8f5e9] border border-[#c8e6c9] rounded-sm text-[#2e7d32] text-[15px] font-medium">
+                  <Sparkles size={18} />
+                  Buyers will see a{" "}
+                  <span className="font-bold">{discount}% OFF</span> discount
+                  tag.
                 </div>
               )}
             </Card>
 
-            {/* 3. Sizes — preset chips + custom input */}
-            <Card icon={Ruler} title="Available Sizes">
-              <p className="text-xs text-gray-500 -mt-2">
-                Select standard sizes or type in custom ones (numbers, free
-                size, etc.)
-              </p>
-
-              {/* Standard preset size buttons */}
+            {/* 3. Sizes */}
+            <Card icon={Ruler} title="Sizes & Variants">
+              {/* Preset Sizes */}
               <div>
-                <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
-                  Standard Sizes — click to select
+                <p className="text-[13px] font-medium text-[#878787] mb-2">
+                  Standard Sizes
                 </p>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-3">
                   {PRESET_SIZES.map((size) => {
                     const on = product.sizes.includes(size);
                     return (
@@ -559,11 +528,11 @@ const ProductCreatePage = () => {
                         key={size}
                         type="button"
                         onClick={() => togglePresetSize(size)}
-                        className={`w-14 h-14 rounded-sm text-sm font-bold border-2 transition-all
+                        className={`min-w-[50px] h-[40px] px-3 rounded-sm text-[14px] font-medium border transition-colors
                           ${
                             on
-                              ? "bg-gray-900 text-white border-gray-900 shadow-md scale-105"
-                              : "bg-white text-gray-600 border-gray-300 hover:border-gray-600"
+                              ? "bg-[#2874F0] text-white border-[#2874F0]"
+                              : "bg-white text-[#212121] border-[#d7d7d7] hover:border-[#2874F0] hover:text-[#2874F0]"
                           }`}>
                         {size}
                       </button>
@@ -572,12 +541,12 @@ const ProductCreatePage = () => {
                 </div>
               </div>
 
-              {/* ✅ Custom size input */}
-              <div>
-                <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
-                  Add Custom Size — e.g. 38, 40, Free Size, One Size
+              {/* Custom Sizes */}
+              <div className="pt-2">
+                <p className="text-[13px] font-medium text-[#878787] mb-2">
+                  Custom Size (e.g. 38, 40, Free Size)
                 </p>
-                <div className="flex gap-2">
+                <div className="flex gap-3">
                   <Input
                     ref={customSizeRef}
                     value={customSizeInput}
@@ -588,86 +557,66 @@ const ProductCreatePage = () => {
                         addCustomSize();
                       }
                     }}
-                    placeholder="Type a size and press Enter or click Add…"
-                    className="flex-1"
+                    placeholder="Enter custom size..."
+                    className="max-w-[250px]"
                   />
                   <button
                     type="button"
                     onClick={addCustomSize}
                     disabled={!customSizeInput.trim()}
-                    className="flex items-center gap-1.5 px-5 py-3 bg-gray-900 text-white
-                      text-sm font-bold rounded-sm hover:bg-gray-800 transition-colors
-                      disabled:opacity-40 disabled:cursor-not-allowed shrink-0">
-                    <Plus size={15} />
-                    Add
+                    className="px-6 py-2 bg-white border border-[#d7d7d7] text-[#212121] text-sm font-medium rounded-sm hover:bg-gray-50 transition-colors disabled:opacity-50">
+                    Add Size
                   </button>
                 </div>
               </div>
 
-              {/* All selected sizes shown as dismissible tags */}
+              {/* Selected Sizes Display */}
               {product.sizes.length > 0 && (
-                <div>
-                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
-                    All Selected Sizes ({product.sizes.length})
+                <div className="pt-4 border-t border-gray-100">
+                  <p className="text-[13px] font-medium text-[#878787] mb-3">
+                    Selected Sizes
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {product.sizes.map((size) => {
-                      const isPreset = PRESET_SIZES.includes(size);
-                      return (
-                        <span
-                          key={size}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-sm
-                            text-sm font-bold border
-                            ${
-                              isPreset
-                                ? "bg-gray-900 text-white border-gray-900"
-                                : "bg-[#2874F0] text-white border-[#2874F0]"
-                            }`}>
-                          {size}
-                          <button
-                            type="button"
-                            onClick={() => removeSize(size)}
-                            className="hover:opacity-70 transition-opacity ml-0.5">
-                            <X size={13} />
-                          </button>
-                        </span>
-                      );
-                    })}
+                    {product.sizes.map((size) => (
+                      <span
+                        key={size}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#f1f3f6] border border-[#e0e0e0] rounded-sm text-[14px] text-[#212121] font-medium">
+                        {size}
+                        <button
+                          type="button"
+                          onClick={() => removeSize(size)}
+                          className="text-[#878787] hover:text-red-500 transition-colors">
+                          <X size={16} />
+                        </button>
+                      </span>
+                    ))}
                   </div>
-                  <p className="text-[11px] text-gray-400 mt-2">
-                    ⬛ Black = standard size &nbsp;·&nbsp; 🔵 Blue = custom size
-                  </p>
                 </div>
               )}
             </Card>
 
             {/* 4. Colors */}
-            <Card icon={Palette} title="Color Variations">
-              <p className="text-xs text-gray-500 -mt-2">
-                Add each color with a photo so customers can see the options.
+            <Card icon={Palette} title="Color Options">
+              <p className="text-[13px] text-[#878787] mb-4 -mt-2">
+                Upload a specific image for each color variant you offer.
               </p>
 
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {product.colors.length === 0 && (
-                  <div
-                    className="flex flex-col items-center justify-center py-8
-                    border-2 border-dashed border-gray-200 rounded-sm text-gray-400 text-sm">
-                    <Palette size={28} className="mb-2 text-gray-300" />
-                    No colors added yet. Click the button below to add one.
+                  <div className="flex flex-col items-center justify-center py-10 border border-dashed border-gray-300 rounded-sm text-[#878787] bg-gray-50/50">
+                    <Palette size={32} className="mb-3 text-gray-400" />
+                    <p className="text-[14px] font-medium">
+                      No color options added yet.
+                    </p>
                   </div>
                 )}
 
                 {product.colors.map((color, idx) => (
                   <div
                     key={idx}
-                    className="flex items-center gap-3 p-3 bg-gray-50 border
-                      border-gray-200 rounded-sm">
-                    {/* Per-color Cloudinary upload */}
-                    <label
-                      className="relative w-14 h-14 shrink-0 rounded-sm border-2
-                        border-dashed border-gray-300 bg-white overflow-hidden
-                        flex items-center justify-center cursor-pointer
-                        hover:border-[#2874F0] transition-colors group">
+                    className="flex items-center gap-4 p-4 border border-gray-200 rounded-sm bg-white shadow-sm">
+                    {/* Color Image Upload */}
+                    <label className="relative w-16 h-16 shrink-0 rounded-sm border border-gray-300 bg-[#f1f3f6] overflow-hidden flex items-center justify-center cursor-pointer hover:border-[#2874F0] transition-colors group">
                       {uploadingColorIdx === idx ? (
                         <Loader2 className="w-5 h-5 animate-spin text-[#2874F0]" />
                       ) : color.image ? (
@@ -677,17 +626,15 @@ const ProductCreatePage = () => {
                             alt={color.name}
                             className="w-full h-full object-cover"
                           />
-                          <div
-                            className="absolute inset-0 bg-black/40 flex items-center
-                            justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <UploadCloud className="w-4 h-4 text-white" />
+                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <UploadCloud className="w-5 h-5 text-white" />
                           </div>
                         </>
                       ) : (
-                        <div className="flex flex-col items-center text-gray-400">
-                          <UploadCloud size={18} />
-                          <span className="text-[9px] font-bold mt-0.5">
-                            Upload
+                        <div className="flex flex-col items-center text-[#878787]">
+                          <UploadCloud size={20} />
+                          <span className="text-[10px] font-medium mt-1">
+                            Image
                           </span>
                         </div>
                       )}
@@ -700,19 +647,20 @@ const ProductCreatePage = () => {
                       />
                     </label>
 
+                    {/* Color Name */}
                     <Input
                       value={color.name}
                       onChange={(e) => updateColorName(idx, e.target.value)}
-                      placeholder="Color name — e.g. Navy Blue, Maroon, Off-White"
+                      placeholder="Color Name (e.g. Navy Blue)"
                       className="flex-1"
                     />
 
+                    {/* Remove Action */}
                     <button
                       type="button"
                       onClick={() => removeColor(idx)}
-                      className="p-2 rounded text-gray-400 hover:text-red-600
-                        hover:bg-red-50 transition-colors">
-                      <Trash2 size={16} />
+                      className="p-2.5 text-[#878787] hover:text-red-500 hover:bg-red-50 rounded-sm transition-colors border border-transparent hover:border-red-100">
+                      <Trash2 size={18} />
                     </button>
                   </div>
                 ))}
@@ -720,75 +668,107 @@ const ProductCreatePage = () => {
                 <button
                   type="button"
                   onClick={addColor}
-                  className="flex items-center gap-2 text-sm font-bold text-[#2874F0]
-                    px-4 py-3 border-2 border-dashed border-[#2874F0]/30 rounded-sm
-                    w-full justify-center hover:bg-blue-50 hover:border-[#2874F0]/60
-                    transition-all">
-                  <Plus size={16} />
-                  Add a Color Variation
+                  className="flex items-center gap-2 text-[14px] font-medium text-[#2874F0] px-5 py-3 border border-dashed border-[#2874F0]/40 rounded-sm w-full justify-center hover:bg-blue-50 transition-colors">
+                  <Plus size={18} />
+                  Add New Color Variant
                 </button>
               </div>
             </Card>
           </div>
 
           {/* ──────── RIGHT SIDEBAR ──────── */}
-          <div className="w-full lg:w-[370px] space-y-5">
-            {/* Visibility */}
-            <div className="bg-white border border-gray-200 rounded-sm shadow-sm p-5">
-              <p className="text-sm font-bold text-gray-800 mb-1">
-                Store Visibility
+          <div className="w-full lg:w-[400px] space-y-6">
+            {/* Visibility Settings */}
+            <div className="bg-white border border-gray-200 rounded-sm shadow-[0_1px_2px_0_rgba(0,0,0,0.05)] p-6">
+              <h3 className="text-base font-medium text-[#212121] mb-1">
+                Status
+              </h3>
+              <p className="text-[13px] text-[#878787] mb-5">
+                Control product visibility on your storefront.
               </p>
-              <p className="text-xs text-gray-500 mb-4">
-                Control whether customers can see this product.
-              </p>
+
               <button
                 type="button"
                 onClick={() =>
                   setProduct((p) => ({ ...p, isActive: !p.isActive }))
                 }
-                className={`w-full flex items-center justify-center gap-2.5 px-4 py-3.5
-                  rounded-sm font-bold text-sm border-2 transition-all
+                className={`w-full flex items-center justify-between px-5 py-3.5 rounded-sm border font-medium text-[15px] transition-all
                   ${
                     product.isActive
-                      ? "bg-green-50 text-green-700 border-green-300 hover:bg-green-100"
-                      : "bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200"
+                      ? "bg-[#e8f5e9] text-[#2e7d32] border-[#c8e6c9]"
+                      : "bg-[#f1f3f6] text-[#878787] border-[#d7d7d7] hover:bg-[#e0e0e0]"
                   }`}>
-                {product.isActive ? (
-                  <>
-                    <Eye size={18} /> Visible to Customers
-                  </>
-                ) : (
-                  <>
-                    <EyeOff size={18} /> Hidden (Draft)
-                  </>
-                )}
+                <div className="flex items-center gap-3">
+                  {product.isActive ? <Eye size={20} /> : <EyeOff size={20} />}
+                  <span>
+                    {product.isActive
+                      ? "Active (Visible)"
+                      : "Inactive (Hidden)"}
+                  </span>
+                </div>
+                <div
+                  className={`w-10 h-5 rounded-full relative transition-colors ${product.isActive ? "bg-[#2e7d32]" : "bg-[#d7d7d7]"}`}>
+                  <div
+                    className={`absolute top-0.5 bottom-0.5 w-4 rounded-full bg-white transition-all ${product.isActive ? "right-0.5" : "left-0.5"}`}></div>
+                </div>
               </button>
-              <p className="text-[11px] text-gray-400 mt-2 text-center">
-                {product.isActive
-                  ? "✅ Customers can search and buy this product."
-                  : "🚫 Only admins can see this. Not live on store."}
-              </p>
             </div>
 
-            {/* Main Photo */}
-            <div className="bg-white border border-gray-200 rounded-sm shadow-sm overflow-hidden">
-              <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60 flex items-center gap-2">
-                <ImageIcon size={15} className="text-gray-500" />
-                <p className="text-sm font-bold text-gray-800">
-                  Main Product Photo <span className="text-red-500">*</span>
-                </p>
+            {/* Organization */}
+            <Card icon={FolderTree} title="Organization">
+              <div className="space-y-5">
+                <div>
+                  <FieldLabel required>Category</FieldLabel>
+                  <Select
+                    name="categoryId"
+                    value={product.categoryId}
+                    onChange={handleChange}>
+                    <option value="">Select Category</option>
+                    {CATEGORIES.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+
+                <div>
+                  <FieldLabel>
+                    Collection{" "}
+                    <span className="text-[#878787] font-normal text-[13px]">
+                      (Optional)
+                    </span>
+                  </FieldLabel>
+                  <Select
+                    name="collectionType"
+                    value={product.collectionType}
+                    onChange={handleChange}>
+                    <option value="">None</option>
+                    {COLLECTIONS.map((col) => (
+                      <option key={col.id} value={col.id}>
+                        {col.name}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
               </div>
-              <div className="p-4">
-                <label
-                  className="relative flex flex-col items-center justify-center
-                  w-full aspect-square border-2 border-dashed border-gray-300 rounded-sm
-                  cursor-pointer bg-gray-50 hover:border-[#2874F0] hover:bg-blue-50/30
-                  transition-all overflow-hidden">
+            </Card>
+
+            {/* Main Product Image */}
+            <div className="bg-white border border-gray-200 rounded-sm shadow-[0_1px_2px_0_rgba(0,0,0,0.05)]">
+              <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2.5">
+                <ImageIcon size={18} className="text-[#2874F0]" />
+                <h2 className="text-base font-medium text-[#212121]">
+                  Primary Image <span className="text-red-500">*</span>
+                </h2>
+              </div>
+              <div className="p-6">
+                <label className="relative flex flex-col items-center justify-center w-full aspect-square border border-dashed border-[#d7d7d7] rounded-sm cursor-pointer bg-[#f1f3f6] hover:border-[#2874F0] hover:bg-blue-50/30 transition-all overflow-hidden group">
                   {uploadingBanner ? (
                     <div className="flex flex-col items-center text-[#2874F0]">
-                      <Loader2 className="w-9 h-9 animate-spin mb-2" />
-                      <span className="text-xs font-bold uppercase tracking-wider">
-                        Uploading…
+                      <Loader2 className="w-8 h-8 animate-spin mb-3" />
+                      <span className="text-[13px] font-medium">
+                        Uploading image...
                       </span>
                     </div>
                   ) : product.banner ? (
@@ -798,26 +778,23 @@ const ProductCreatePage = () => {
                         className="w-full h-full object-cover"
                         alt="Main"
                       />
-                      <div
-                        className="absolute inset-0 bg-black/35 flex flex-col items-center
-                        justify-center opacity-0 hover:opacity-100 transition-opacity">
-                        <UploadCloud className="w-8 h-8 text-white mb-1" />
-                        <span className="text-white text-xs font-bold">
-                          Change Photo
+                      <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <UploadCloud className="w-8 h-8 text-white mb-2" />
+                        <span className="text-white text-[14px] font-medium">
+                          Change Image
                         </span>
                       </div>
                     </>
                   ) : (
-                    <div className="flex flex-col items-center text-gray-400 p-6 text-center">
-                      <UploadCloud size={36} className="mb-3 text-gray-300" />
-                      <span className="text-sm font-bold text-gray-700">
-                        Click to upload main photo
+                    <div className="flex flex-col items-center text-center p-6">
+                      <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-200 mb-3">
+                        <ImageIcon size={20} className="text-[#2874F0]" />
+                      </div>
+                      <span className="text-[14px] font-medium text-[#212121]">
+                        Add Primary Image
                       </span>
-                      <span className="text-xs mt-1.5 text-gray-400">
-                        This is the first image customers will see
-                      </span>
-                      <span className="text-[10px] mt-1 text-gray-400">
-                        JPG, PNG or WEBP
+                      <span className="text-[12px] text-[#878787] mt-1 px-4">
+                        This will be the main thumbnail. 500x500px recommended.
                       </span>
                     </div>
                   )}
@@ -832,31 +809,26 @@ const ProductCreatePage = () => {
               </div>
             </div>
 
-            {/* Gallery */}
-            <div className="bg-white border border-gray-200 rounded-sm shadow-sm overflow-hidden">
-              <div
-                className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60
-                flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <ImageIcon size={15} className="text-gray-500" />
-                  <p className="text-sm font-bold text-gray-800">
-                    Extra Photos
-                  </p>
+            {/* Additional Images (Gallery) */}
+            <div className="bg-white border border-gray-200 rounded-sm shadow-[0_1px_2px_0_rgba(0,0,0,0.05)]">
+              <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <ImageIcon size={18} className="text-[#2874F0]" />
+                  <h2 className="text-base font-medium text-[#212121]">
+                    Gallery Images
+                  </h2>
                 </div>
-                <span className="text-xs font-bold text-gray-400 bg-gray-100 px-2.5 py-1 rounded-full">
+                <span className="text-[12px] font-medium text-[#878787] bg-[#f1f3f6] px-2.5 py-1 rounded-sm">
                   {product.images.length} / 6
                 </span>
               </div>
-              <div className="p-4">
-                <p className="text-xs text-gray-400 mb-3">
-                  Show different angles or styling of the product.
-                </p>
-                <div className="grid grid-cols-3 gap-2">
+
+              <div className="p-6">
+                <div className="grid grid-cols-3 gap-3">
                   {product.images.map((img, idx) => (
                     <div
                       key={idx}
-                      className="aspect-square rounded-sm overflow-hidden
-                      relative group border border-gray-200">
+                      className="aspect-square rounded-sm overflow-hidden relative group border border-gray-200">
                       <img
                         src={img}
                         className="w-full h-full object-cover"
@@ -870,25 +842,21 @@ const ProductCreatePage = () => {
                             images: p.images.filter((_, i) => i !== idx),
                           }))
                         }
-                        className="absolute inset-0 bg-black/50 flex items-center justify-center
-                          opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Trash2 className="w-4 h-4 text-white" />
+                        className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Trash2 className="w-5 h-5 text-white" />
                       </button>
                     </div>
                   ))}
 
                   {product.images.length < 6 && (
-                    <label
-                      className="aspect-square rounded-sm border-2 border-dashed
-                      border-gray-300 flex flex-col items-center justify-center cursor-pointer
-                      hover:border-[#2874F0] hover:bg-blue-50/30 transition-all text-gray-400">
+                    <label className="aspect-square rounded-sm border border-dashed border-[#d7d7d7] bg-[#f1f3f6] flex flex-col items-center justify-center cursor-pointer hover:border-[#2874F0] transition-colors text-[#878787]">
                       {uploadingGallery ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <Loader2 className="w-6 h-6 animate-spin text-[#2874F0]" />
                       ) : (
                         <>
-                          <Plus size={22} />
-                          <span className="text-[10px] font-bold mt-1">
-                            Add Photo
+                          <Plus size={24} className="mb-1" />
+                          <span className="text-[11px] font-medium">
+                            Add Image
                           </span>
                         </>
                       )}
@@ -905,79 +873,28 @@ const ProductCreatePage = () => {
                 </div>
               </div>
             </div>
-
-            {/* Category & Collection */}
-            <div className="bg-white border border-gray-200 rounded-sm shadow-sm overflow-hidden">
-              <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60 flex items-center gap-2">
-                <Tag size={15} className="text-gray-500" />
-                <p className="text-sm font-bold text-gray-800">
-                  Category & Collection
-                </p>
-              </div>
-              <div className="p-5 space-y-4">
-                <div>
-                  <FieldLabel required>Category</FieldLabel>
-                  <Select
-                    name="categoryId"
-                    value={product.categoryId}
-                    onChange={handleChange}>
-                    <option value="">— Select a Category —</option>
-                    {CATEGORIES.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </Select>
-                  <p className="text-[11px] text-gray-400 mt-1">
-                    Which type of clothing is this?
-                  </p>
-                </div>
-
-                <div>
-                  <FieldLabel>Collection</FieldLabel>
-                  <Select
-                    name="collectionType"
-                    value={product.collectionType}
-                    onChange={handleChange}>
-                    <option value="">— No Collection —</option>
-                    {COLLECTIONS.map((col) => (
-                      <option key={col.id} value={col.id}>
-                        {col.name}
-                      </option>
-                    ))}
-                  </Select>
-                  <p className="text-[11px] text-gray-400 mt-1">
-                    Which season or event does this belong to?
-                  </p>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div>
 
-      {/* Mobile sticky save */}
-      <div
-        className="fixed bottom-0 inset-x-0 sm:hidden bg-white border-t border-gray-200
-        shadow-[0_-4px_20px_rgba(0,0,0,0.08)] p-4 z-50">
+      {/* Mobile Sticky Save Button */}
+      <div className="fixed bottom-0 inset-x-0 sm:hidden bg-white border-t border-gray-200 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] p-4 z-50">
         <button
           onClick={handleSubmit}
           disabled={isBusy}
-          className="w-full flex items-center justify-center gap-2 bg-[#FB641B] text-white
-            py-4 rounded-sm font-bold text-sm active:scale-95 transition-all
-            disabled:opacity-50 shadow-md">
+          className="w-full flex items-center justify-center gap-2 bg-[#2874F0] text-white py-3.5 rounded-sm font-medium text-[15px] active:scale-95 transition-all disabled:opacity-60 shadow-sm">
           {loading ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin" /> Saving…
+              <Loader2 className="w-5 h-5 animate-spin" /> Saving…
             </>
           ) : success ? (
             <>
-              <CheckCircle2 className="w-4 h-4" /> Saved!
+              <CheckCircle2 className="w-5 h-5" /> Saved!
             </>
           ) : (
             <>
-              <Save className="w-4 h-4" />{" "}
-              {isEditing ? "Save Changes" : "Publish to Store"}
+              <Save className="w-5 h-5" />{" "}
+              {isEditing ? "Save Changes" : "Publish Product"}
             </>
           )}
         </button>

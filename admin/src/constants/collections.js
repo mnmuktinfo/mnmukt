@@ -1,11 +1,19 @@
-// collections.js
 export const COLLECTIONS = [
-  { id: "col001", name: "New Arrivals" },
-  { id: "col002", name: "Summer Collection" },
-  { id: "col003", name: "Winter Collection" },
-  { id: "col004", name: "Eid Special" },
-  { id: "col005", name: "Wedding & Festive" },
-  { id: "col006", name: "Everyday Casual" },
-  { id: "col007", name: "Formal Wear" },
-  { id: "col008", name: "Clearance Sale" },
+  {
+    id: "0x7R3KYPK6YcRTJg799W",
+    name: "Suits & Anarkalis",
+  },
+  {
+    id: "3w58yEbLGyUPyoJclkk5",
+    name: "Best Sellers",
+  },
+  {
+    id: "dlPf6CdAcdS8M054dADf",
+    name: "New Arrivals",
+  },
+  {
+    id: "kurtas-sets",
+    name: "x0ZPiROQJxqQDXGiTjCY",
+  },
+  
 ];

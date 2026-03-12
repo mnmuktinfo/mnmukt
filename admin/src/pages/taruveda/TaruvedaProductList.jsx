@@ -13,7 +13,7 @@ import {
   PackageSearch,
 } from "lucide-react";
 
-import { productService } from "../../services/firebase/taruveda";
+import { productService } from "../../services/firebase/taruveda/taruveda";
 
 export default function TaruvedaProductList() {
   const [products, setProducts] = useState([]);

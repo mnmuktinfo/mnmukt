@@ -24,6 +24,8 @@ export default function AdminNavbar() {
       { title: "Dashboard", path: "/" },
       { title: "Inventory", path: "/products" },
       { title: "Categories", path: "/categories" },
+      { title: "COllection", path: "/collection/list" },
+
       { title: "Shipments", path: "/orders" },
       { title: "Users", path: "/customers" },
       { title: "Testimonials", path: "/testimonials" },
@@ -40,7 +42,7 @@ export default function AdminNavbar() {
   const isActive = (path) => location.pathname === path;
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-[100] flex flex-col font-sans">
+    <nav className="fixed top-0 left-0 right-0 z-100 flex flex-col font-sans">
       {/* 1. PRIMARY HUD (Blue Header - Seller Hub Style) */}
       <div className="bg-[#2874F0] text-white shadow-md z-[105]">
         <div className="max-w-[1800px] mx-auto px-4 h-14 flex items-center justify-between gap-6">
