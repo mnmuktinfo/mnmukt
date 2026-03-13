@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { signupUser, googleSignup } from "../../auth/services/authService";
-import { useAuth } from "../../auth/context/UserContext";
+import {
+  signupUser,
+  googleSignup,
+  facebookLogin,
+} from "../../auth/services/authService";
 import StepSelectMethod from "../components/steps/StepSelectMethod";
 import StepEmailForm from "../components/steps/StepEmailForm";
 import StepDetailsForm from "../components/steps/StepDetailsForm";
@@ -9,10 +12,9 @@ import StepSuccess from "../components/steps/StepSuccess";
 
 const SignupPage = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
 
   const [step, setStep] = useState(0);
-  const [signupMethod, setSignupMethod] = useState("email");
+  const [signupMethod, setSignupMethod] = useState("email"); // "email" | "google" | "facebook"
   const [email, setEmail] = useState("");
   const [mobile, setMobile] = useState("");
   const [userInfo, setUserInfo] = useState({
@@ -22,27 +24,53 @@ const SignupPage = () => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  console.log(step);
+
+  /* ── Google signup ───────────────────────────────────────── */
   const handleGoogleSignup = async () => {
     setLoading(true);
     setError("");
     try {
       setSignupMethod("google");
-      const userData = await googleSignup();
-      login(userData.uid, userData);
+      await googleSignup();
       setStep(3);
     } catch (err) {
       setError(err.message);
+      setSignupMethod("email");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleFinalSubmit = async () => {
+  /* ── Facebook signup ─────────────────────────────────────── */
+  const handleFacebookSignup = async () => {
     setLoading(true);
     setError("");
     try {
+      setSignupMethod("facebook");
+      await facebookLogin();
+      setStep(3);
+    } catch (err) {
+      setError(err.message);
       setSignupMethod("email");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /* ── Email signup ────────────────────────────────────────── */
+  const handleFinalSubmit = async () => {
+    if (!userInfo.password || userInfo.password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+    if (userInfo.password !== userInfo.confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    try {
       await signupUser({
         email,
         password: userInfo.password,
@@ -58,91 +86,96 @@ const SignupPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white p-6 font-sans">
-      <div className="w-full max-w-lg">
-        {/* Step Indicator (Minimalist Dot Progress) */}
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 font-sans">
+      <div className="w-full max-w-[420px] bg-white rounded-sm md:shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 p-6 pt-8 md:p-8 relative">
+        {/* Step progress dots */}
         {step < 3 && (
-          <div className="flex gap-3 mb-12 justify-center md:justify-start">
+          <div className="flex gap-2 mb-8 justify-center">
             {[0, 1, 2].map((i) => (
               <div
                 key={i}
-                className={`h-1 transition-all duration-300 ${
-                  step >= i ? "w-8 bg-[#ff356c]" : "w-2 bg-slate-100"
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  step >= i ? "w-10 bg-[#f15757]" : "w-3 bg-gray-200"
                 }`}
               />
             ))}
           </div>
         )}
 
-        {/* Branding & Header */}
+        {/* Header */}
         {step < 3 && (
-          <header className="mb-12 text-center md:text-left">
-            <h1 className="text-5xl font-light tracking-tighter text-slate-900 leading-none mb-4">
-              Join{" "}
-              <span className="italic font-serif text-[#ff356c]">Mnmukt.</span>
-            </h1>
-            <p className="text-slate-400 text-sm uppercase tracking-[0.2em] font-bold">
+          <header className="mb-8 text-center">
+            <h2 className="text-[22px] font-bold text-[#1f2937] mb-1">
+              Create an Account
+            </h2>
+            <p className="text-[13px] font-medium text-gray-500 uppercase tracking-wide">
               Step {step + 1} of 3
             </p>
           </header>
         )}
 
-        {/* Global Error Display */}
+        {/* Error */}
         {error && (
-          <div className="mb-8 text-[#ff356c] text-[10px] uppercase tracking-widest font-black text-center md:text-left">
-            Error // {error}
+          <div className="bg-red-50 text-[#f15757] text-[13px] font-medium p-3 rounded-sm mb-6 text-center border border-red-100">
+            {error}
           </div>
         )}
 
-        {/* Rendered Steps */}
-        <main className="relative">
-          {step === 0 && (
-            <StepSelectMethod
-              setStep={setStep}
-              setEmail={setEmail}
+        {/* Step 0 — select method */}
+        {step === 0 && (
+          <StepSelectMethod
+            setStep={setStep}
+            setEmail={setEmail}
+            email={email}
+            setError={setError}
+            onGoogleSignup={handleGoogleSignup}
+            onFacebookSignup={handleFacebookSignup}
+            loading={loading}
+          />
+        )}
+
+        {/* Step 1 — email + mobile */}
+        {step === 1 && (
+          <StepEmailForm
+            email={email}
+            setEmail={setEmail}
+            mobile={mobile}
+            setMobile={setMobile}
+            setStep={setStep}
+            setError={setError}
+          />
+        )}
+
+        {/* Step 2 — name + password */}
+        {step === 2 && (
+          <StepDetailsForm
+            setStep={setStep}
+            userInfo={userInfo}
+            setUserInfo={setUserInfo}
+            loading={loading}
+            onSubmit={handleFinalSubmit}
+          />
+        )}
+
+        {/* Step 3 — success overlay */}
+        {step === 3 && (
+          <div className="fixed inset-0 bg-white z-50 flex items-center justify-center">
+            <StepSuccess
+              signupMethod={signupMethod}
               email={email}
-              setError={setError}
-              onGoogleSignup={handleGoogleSignup}
-              loading={loading}
+              name={userInfo.name}
             />
-          )}
+          </div>
+        )}
 
-          {step === 1 && (
-            <StepEmailForm
-              email={email}
-              setEmail={setEmail}
-              mobile={mobile}
-              setMobile={setMobile}
-              setStep={setStep}
-              setError={setError}
-            />
-          )}
-
-          {step === 2 && (
-            <StepDetailsForm
-              setStep={setStep}
-              userInfo={userInfo}
-              setUserInfo={setUserInfo}
-              loading={loading}
-              onSubmit={handleFinalSubmit}
-            />
-          )}
-
-          {step === 3 && (
-            <div className="fixed inset-0 bg-white z-50">
-              <StepSuccess signupMethod={signupMethod} />
-            </div>
-          )}
-        </main>
-
-        {/* Footer / Login Link */}
+        {/* Footer */}
         {step < 3 && (
-          <footer className="mt-16 text-center md:text-left">
-            <p className="text-[10px] uppercase tracking-[0.3em] text-slate-300">
+          <footer className="mt-8 text-center pt-6 border-t border-gray-100">
+            <p className="text-[13px] text-gray-500">
               Already a member?{" "}
               <button
-                onClick={() => navigate("/login")}
-                className="text-[#ff356c] font-black hover:underline underline-offset-4">
+                onClick={() => navigate("/auth/login")}
+                className="text-[#f15757] font-bold hover:underline transition-all">
                 Sign In
               </button>
             </p>

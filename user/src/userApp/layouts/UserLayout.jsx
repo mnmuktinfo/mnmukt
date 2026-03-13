@@ -10,43 +10,43 @@ const UserLayout = () => {
   const location = useLocation();
   const isHome = location.pathname === "/";
 
-  // Optional: Scroll to top on route change
+  // Scroll to top automatically when navigating between pages
   useEffect(() => {
-    window.scrollTo(0, 0);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }, [location.pathname]);
 
   return (
-    <div className="relative min-h-screen flex flex-col bg-[#F8F9FA] font-sans selection:bg-red-100 selection:text-red-700">
+    <div className="relative min-h-screen flex flex-col bg-white font-sans selection:bg-[#007673] selection:text-white">
       {/* 1. TOP NAVIGATION (Fixed & High Z-Index) */}
-      <div className="fixed top-0 left-0 right-0 z-40 bg-white/90 backdrop-blur-md shadow-sm border-b border-gray-100">
+      <div className="fixed top-0 left-0 right-0 z-[100]">
         <UserNavbar />
       </div>
 
       {/* 2. PAGE CONTENT 
-         - flex-1: Fills vertical space
-         - Padding Top: Calculates space for fixed navbar + extra "give" user requested
+          - flex-1: Fills all available vertical space
+          - isHome: 0 padding so the Hero Banner slides perfectly under the transparent navbar.
+          - !isHome: Adds top padding so inner pages aren't hidden behind the solid white navbar.
+          - pb-16 md:pb-0: Adds padding at the bottom ONLY on mobile so the BottomNavbar doesn't hide content.
       */}
       <main
         className={`
-          flex-1 w-full 
+          flex-1 w-full flex flex-col
           transition-all duration-300 ease-in-out
-          ${
-            isHome
-              ? // HOME PAGE: Just enough padding so Navbar doesn't cover Hero
-                "pt-[64px] "
-              : // OTHER PAGES: More breathing room + Centered container
-                "   "
-          }
+          pb-16 md:pb-0
+          ${isHome ? "pt-33" : "pt-[60px] md:pt-[110px]"}
         `}>
-        <div className="animate-fade-in-up">
+        {/* Subtle fade-in effect on route changes */}
+        <div className="flex-1 w-full animate-in fade-in duration-500">
           <Outlet />
         </div>
       </main>
 
-      {/* 3. FLOATING ELEMENTS */}
+      {/* 3. FOOTER */}
+      <Footer />
+
+      {/* 4. FLOATING ELEMENTS */}
       <WhatsAppPopup />
       <BottomNavbar />
-      <Footer />
     </div>
   );
 };

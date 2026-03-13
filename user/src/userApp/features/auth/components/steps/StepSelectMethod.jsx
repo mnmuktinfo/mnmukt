@@ -1,85 +1,115 @@
-import { Link } from "react-router-dom";
-import { GoogleButton } from "../GoggleButton";
+import React from "react";
 
 const StepSelectMethod = ({
   setStep,
-  email,
   setEmail,
+  email,
   setError,
   onGoogleSignup,
+  onFacebookSignup,
+  loading,
 }) => {
-  const handleEmailContinue = (e) => {
+  const handleContinue = (e) => {
     e.preventDefault();
-    if (!email.trim() || !/\S+@\S+\.\S+/.test(email)) {
-      setError("Please enter a valid email address");
+    if (!email.trim()) {
+      setError("Please enter an email address.");
       return;
     }
+    setError("");
     setStep(1);
   };
 
   return (
-    <div className=" ">
-      {/* Google Button Wrapper */}
-      <div className="mb-10">
-        <GoogleButton handleGoogle={onGoogleSignup} />
-      </div>
-
-      {/* Divider */}
-      <div className="relative flex items-center mb-10">
-        <div className="grow border-t border-slate-100"></div>
-        <span className="shrink mx-4 text-[10px] uppercase tracking-[0.3em] text-slate-300">
-          or use email
-        </span>
-        <div className="grow border-t border-slate-100"></div>
-      </div>
-
-      {/* Email Form */}
-      <form onSubmit={handleEmailContinue} className="space-y-10">
-        <div className="relative group">
-          <label className="text-[10px] uppercase tracking-[0.3em] font-bold text-slate-400 group-focus-within:text-[#ff356c] transition-colors">
-            Email Address
-          </label>
-          <input
-            type="email"
-            placeholder="name@example.com"
-            value={email}
-            onChange={(e) => {
-              setEmail(e.target.value);
-              setError("");
-            }}
-            className="w-full bg-transparent border-b border-slate-200 py-3 outline-none focus:border-[#ff356c] text-lg transition-all placeholder:text-slate-100"
-          />
-        </div>
-
+    <div className="space-y-4">
+      {/* Email form */}
+      <form onSubmit={handleContinue} className="space-y-4">
+        <input
+          type="email"
+          required
+          value={email}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            setError(""); // ✅ clear error as user types
+          }}
+          placeholder="Email Address"
+          className="w-full border border-gray-300 rounded-sm px-4 py-3.5 text-[14px] text-gray-800 outline-none focus:border-[#f15757] transition-colors placeholder:text-gray-400"
+        />
         <button
           type="submit"
-          className="w-full py-5 bg-slate-950 text-white font-black text-[10px] uppercase tracking-[0.4em] hover:bg-[#ff356c] transition-colors shadow-2xl shadow-slate-100">
-          Continue & Proceed
+          disabled={loading}
+          className="w-full bg-[#f15757] hover:bg-[#e04848] text-white text-[14px] font-bold uppercase tracking-wide py-3.5 rounded-sm transition-colors shadow-sm mt-2 disabled:opacity-70 disabled:cursor-not-allowed">
+          Continue
         </button>
       </form>
 
-      {/* Terms Notice */}
-      <p className="text-[10px] leading-relaxed text-slate-400 mt-10 text-center md:text-left">
-        By proceeding, you agree to our{" "}
-        <Link
-          to="/terms"
-          className="text-slate-900 font-bold hover:text-[#ff356c]">
-          Terms
-        </Link>
-        ,{" "}
-        <Link
-          to="/privacy"
-          className="text-slate-900 font-bold hover:text-[#ff356c]">
-          Privacy
-        </Link>
-        , and{" "}
-        <Link
-          to="/cookies"
-          className="text-slate-900 font-bold hover:text-[#ff356c]">
-          Cookies
-        </Link>
-        .
-      </p>
+      {/* Divider */}
+      <div className="flex items-center my-8">
+        <div className="flex-1 h-[1px] bg-gray-200" />
+        <span className="px-4 text-[13px] font-bold text-gray-400 uppercase">
+          OR
+        </span>
+        <div className="flex-1 h-[1px] bg-gray-200" />
+      </div>
+
+      {/* Social buttons */}
+      <div className="flex justify-center gap-12 mb-2">
+        {/* Facebook */}
+        <div className="flex flex-col items-center gap-2 cursor-pointer group">
+          <button
+            type="button"
+            onClick={onFacebookSignup}
+            disabled={loading}
+            className="w-[52px] h-[52px] rounded-full bg-[#3b5998] flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow disabled:opacity-50">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="white">
+              <path d="M13.397 20.997v-8.196h2.765l.411-3.209h-3.176V7.548c0-.926.258-1.56 1.587-1.56h1.684V3.127A22.336 22.336 0 0 0 14.201 3c-2.444 0-4.122 1.492-4.122 4.231v2.355H7.332v3.209h2.753v8.202h3.312z" />
+            </svg>
+          </button>
+          {/* ✅ show "..." while loading so user knows something is happening */}
+          <span className="text-[12px] font-medium text-gray-500 uppercase tracking-wide">
+            {loading ? "..." : "Facebook"}
+          </span>
+        </div>
+
+        {/* Google */}
+        <div className="flex flex-col items-center gap-2 cursor-pointer group">
+          <button
+            type="button"
+            onClick={onGoogleSignup}
+            disabled={loading}
+            className="w-[52px] h-[52px] rounded-full bg-white border border-gray-100 flex items-center justify-center shadow-[0_2px_10px_rgba(0,0,0,0.08)] group-hover:shadow-[0_4px_15px_rgba(0,0,0,0.12)] transition-shadow disabled:opacity-50">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="22"
+              height="22"
+              viewBox="0 0 48 48">
+              <path
+                fill="#FFC107"
+                d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"
+              />
+              <path
+                fill="#FF3D00"
+                d="m6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691z"
+              />
+              <path
+                fill="#4CAF50"
+                d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"
+              />
+              <path
+                fill="#1976D2"
+                d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571c.001-.001.002-.001.003-.002l6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"
+              />
+            </svg>
+          </button>
+          <span className="text-[12px] font-medium text-gray-500 uppercase tracking-wide">
+            {loading ? "..." : "Google"}
+          </span>
+        </div>
+      </div>
     </div>
   );
 };

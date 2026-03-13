@@ -32,15 +32,15 @@ const HERO_DEFAULTS = {
 
 // --- Hero Slides (Desktop) ---
 const HERO_SLIDES_DESKTOP = [
-  "https://www.biba.in/dw/image/v2/BKQK_PRD/on/demandware.static/-/Library-Sites-BibaSharedLibrary/en_IN/dw7aca7f1f/A-A-SS26/SS26-Banner-1.jpg",
-  "https://shopmulmul.com/cdn/shop/files/NEWTHEMEDESKTOPBANNER_fa6268db-6709-4513-986b-8f4e5974d324.jpg?v=1761974947&width=2000",
-  "https://www.biba.in/dw/image/v2/BKQK_PRD/on/demandware.static/-/Library-Sites-BibaSharedLibrary/en_IN/dw65dfbd3b/A-A-Flat40/FLAT40/Flat-40-Girls.jpg",
+  "https://prod-img.thesouledstore.com/public/theSoul/storage/mobile-cms-media-prod/banner-images/keep_it_short_-_homepage.jpg?w=1500&dpr=2",
+  "https://prod-img.thesouledstore.com/public/theSoul/storage/mobile-cms-media-prod/banner-images/Homepage_banner__-_Summer_done_right_copy.jpg?w=1500&dpr=2",
+  "https://prod-img.thesouledstore.com/public/theSoul/storage/mobile-cms-media-prod/banner-images/Home_page_2_W7jtUov.jpg?w=1500&dpr=2",
 ];
 
 // --- Hero Slides (Mobile) ---
 const HERO_SLIDES_MOBILE = [
-  "https://www.libas.in/cdn/shop/files/mobile-banner_1_6f485ab4-0aaa-4411-9be5-1e2539965dff.jpg?v=1769691939&width=832",
-  "https://www.libas.in/cdn/shop/files/extra-love_converted_764e875d-1b2b-4b70-b1bd-7d9c08491659.webp?v=1767596304",
+  "https://prod-img.thesouledstore.com/public/theSoul/storage/mobile-cms-media-prod/banner-images/shorts_app_2_HmL3M5Q.jpg?w=360&dpr=3.0",
+  "https://prod-img.thesouledstore.com/public/theSoul/storage/mobile-cms-media-prod/banner-images/app-banner_3_BWeXCqK.jpg?w=360&dpr=3.0",
   "https://images.biba.in/on/demandware.static/-/Library-Sites-BibaSharedLibrary/en_IN/dw39b62c8a/A-AW25/wedding-m-oct4.jpg",
 ];
 

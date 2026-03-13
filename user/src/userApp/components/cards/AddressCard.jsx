@@ -4,69 +4,61 @@ const AddressCard = ({ address, onEdit }) => {
   if (!address) return null;
 
   return (
-    <div className="relative bg-white font-sans">
-      {/* 1. TOP HEADER (Status & Action) */}
-      <div className="flex items-center justify-between mb-6">
-        {/* Minimalist HUD Badge */}
-        <div className="flex items-center gap-2">
-          <div className="w-1.5 h-1.5 rounded-full bg-[#ff356c]" />
-          <span className="text-[10px] font-black text-slate-900 uppercase tracking-[0.4em]">
-            Primary Location
-          </span>
-        </div>
+    <div className="w-full font-sans bg-transparent">
+      {/* 1. TOP HEADER (Name & Edit Action) */}
+      <div className="flex items-start justify-between mb-2">
+        <h4 className="text-[14px] font-bold text-gray-900 capitalize tracking-wide">
+          {address.name}
+        </h4>
 
-        {/* Change / Edit Button */}
+        {/* Edit Button */}
         <button
           onClick={onEdit}
-          className="text-[10px] font-black text-slate-400 hover:text-[#ff356c] uppercase tracking-widest transition-colors">
-          Modify
+          className="text-[11px] font-bold text-[#007673] hover:underline uppercase tracking-widest transition-all">
+          Edit
         </button>
       </div>
 
-      {/* 2. IDENTITY (Bold Onyx) */}
-      <div className="space-y-4">
-        <h4 className="text-xl font-bold tracking-tighter text-slate-950 leading-none">
-          {address.name}{" "}
-          <span className="italic font-serif text-[#ff356c] opacity-50">.</span>
-        </h4>
+      {/* 2. ADDRESS DETAILS */}
+      <div className="space-y-0.5 mb-4">
+        <p className="text-[13px] text-gray-600 leading-relaxed pr-8">
+          {address.addressLine1}
+          {address.addressLine2 && `, ${address.addressLine2}`}
+        </p>
 
-        {/* 3. COORDINATES (Darkened & Weighted) */}
-        <div className="space-y-1">
-          <p className="text-sm font-medium text-slate-800 leading-relaxed">
-            {address.addressLine1}
-            {address.addressLine2 && (
-              <span className="text-slate-400">, {address.addressLine2}</span>
-            )}
-          </p>
+        <p className="text-[13px] text-gray-600">
+          {address.city}, {address.state} -{" "}
+          <span className="font-bold text-gray-800">{address.pincode}</span>
+        </p>
 
-          <p className="text-sm font-medium text-slate-800">
-            {address.city}, {address.state} — {address.pincode}
-          </p>
-
-          <div className="pt-2 flex items-center gap-3">
-            <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">
-              Contact
-            </span>
-            <p className="text-sm font-bold text-slate-950">{address.phone}</p>
-          </div>
-        </div>
+        <p className="text-[13px] text-gray-600 pt-1.5">
+          <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mr-2">
+            Mobile:
+          </span>
+          <span className="font-bold text-gray-800">{address.phone}</span>
+        </p>
       </div>
 
-      {/* 4. LOGISTICS FOOTNOTE (Minimal HUD) */}
-      <div className="mt-8 grid grid-cols-2 gap-4 pt-6 border-t border-slate-50">
-        <div className="space-y-1">
-          <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">
-            Delivery Window
-          </p>
-          <p className="text-[11px] font-bold text-slate-900">48 — 72 Hours</p>
+      {/* 3. LOGISTICS FOOTNOTE */}
+      <div className="flex items-center gap-5 pt-3 border-t border-gray-100 mt-2">
+        <div className="flex flex-col">
+          <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">
+            Est. Delivery
+          </span>
+          <span className="text-[12px] font-medium text-gray-800">
+            2 - 3 Days
+          </span>
         </div>
-        <div className="space-y-1">
-          <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">
-            Protocol
-          </p>
-          <p className="text-[11px] font-bold text-slate-900 italic font-serif">
-            COD Authorized
-          </p>
+
+        <div className="w-[1px] h-6 bg-gray-200"></div>
+
+        <div className="flex flex-col">
+          <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">
+            Payment
+          </span>
+          <span className="text-[12px] font-medium text-gray-800">
+            COD Available
+          </span>
         </div>
       </div>
     </div>

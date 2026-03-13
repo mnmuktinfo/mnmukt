@@ -1,4 +1,10 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+} from "react";
 import {
   getWishlistDB,
   addWishlistDB,
@@ -13,9 +19,7 @@ export const WishlistProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
 
-  /* -------------------------
-     LOAD WISHLIST FROM LOCAL DB
-  -------------------------- */
+  // ─── Load from local DB on mount ──────────────────────────────────────────
   useEffect(() => {
     let mounted = true;
 
@@ -26,6 +30,7 @@ export const WishlistProvider = ({ children }) => {
         if (mounted) setWishlist(data || []);
       } catch (err) {
         console.error("Failed to load wishlist:", err);
+        if (mounted) setWishlist([]);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -37,89 +42,124 @@ export const WishlistProvider = ({ children }) => {
     };
   }, []);
 
-  /* -------------------------
-     ADD ITEM TO WISHLIST
-  -------------------------- */
-  const add = async (product) => {
-    setSyncing(true);
-    try {
-      const productId = typeof product === "object" ? product.id : product;
-      if (!productId) throw new Error("Invalid productId");
+  // ─── Check if item is wishlisted ──────────────────────────────────────────
+  // Defined early so toggleWishlist can use it
+  const isWishlisted = useCallback(
+    (productId) => wishlist.some((i) => i.productId === productId?.toString()),
+    [wishlist],
+  );
 
-      const id = productId.toString();
-      const item = await addWishlistDB(id);
-      setWishlist((prev) => [...prev, item]);
-    } catch (err) {
-      console.error("Failed to add to wishlist:", err);
-    } finally {
-      setSyncing(false);
-    }
-  };
+  // ─── Add item ─────────────────────────────────────────────────────────────
+  // ✅ FIX: always normalize to string id before calling DB
+  const add = useCallback(
+    async (productId) => {
+      const id = (
+        typeof productId === "object" ? productId?.id : productId
+      )?.toString();
+      if (!id) return console.error("add(): invalid productId", productId);
+      if (isWishlisted(id)) return; // already in wishlist, skip
 
-  /* -------------------------
-     REMOVE ITEM FROM WISHLIST
-  -------------------------- */
-  const removeFromWishlist = async (productId) => {
-    setSyncing(true);
-    try {
-      const id = productId.toString();
-      await removeWishlistDB(id);
+      // Optimistic update — instant UI response
+      const optimisticItem = { productId: id };
+      setWishlist((prev) => [...prev, optimisticItem]);
+      setSyncing(true);
+
+      try {
+        const savedItem = await addWishlistDB(id);
+        // Replace optimistic item with real DB item (may have extra fields like timestamps)
+        setWishlist((prev) =>
+          prev.map((i) => (i.productId === id ? savedItem : i)),
+        );
+      } catch (err) {
+        // Rollback on failure
+        console.error("Failed to add to wishlist:", err);
+        setWishlist((prev) => prev.filter((i) => i.productId !== id));
+      } finally {
+        setSyncing(false);
+      }
+    },
+    [isWishlisted],
+  );
+
+  // ─── Remove item ──────────────────────────────────────────────────────────
+  // ✅ FIX: optimistic removal — instant UI, rollback on error
+  const removeFromWishlist = useCallback(
+    async (productId) => {
+      const id = productId?.toString();
+      if (!id) return;
+
+      // Snapshot for rollback
+      const snapshot = wishlist.find((i) => i.productId === id);
+
+      // Optimistic update
       setWishlist((prev) => prev.filter((i) => i.productId !== id));
-    } catch (err) {
-      console.error("Failed to remove from wishlist:", err);
-    } finally {
-      setSyncing(false);
-    }
-  };
+      setSyncing(true);
 
-  /* -------------------------
-     TOGGLE WISHLIST ITEM
-  -------------------------- */
-  const toggleWishlist = async (productId) => {
-    const id = productId?.toString();
-    return isWishlisted(id) ? removeFromWishlist(id) : add(id);
-  };
+      try {
+        await removeWishlistDB(id);
+      } catch (err) {
+        // Rollback
+        console.error("Failed to remove from wishlist:", err);
+        if (snapshot) setWishlist((prev) => [...prev, snapshot]);
+      } finally {
+        setSyncing(false);
+      }
+    },
+    [wishlist],
+  );
 
-  /* -------------------------
-     CLEAR WISHLIST
-  -------------------------- */
-  const clear = async () => {
+  // ─── Toggle ───────────────────────────────────────────────────────────────
+  // ✅ FIX: pass normalized id to both branches (no dual-path confusion)
+  const toggleWishlist = useCallback(
+    async (productId) => {
+      const id = productId?.toString();
+      if (!id) return;
+      return isWishlisted(id) ? removeFromWishlist(id) : add(id);
+    },
+    [isWishlisted, add, removeFromWishlist],
+  );
+
+  // ─── Clear all ────────────────────────────────────────────────────────────
+  const clear = useCallback(async () => {
+    const snapshot = [...wishlist]; // snapshot for rollback
+    setWishlist([]); // optimistic
     setSyncing(true);
+
     try {
       await clearWishlistDB();
-      setWishlist([]);
     } catch (err) {
       console.error("Failed to clear wishlist:", err);
+      setWishlist(snapshot); // rollback
     } finally {
       setSyncing(false);
     }
+  }, [wishlist]);
+
+  // ─── Context value ────────────────────────────────────────────────────────
+  const value = {
+    wishlist,
+    loading,
+    wishlistLoading: loading, // ✅ FIX: alias so WishlistPage works without changes
+    syncing,
+    count: wishlist.length,
+    add,
+    removeFromWishlist,
+    toggleWishlist,
+    clear,
+    isWishlisted,
   };
 
-  /* -------------------------
-     CHECK IF ITEM IS WISHLISTED
-  -------------------------- */
-  const isWishlisted = (productId) =>
-    wishlist.some((i) => i.productId === productId?.toString());
-
   return (
-    <WishlistContext.Provider
-      value={{
-        wishlist,
-        loading,
-        syncing,
-        count: wishlist.length,
-        add,
-        removeFromWishlist,
-        toggleWishlist,
-        clear,
-        isWishlisted,
-      }}>
+    <WishlistContext.Provider value={value}>
       {children}
     </WishlistContext.Provider>
   );
 };
 
-/* -------------------------
-   CUSTOM HOOK
--------------------------- */
-export const useWishlist = () => useContext(WishlistContext);
+// ─── Hook ─────────────────────────────────────────────────────────────────────
+export const useWishlist = () => {
+  const ctx = useContext(WishlistContext);
+  if (!ctx)
+    throw new Error("useWishlist must be used inside <WishlistProvider>");
+  return ctx;
+};

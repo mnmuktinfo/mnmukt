@@ -1,41 +1,49 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { loginUser, googleSignup } from "../services/authService";
+import {
+  loginUser,
+  googleSignup,
+  facebookLogin,
+} from "../services/authService";
 
 const LoginPage = () => {
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const COLORS = {
-    primary: "#ff356c",
-    text: "#2d3748",
-    muted: "#94a3b8",
-  };
+  // ✅ FIX 3: split loading — email and social are independent actions
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [socialLoading, setSocialLoading] = useState(false);
+
+  const anyLoading = emailLoading || socialLoading;
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
     setError("");
   };
 
+  /* ── Email login ─────────────────────────────────────────── */
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    setEmailLoading(true);
     setError("");
     try {
       await loginUser(form.email, form.password);
+      // ✅ FIX 2: AuthContext's onAuthStateChanged fires and updates state.
+      // Navigate after login — context will be ready by the time the new
+      // route renders because onAuthStateChanged is synchronous within the session.
       navigate("/");
     } catch (err) {
       setError(err.message);
     } finally {
-      setLoading(false);
+      setEmailLoading(false);
     }
   };
 
+  /* ── Google login ────────────────────────────────────────── */
   const handleGoogleLogin = async () => {
-    setLoading(true);
+    setSocialLoading(true);
     setError("");
     try {
       await googleSignup();
@@ -43,121 +51,164 @@ const LoginPage = () => {
     } catch (err) {
       setError(err.message);
     } finally {
-      setLoading(false);
+      setSocialLoading(false);
+    }
+  };
+
+  /* ── Facebook login ──────────────────────────────────────── */
+  // ✅ FIX 1: wired to facebookLogin from authService
+  const handleFacebookLogin = async () => {
+    setSocialLoading(true);
+    setError("");
+    try {
+      await facebookLogin();
+      navigate("/");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSocialLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 flex items-center justify-center p-6">
-      <div className="w-full max-w-md">
-        {/* Header Section */}
-        <header className="mb-12 text-center md:text-left">
-          <div className="w-8 h-8 border-2 border-[#ff356c] rounded-full mb-6 flex items-center justify-center mx-auto md:mx-0">
-            <div className="w-1 h-1 bg-[#ff356c] rounded-full" />
-          </div>
-          <h1 className="text-4xl font-light tracking-tighter mb-2">
-            Welcome{" "}
-            <span className="italic font-serif text-[#ff356c]">Back.</span>
-          </h1>
-          <p className="text-slate-400 text-sm tracking-wide">
-            Enter your details to access your account.
-          </p>
-        </header>
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-[420px] bg-white rounded-sm md:shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 p-6 pt-8 md:p-8">
+        {/* Header */}
+        <h2 className="text-[22px] font-bold text-[#1f2937] mb-6 text-center">
+          Login / Signup
+        </h2>
 
-        {/* Action Section */}
-        <div className="space-y-8">
-          {/* Google Auth - Minimalist */}
+        {/* Error */}
+        {error && (
+          <div className="bg-red-50 text-[#f15757] text-[13px] font-medium p-3 rounded-sm mb-4 text-center border border-red-100">
+            {error}
+          </div>
+        )}
+
+        {/* Email form */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <input
+            type="email"
+            name="email"
+            required
+            value={form.email}
+            onChange={handleChange}
+            placeholder="Email Address"
+            className="w-full border border-gray-300 rounded-sm px-4 py-3.5 text-[14px] text-gray-800 outline-none focus:border-[#f15757] transition-colors placeholder:text-gray-400"
+          />
+
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              name="password"
+              required
+              value={form.password}
+              onChange={handleChange}
+              placeholder="Password"
+              className="w-full border border-gray-300 rounded-sm px-4 py-3.5 pr-14 text-[14px] text-gray-800 outline-none focus:border-[#f15757] transition-colors placeholder:text-gray-400"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-[11px] font-bold uppercase tracking-wider text-gray-400 hover:text-[#f15757] transition-colors">
+              {showPassword ? "Hide" : "Show"}
+            </button>
+          </div>
+
+          <div className="flex justify-end pt-1">
+            <Link
+              to="/auth/forgot-password"
+              className="text-[12px] font-medium text-gray-500 hover:text-[#f15757] transition-colors">
+              Forgot Password?
+            </Link>
+          </div>
+
           <button
-            onClick={handleGoogleLogin}
-            disabled={loading}
-            className="w-full py-4 border border-slate-100 rounded-sm flex items-center justify-center gap-3 text-xs uppercase tracking-[0.2em] font-bold text-slate-500 hover:bg-slate-50 transition-all disabled:opacity-50">
-            <svg className="w-4 h-4" viewBox="0 0 24 24">
-              <path
-                fill="currentColor"
-                d="M21.35,11.1H12.18V13.83H18.69C18.36,17.64 15.19,19.27 12.19,19.27C9.03,19.27 6.59,17.03 6.59,12C6.59,6.97 9.06,4.73 12.18,4.73C14.4,4.73 16.31,5.77 17.22,7.39L19.41,5.7C18.15,3.46 15.42,2 12.18,2C6.82,2 4,6.59 4,12C4,17.41 6.82,22 12.18,22C17.3,22 21.5,18.33 21.5,12C21.5,11.54 21.41,11.1 21.35,11.1V11.1Z"
-              />
-            </svg>
-            Continue with Google
+            type="submit"
+            disabled={anyLoading}
+            className="w-full bg-[#f15757] hover:bg-[#e04848] text-white text-[14px] font-bold uppercase tracking-wide py-3.5 rounded-sm transition-colors shadow-sm mt-2 disabled:opacity-70 disabled:cursor-not-allowed">
+            {emailLoading ? "Authenticating..." : "Continue"}
           </button>
+        </form>
 
-          <div className="relative flex items-center py-2">
-            <div className="flex-grow border-t border-slate-50"></div>
-            <span className="flex-shrink mx-4 text-[10px] uppercase tracking-[0.3em] text-slate-300">
-              or email
+        {/* Divider */}
+        <div className="flex items-center my-8">
+          <div className="flex-1 h-[1px] bg-gray-200" />
+          <span className="px-4 text-[13px] font-bold text-gray-400 uppercase">
+            OR
+          </span>
+          <div className="flex-1 h-[1px] bg-gray-200" />
+        </div>
+
+        {/* Social buttons */}
+        <div className="flex justify-center gap-12 mb-8">
+          {/* ✅ FIX 1: Facebook wired to handleFacebookLogin */}
+          <div className="flex flex-col items-center gap-2 cursor-pointer group">
+            <button
+              type="button"
+              onClick={handleFacebookLogin}
+              disabled={anyLoading}
+              className="w-[52px] h-[52px] rounded-full bg-[#3b5998] flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow disabled:opacity-50">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="white">
+                <path d="M13.397 20.997v-8.196h2.765l.411-3.209h-3.176V7.548c0-.926.258-1.56 1.587-1.56h1.684V3.127A22.336 22.336 0 0 0 14.201 3c-2.444 0-4.122 1.492-4.122 4.231v2.355H7.332v3.209h2.753v8.202h3.312z" />
+              </svg>
+            </button>
+            {/* ✅ FIX 3: show spinner only on social loading */}
+            <span className="text-[12px] font-medium text-gray-500 uppercase tracking-wide">
+              {socialLoading ? "..." : "Facebook"}
             </span>
-            <div className="flex-grow border-t border-slate-50"></div>
           </div>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-10">
-            {error && (
-              <p className="text-[#ff356c] text-[10px] uppercase tracking-widest font-bold text-center">
-                {error}
-              </p>
-            )}
-
-            <div className="relative">
-              <label className="text-[10px] uppercase tracking-[0.3em] font-bold text-slate-400 block mb-2">
-                Email Address
-              </label>
-              <input
-                type="email"
-                name="email"
-                required
-                value={form.email}
-                onChange={handleChange}
-                placeholder="name@example.com"
-                className="w-full bg-transparent border-b border-slate-200 py-3 outline-none focus:border-[#ff356c] text-lg transition-all placeholder:text-slate-100"
-              />
-            </div>
-
-            <div className="relative">
-              <div className="flex justify-between items-end mb-2">
-                <label className="text-[10px] uppercase tracking-[0.3em] font-bold text-slate-400">
-                  Password
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="text-[10px] uppercase tracking-widest text-[#ff356c] font-bold">
-                  {showPassword ? "Hide" : "Show"}
-                </button>
-              </div>
-              <input
-                type={showPassword ? "text" : "password"}
-                name="password"
-                required
-                value={form.password}
-                onChange={handleChange}
-                placeholder="••••••••"
-                className="w-full bg-transparent border-b border-slate-200 py-3 outline-none focus:border-[#ff356c] text-lg transition-all placeholder:text-slate-100"
-              />
-            </div>
-
-            <div className="pt-4 space-y-6">
-              <button
-                disabled={loading}
-                className="w-full py-5 bg-slate-950 text-white font-black text-[10px] uppercase tracking-[0.4em] hover:bg-[#ff356c] transition-all disabled:opacity-50">
-                {loading ? "Authenticating..." : "Sign In"}
-              </button>
-
-              <div className="flex flex-col items-center gap-4 text-[10px] uppercase tracking-[0.2em] font-bold">
-                <Link
-                  to="/auth/forgot-password"
-                  size="sm"
-                  className="text-slate-300 hover:text-[#ff356c]">
-                  Forgot Password?
-                </Link>
-                <p className="text-slate-300">
-                  New here?{" "}
-                  <Link to="/auth/signup" className="text-[#ff356c]">
-                    Create Account
-                  </Link>
-                </p>
-              </div>
-            </div>
-          </form>
+          {/* Google */}
+          <div className="flex flex-col items-center gap-2 cursor-pointer group">
+            <button
+              type="button"
+              onClick={handleGoogleLogin}
+              disabled={anyLoading}
+              className="w-[52px] h-[52px] rounded-full bg-white border border-gray-100 flex items-center justify-center shadow-[0_2px_10px_rgba(0,0,0,0.08)] group-hover:shadow-[0_4px_15px_rgba(0,0,0,0.12)] transition-shadow disabled:opacity-50">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="22"
+                height="22"
+                viewBox="0 0 48 48">
+                <path
+                  fill="#FFC107"
+                  d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"
+                />
+                <path
+                  fill="#FF3D00"
+                  d="m6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691z"
+                />
+                <path
+                  fill="#4CAF50"
+                  d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"
+                />
+                <path
+                  fill="#1976D2"
+                  d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571c.001-.001.002-.001.003-.002l6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"
+                />
+              </svg>
+            </button>
+            <span className="text-[12px] font-medium text-gray-500 uppercase tracking-wide">
+              {socialLoading ? "..." : "Google"}
+            </span>
+          </div>
         </div>
+
+        {/* Footer */}
+        <p className="text-center text-[13px] text-gray-500">
+          New here?{" "}
+          <Link
+            to="/auth/signup"
+            className="text-[#f15757] font-bold hover:underline transition-all">
+            Create Account
+          </Link>
+        </p>
       </div>
     </div>
   );

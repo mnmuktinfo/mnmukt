@@ -1,8 +1,67 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getAllCategories } from "../services/categoriesService";
-import { ChevronRight, LayoutGrid } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 
+/* ─────────────────────────────────────────
+   SKELETON
+───────────────────────────────────────── */
+const SkeletonCard = () => (
+  <div className="flex flex-col">
+    <div className="aspect-[3/4] bg-gray-100 animate-pulse rounded-sm" />
+    <div className="pt-3 space-y-2">
+      <div className="h-3.5 w-3/4 bg-gray-100 animate-pulse rounded" />
+      <div className="h-3 w-1/2 bg-gray-100 animate-pulse rounded" />
+    </div>
+  </div>
+);
+
+/* ─────────────────────────────────────────
+   CATEGORY CARD
+───────────────────────────────────────── */
+const CategoryCard = ({ cat }) => (
+  <Link
+    to={`/category/${cat.id}`}
+    className="group flex flex-col cursor-pointer">
+    {/* Image */}
+    <div className="relative aspect-[3/4] bg-gray-50 overflow-hidden rounded-sm">
+      <img
+        src={cat.image || "https://via.placeholder.com/400x533"}
+        alt={cat.name}
+        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+      />
+
+      {/* Top-left label badge */}
+      {cat.badge && (
+        <div className="absolute top-3 left-3 text-[9px] font-bold text-gray-800 uppercase tracking-widest bg-white/70 backdrop-blur-sm px-2 py-0.5 rounded-sm">
+          {cat.badge}
+        </div>
+      )}
+
+      {/* Hover: subtle dark overlay with arrow */}
+      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
+      <div className="absolute bottom-3 right-3 w-7 h-7 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all duration-300">
+        <ChevronRight size={14} className="text-gray-700" strokeWidth={2} />
+      </div>
+    </div>
+
+    {/* Details */}
+    <div className="pt-3">
+      <h3 className="text-[13px] font-bold text-gray-900 truncate group-hover:text-gray-600 transition-colors">
+        {cat.name}
+      </h3>
+      {cat.productCount != null && (
+        <p className="text-[11px] text-gray-400 mt-0.5">
+          {cat.productCount} products
+        </p>
+      )}
+    </div>
+  </Link>
+);
+
+/* ─────────────────────────────────────────
+   CATEGORIES PAGE
+───────────────────────────────────────── */
 const CategoriesPage = () => {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -16,68 +75,39 @@ const CategoriesPage = () => {
     fetchCats();
   }, []);
 
-  // --- SKELETON LOADER (Amazon Style) ---
-  if (loading) {
-    return (
-      <div className="max-w-7xl  mt-20 md:mt-35  mx-auto px-4 py-6 bg-white min-h-screen">
-        <div className="h-7 w-48 bg-gray-200 animate-pulse rounded mb-8" />
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="space-y-3">
-              <div className="aspect-square bg-gray-100 animate-pulse rounded-2xl" />
-              <div className="h-4 w-3/4 bg-gray-100 animate-pulse rounded mx-auto" />
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="max-w-7xl mt-20 md:mt-35 mx-auto px-4 py-6 bg-[#F7F8F8] min-h-screen">
-      {/* Modern E-commerce Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {categories.map((cat) => (
-          <Link
-            key={cat.id}
-            to={`/category/${cat.id}`}
-            className="group flex flex-col bg-white border border-gray-100 rounded-2xl p-2 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200">
-            {/* Image Container with Amazon-style soft background */}
-            <div className="aspect-square w-full rounded-xl overflow-hidden bg-gray-50 flex items-center justify-center p-2">
-              <img
-                src={cat.image || "https://via.placeholder.com/300"}
-                alt={cat.name}
-                className="w-full h-full object-contain mix-blend-multiply group-hover:scale-110 transition-transform duration-500"
-              />
-            </div>
+    <div className="min-h-screen bg-white mt-20 md:mt-35">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 md:py-12">
+        {/* Page heading */}
+        <div className="mb-8 md:mb-10">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-gray-400 mb-1">
+            Taruveda Organics
+          </p>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+            All Categories
+          </h1>
+        </div>
 
-            {/* Label Section */}
-            <div className="py-3 px-1 flex items-center justify-between">
-              <div className="flex flex-col">
-                <span className="text-sm font-bold text-gray-800 group-hover:text-[#B4292F] transition-colors">
-                  {cat.name}
-                </span>
-                <span className="text-[10px] text-gray-400 font-medium uppercase tracking-tighter">
-                  Explore Now
-                </span>
-              </div>
+        {/* Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-2 gap-3 md:gap-6">
+          {loading
+            ? Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)
+            : categories.map((cat) => <CategoryCard key={cat.id} cat={cat} />)}
+        </div>
 
-              <div className="w-7 h-7 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-red-50 transition-colors">
-                <ChevronRight
-                  size={16}
-                  className="text-gray-400 group-hover:text-[#B4292F]"
-                />
-              </div>
-            </div>
-          </Link>
-        ))}
-      </div>
+        {/* Empty state */}
+        {!loading && categories.length === 0 && (
+          <div className="text-center py-24 text-gray-400 text-[13px]">
+            No categories found.
+          </div>
+        )}
 
-      {/* Amazon-style Footer Promotion */}
-      <div className="mt-10 p-6 bg-white border border-dashed border-gray-200 rounded-2xl text-center">
-        <p className="text-sm text-gray-500 font-medium italic">
-          "Purity in every drop - Taruveda Organics"
-        </p>
+        {/* Bottom tagline */}
+        {!loading && categories.length > 0 && (
+          <p className="text-center text-[11px] text-gray-300 italic mt-14">
+            "Purity in every drop — Taruveda Organics"
+          </p>
+        )}
       </div>
     </div>
   );

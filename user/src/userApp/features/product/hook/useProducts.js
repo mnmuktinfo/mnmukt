@@ -1,239 +1,276 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { productService } from "../services/ProductService";
 
+/*
+────────────────────────────────────────
+Query Keys
+────────────────────────────────────────
+*/
+
+export const PRODUCT_KEYS = {
+  all: () => ["products", "all"],
+  byId: (id) => ["products", "id", String(id)],
+  bySlug: (slug) => ["products", "slug", slug],
+  byCategory: (cat) => ["products", "category", cat],
+  byCollection: (types, limit) => [
+    "products",
+    "collection",
+    [...types].sort().join(","),
+    limit,
+  ],
+  byIds: (ids) => ["products", "ids", [...ids].sort().join(",")],
+};
+
+/*
+────────────────────────────────────────
+Query Config
+────────────────────────────────────────
+*/
+
+const STALE = 30 * 60 * 1000;
+const GC = 60 * 60 * 1000;
+
+const Q_OPTS = {
+  staleTime: STALE,
+  gcTime: GC,
+  refetchOnMount: false,
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: "always",
+};
+
 export const useProducts = () => {
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const qc = useQueryClient();
+  const [errors, setErrors] = useState({});
 
-  // -----------------------------
-  // GET ALL PRODUCTS
-  // -----------------------------
-  const getProducts = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
+  /*
+  ────────────────────────────────────────
+  Normalize Helper
+  ────────────────────────────────────────
+  */
 
-      const productsData = await productService.getProducts();
-      setProducts(productsData);
+  const normalizeProducts = useCallback(
+    (products) => {
+      if (!products) return;
 
-      return productsData;
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      const list = Array.isArray(products) ? products : [products];
 
-  // -----------------------------
-  // GET PRODUCT BY ID
-  // -----------------------------
-  const getProductById = useCallback(async (id) => {
-    try {
-      setLoading(true);
-      setError(null);
+      list.forEach((p) => {
+        if (!p) return;
 
-      return await productService.getProductById(id);
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+        qc.setQueryData(PRODUCT_KEYS.byId(p.id), p);
 
-  // -----------------------------
-  // GET PRODUCT BY SLUG
-  // -----------------------------
-  const getProductBySlug = useCallback(async (slug) => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      return await productService.getProductBySlug(slug);
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // -----------------------------
-  // GET PRODUCTS BY CATEGORY
-  // -----------------------------
-  const getProductsByCategory = useCallback(async (categoryId) => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      return await productService.getProductsByCategory(categoryId);
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // -----------------------------
-  // 🔥 GENERIC: GET PRODUCTS BY COLLECTION TYPES
-  // -----------------------------
-  const getProductsByCollections = useCallback(
-    async (collectionTypes = [], limit = 8) => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        return await productService.getProductsByCollections(
-          collectionTypes,
-          limit
-        );
-      } catch (err) {
-        setError(err.message);
-        throw err;
-      } finally {
-        setLoading(false);
-      }
+        if (p.slug) {
+          qc.setQueryData(PRODUCT_KEYS.bySlug(p.slug), p);
+        }
+      });
     },
-    []
+    [qc]
   );
 
-  // -----------------------------
-  // SEARCH PRODUCTS
-  // -----------------------------
-  const searchProducts = useCallback(async (searchTerm) => {
-    try {
-      setLoading(true);
-      setError(null);
+  /*
+  ────────────────────────────────────────
+  Cache-first Fetch Helper
+  ────────────────────────────────────────
+  */
 
-      return await productService.searchProducts(searchTerm);
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const fetchIt = useCallback(
+    async (key, fetchFn, primeType = null) => {
+      try {
+        const cached = qc.getQueryData(key);
 
-  // -----------------------------
-  // CREATE PRODUCT
-  // -----------------------------
-  const createProduct = useCallback(async (productData) => {
-    try {
-      setLoading(true);
-      setError(null);
+        if (cached) return cached;
 
-      const newProduct = await productService.createProduct(productData);
-      setProducts((prev) => [...prev, newProduct]);
+        const res = await qc.fetchQuery({
+          queryKey: key,
+          queryFn: fetchFn,
+          ...Q_OPTS,
+        });
 
-      return newProduct;
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+        if (res) normalizeProducts(res);
 
-  // -----------------------------
-  // UPDATE PRODUCT
-  // -----------------------------
-  const updateProduct = useCallback(async (id, productData) => {
-    try {
-      setLoading(true);
-      setError(null);
+        return res;
+      } catch (err) {
+        setErrors((prev) => ({
+          ...prev,
+          [JSON.stringify(key)]: err.message,
+        }));
 
-      await productService.updateProduct(id, productData);
+        return primeType === "array" ? [] : null;
+      }
+    },
+    [qc, normalizeProducts]
+  );
 
-      setProducts((prev) =>
-        prev.map((product) =>
-          product.id === id ? { ...product, ...productData } : product
-        )
+  /*
+  ────────────────────────────────────────
+  Prefetch (hover optimizations)
+  ────────────────────────────────────────
+  */
+
+  const prefetchBySlug = useCallback(
+    (slug) => {
+      if (!slug) return;
+
+      qc.prefetchQuery({
+        queryKey: PRODUCT_KEYS.bySlug(slug),
+        queryFn: () => productService.getProductBySlug(slug),
+        staleTime: STALE,
+      });
+    },
+    [qc]
+  );
+
+  const prefetchById = useCallback(
+    (id) => {
+      if (!id) return;
+
+      qc.prefetchQuery({
+        queryKey: PRODUCT_KEYS.byId(id),
+        queryFn: () => productService.getProductById(id),
+        staleTime: STALE,
+      });
+    },
+    [qc]
+  );
+
+  const prefetchCategory = useCallback(
+    (categoryId) => {
+      if (!categoryId) return;
+
+      qc.prefetchQuery({
+        queryKey: PRODUCT_KEYS.byCategory(categoryId),
+        queryFn: () => productService.getProductsByCategory(categoryId),
+        staleTime: STALE,
+      });
+    },
+    [qc]
+  );
+
+  const prefetchNextPage = useCallback(
+    (lastDoc) => {
+      if (!lastDoc) return;
+
+      qc.prefetchQuery({
+        queryKey: ["products", "page", lastDoc?.id],
+        queryFn: () => productService.getProducts({ lastDoc }),
+        staleTime: STALE,
+      });
+    },
+    [qc]
+  );
+
+  /*
+  ────────────────────────────────────────
+  Queries
+  ────────────────────────────────────────
+  */
+
+  const getProductBySlug = useCallback(
+    async (slug) => {
+      if (!slug) return null;
+
+      const cached = qc.getQueryData(PRODUCT_KEYS.bySlug(slug));
+      if (cached) return cached;
+
+      return fetchIt(
+        PRODUCT_KEYS.bySlug(slug),
+        () => productService.getProductBySlug(slug),
+        "single"
       );
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [fetchIt, qc]
+  );
 
-  // -----------------------------
-  // DELETE PRODUCT
-  // -----------------------------
-  const deleteProduct = useCallback(async (id) => {
-    try {
-      setLoading(true);
-      setError(null);
+  const getProductById = useCallback(
+    async (id) => {
+      if (!id) return null;
 
-      await productService.deleteProduct(id);
-      setProducts((prev) => prev.filter((product) => product.id !== id));
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      const cached = qc.getQueryData(PRODUCT_KEYS.byId(id));
+      if (cached) return cached;
 
-  // -----------------------------
-  // UPDATE PRODUCT STOCK
-  // -----------------------------
-  const updateProductStock = useCallback(async (id, newStock) => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      await productService.updateProductStock(id, newStock);
-
-      setProducts((prev) =>
-        prev.map((product) =>
-          product.id === id ? { ...product, stock: newStock } : product
-        )
+      return fetchIt(
+        PRODUCT_KEYS.byId(id),
+        () => productService.getProductById(id),
+        "single"
       );
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [fetchIt, qc]
+  );
 
-  // -----------------------------
-  // CLEAR ERROR
-  // -----------------------------
-  const clearError = useCallback(() => setError(null), []);
+  const getProductsByCategory = useCallback(
+    async (cat) => {
+      if (!cat) return [];
 
-  // Optional: load products on mount
-  useEffect(() => {
-    // getProducts();
-  }, [getProducts]);
+      return fetchIt(
+        PRODUCT_KEYS.byCategory(cat),
+        () => productService.getProductsByCategory(cat),
+        "array"
+      );
+    },
+    [fetchIt]
+  );
+
+
+  const getProductsByIds = useCallback(
+  async (ids = []) => {
+    if (!ids.length) return [];
+
+    const sortedIds = [...ids].sort();
+
+    const cached = qc.getQueryData(PRODUCT_KEYS.byIds(sortedIds));
+    if (cached) return cached;
+
+    return fetchIt(
+      PRODUCT_KEYS.byIds(sortedIds),
+      () => productService.getProductsByIds(sortedIds),
+      "array"
+    );
+  },
+  [fetchIt, qc]
+);
+  /*
+  ────────────────────────────────────────
+  Search
+  ────────────────────────────────────────
+  */
+
+  const searchProducts = useCallback(
+    async (term) => {
+      const cached = qc.getQueryData(PRODUCT_KEYS.all());
+
+      if (cached) {
+        return productService.searchProducts(term, cached);
+      }
+
+      const products = await fetchIt(
+        PRODUCT_KEYS.all(),
+        () => productService.getAllProducts(),
+        "array"
+      );
+
+      return productService.searchProducts(term, products);
+    },
+    [fetchIt, qc]
+  );
+
+  /*
+  ────────────────────────────────────────
+  Return API
+  ────────────────────────────────────────
+  */
 
   return {
-    // Data
-    products,
+    errors,
 
-    // States
-    loading,
-    error,
-
-    // Queries
-    getProducts,
-    getProductById,
     getProductBySlug,
+    getProductById,
     getProductsByCategory,
-    getProductsByCollections,
     searchProducts,
-
-    // Mutations
-    createProduct,
-    updateProduct,
-    deleteProduct,
-    updateProductStock,
-
-    // Utils
-    clearError,
+getProductsByIds,
+    prefetchBySlug,
+    prefetchById,
+    prefetchCategory,
+    prefetchNextPage,
   };
 };

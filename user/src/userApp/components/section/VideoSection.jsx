@@ -4,7 +4,7 @@ import { videos } from "../../../assets/videos";
 
 const VideoSection = () => {
   return (
-    <section className="w-full px-4 md:px-12 pb-16 pt-8">
+    <section className="w-full pb-16 pt-8">
       <h2
         style={{
           fontFamily: "Playfair Display, serif",

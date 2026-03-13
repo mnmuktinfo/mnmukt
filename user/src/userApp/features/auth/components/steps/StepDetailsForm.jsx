@@ -17,14 +17,22 @@ const StepDetailsForm = ({
 
   const handleNext = (e) => {
     e.preventDefault();
-    if (!userInfo.name || !userInfo.password) {
-      setLocalError("All fields are required");
+
+    if (!userInfo.name?.trim()) {
+      setLocalError("Full name is required.");
+      return;
+    }
+    // ✅ Minor 1: local length check — instant feedback, no Firebase round-trip
+    if (!userInfo.password || userInfo.password.length < 6) {
+      setLocalError("Password must be at least 6 characters.");
       return;
     }
     if (userInfo.password !== userInfo.confirmPassword) {
-      setLocalError("Passwords do not match");
+      setLocalError("Passwords do not match.");
       return;
     }
+
+    setLocalError("");
     onSubmit();
   };
 
@@ -42,7 +50,7 @@ const StepDetailsForm = ({
       </div>
 
       <form onSubmit={handleNext} className="space-y-10">
-        {/* Name Input */}
+        {/* Full Name */}
         <div className="relative group">
           <label className="text-[10px] uppercase tracking-[0.3em] font-bold text-slate-400 group-focus-within:text-[#ff356c] transition-colors">
             Full Name
@@ -58,17 +66,18 @@ const StepDetailsForm = ({
           />
         </div>
 
-        {/* Password Input */}
+        {/* Password */}
         <div className="relative group">
           <div className="flex justify-between items-end mb-1">
             <label className="text-[10px] uppercase tracking-[0.3em] font-bold text-slate-400 group-focus-within:text-[#ff356c] transition-colors">
               Password
             </label>
+            {/* ✅ Minor 2: label clarifies it controls both fields */}
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="text-[10px] uppercase tracking-widest text-[#ff356c] font-black">
-              {showPassword ? "Hide" : "Show"}
+              {showPassword ? "Hide Both" : "Show Both"}
             </button>
           </div>
           <input
@@ -98,14 +107,14 @@ const StepDetailsForm = ({
           />
         </div>
 
-        {/* Local Error Display */}
+        {/* Local error */}
         {localError && (
           <p className="text-[#ff356c] text-[10px] uppercase tracking-widest font-black text-center">
             {localError}
           </p>
         )}
 
-        {/* Action Buttons */}
+        {/* Actions */}
         <div className="pt-4 space-y-6">
           <button
             type="submit"

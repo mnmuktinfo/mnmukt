@@ -10,7 +10,7 @@ const TestimonialsSection = () => {
   // -----------------------------
   if (loading) {
     return (
-      <section className="w-full py-20 px-4 md:px-10 bg-white">
+      <section className="w-full  bg-white">
         {/* Heading Skeleton */}
         <div className="text-center mb-16 animate-pulse">
           <div className="h-10 w-60 bg-gray-200 mx-auto rounded mb-4" />

@@ -1,15 +1,25 @@
-import React, { Suspense, useEffect, useState } from "react";
+import React, { Suspense, useEffect, useRef } from "react";
 import { Helmet } from "react-helmet-async";
-import { useProducts } from "../features/product/hook/useProducts";
+
+import { useHomepageProducts } from "../../userApp/features/homepage/hooks/useHomepageProducts";
 import { useFirebaseCollection } from "../features/collection/hook/useItemCollection";
 import { useCategories } from "../features/category/hooks/useCategory";
+import { productSections } from "../../userApp/features/homepage/config/productCollection";
 
-// -----------------------------
-// Lazy-loaded components
-// -----------------------------
+import {
+  HeroSkeleton,
+  GridSectionSkeleton,
+  CategoriesSkeleton,
+  CollectionGridSkeleton,
+  TestimonialsSkeleton,
+} from "../../userApp/features/homepage/components/HomeSkeletons";
+import useTestimonials from "../features/testimonials/hooks/useTestimonials";
+import VideoSection from "../components/section/VideoSection";
+
+// Lazy Components
 const HeroBanner = React.lazy(() => import("../components/banner/HeroBanner"));
-const VideoSection = React.lazy(
-  () => import("../components/section/VideoSection"),
+const CollectionBanner = React.lazy(
+  () => import("../components/banner/CollectionBanner"),
 );
 const CategoriesSection = React.lazy(
   () => import("../components/section/CategoriesSection"),
@@ -27,203 +37,154 @@ const TestimonialsSection = React.lazy(
   () => import("../components/section/TestimonialsSection"),
 );
 
-// -----------------------------
-// Skeleton Components
-// -----------------------------
-
-const HeroSkeleton = () => (
-  <div className="w-full h-[60vh] bg-gray-100 animate-pulse flex items-center justify-center">
-    <div className="w-2/3 space-y-4 text-center">
-      <div className="h-10 bg-gray-200 rounded w-1/2 mx-auto" />
-      <div className="h-4 bg-gray-200 rounded w-1/3 mx-auto" />
-      <div className="h-10 bg-gray-300 rounded w-40 mx-auto mt-6" />
-    </div>
-  </div>
+// Skeleton placeholder while image loads
+const ImageSkeleton = () => (
+  <div className="w-full h-20 bg-gray-200 animate-pulse" />
 );
 
-const GridSectionSkeleton = () => (
-  <div className="w-full py-16 px-4 md:px-10 animate-pulse">
-    <div className="h-8 w-48 bg-gray-200 rounded mb-10" />
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-      {[...Array(4)].map((_, i) => (
-        <div key={i} className="space-y-3">
-          <div className="h-60 bg-gray-200 rounded-lg" />
-          <div className="h-4 bg-gray-200 rounded w-3/4" />
-          <div className="h-4 bg-gray-100 rounded w-1/2" />
-        </div>
-      ))}
-    </div>
-  </div>
+// Lazy-loaded image component
+const LazyImage = React.lazy(() =>
+  Promise.resolve({
+    default: () => (
+      <img
+        src="https://objst0r.thesouledstore.com/mobile-cms-media-prod/feedback-images/430X55_V2_copy_1_vdJw80a_Bai9WOu.jpg"
+        alt="Feedback Banner"
+        className="w-full h-auto object-cover"
+      />
+    ),
+  }),
 );
-
-const CategoriesSkeleton = () => (
-  <div className="w-full py-16 px-4 md:px-10 animate-pulse">
-    <div className="h-8 w-40 bg-gray-200 rounded mb-10" />
-    <div className="grid grid-cols-2 md:grid-cols-6 gap-6">
-      {[...Array(6)].map((_, i) => (
-        <div key={i} className="text-center space-y-3">
-          <div className="h-24 w-24 bg-gray-200 rounded-full mx-auto" />
-          <div className="h-4 bg-gray-200 rounded w-3/4 mx-auto" />
-        </div>
-      ))}
-    </div>
-  </div>
-);
-
-const CollectionGridSkeleton = () => (
-  <div className="w-full py-16 px-4 md:px-10 animate-pulse">
-    <div className="h-8 w-64 bg-gray-200 rounded mb-10" />
-    <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-      {[...Array(3)].map((_, i) => (
-        <div key={i} className="h-72 bg-gray-200 rounded-lg" />
-      ))}
-    </div>
-  </div>
-);
-
-const TestimonialsSkeleton = () => (
-  <div className="w-full py-20 px-4 md:px-10 animate-pulse">
-    <div className="text-center mb-16">
-      <div className="h-10 w-60 bg-gray-200 mx-auto rounded mb-4" />
-      <div className="h-4 w-40 bg-gray-100 mx-auto rounded" />
-    </div>
-
-    <div className="grid gap-14 md:grid-cols-2 lg:grid-cols-3 max-w-7xl mx-auto">
-      {[...Array(3)].map((_, i) => (
-        <div key={i} className="space-y-4">
-          <div className="w-16 h-16 bg-gray-200 rounded-full" />
-          <div className="h-4 bg-gray-200 rounded" />
-          <div className="h-4 bg-gray-100 rounded w-3/4" />
-        </div>
-      ))}
-    </div>
-  </div>
-);
-
-// -----------------------------
-// Helper
-// -----------------------------
-const normalizeCollectionTypes = (product) => {
-  if (Array.isArray(product.collectionTypes)) return product.collectionTypes;
-  if (typeof product.collectionTypes === "string")
-    return [product.collectionTypes];
-  if (Array.isArray(product.collectionType)) return product.collectionType;
-  if (typeof product.collectionType === "string")
-    return [product.collectionType];
-  return [];
-};
-
-const HomePage = () => {
-  const collectionName = "itemsCollection";
-
-  const { getProducts, loading: productsLoading } = useProducts();
-  const { items: collectionItems } = useFirebaseCollection(collectionName);
-  const { categories, loading: categoriesLoading } = useCategories();
-
-  const [homeProducts, setHomeProducts] = useState({});
-  const [collection, setCollection] = useState([]);
-  const [allCategories, setAllCategories] = useState([]);
-
-  const productSections = [
-    {
-      key: "new-arrivals",
-      title: "New Arrivals",
-      subtitle: "Fresh styles added this week",
-    },
-    { key: "basics", title: "Basics", subtitle: "Handpicked just for you" },
-    {
-      key: "Trends",
-      title: "Trends Collection",
-      subtitle: "Luxury and elegance",
-    },
-  ];
+/* ─────────────────────────────────────────────────────────────
+   Scroll-reveal wrapper using Tailwind classes
+───────────────────────────────────────────────────────────── */
+const Reveal = ({ children, delay = "delay-0" }) => {
+  const ref = useRef(null);
 
   useEffect(() => {
-    const fetchHomeProducts = async () => {
-      try {
-        const products = await getProducts();
-        const grouped = {};
-        productSections.forEach((section) => {
-          grouped[section.key] = products.filter(
-            (product) =>
-              product.isActive === true &&
-              normalizeCollectionTypes(product).includes(section.key),
-          );
-        });
-        setHomeProducts(grouped);
-      } catch (error) {
-        console.error("Failed to fetch home products:", error);
-      }
-    };
-    fetchHomeProducts();
-  }, [getProducts]);
+    const el = ref.current;
+    if (!el) return;
 
-  useEffect(() => {
-    setCollection(collectionItems || []);
-  }, [collectionItems]);
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          el.classList.remove("opacity-0", "translate-y-8");
+          el.classList.add("opacity-100", "translate-y-0");
+          observer.unobserve(el);
+        }
+      },
+      { threshold: 0.1 }, // Triggers when 10% of the element is visible
+    );
 
-  useEffect(() => {
-    setAllCategories(categories || []);
-  }, [categories]);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   return (
-    <div className="min-h-screen bg-white font-sans">
+    <div
+      ref={ref}
+      className={`transition-all duration-700 ease-out opacity-0 translate-y-8 ${delay}`}>
+      {children}
+    </div>
+  );
+};
+
+/* ─────────────────────────────────────────────────────────────
+   HomePage
+───────────────────────────────────────────────────────────── */
+const HomePage = () => {
+  const { products: homeProducts, loading: productsLoading } =
+    useHomepageProducts(productSections);
+
+  const { testimonials, loading } = useTestimonials();
+  const { items: collectionItems } = useFirebaseCollection("itemsCollection");
+  const { categories, loading: categoriesLoading } = useCategories();
+
+  const featuredSection = productSections[0];
+  const remainingSections = productSections.slice(1);
+
+  return (
+    <main className="md:mx-4  px-2 min-h-screen bg-white font-sans text-gray-900 overflow-x-hidden">
       <Helmet>
-        <title>Mnmukt — Luxury Ethnic Wear | Crafted with Love</title>
+        <title>Mnmukt — Official Store</title>
         <meta
           name="description"
-          content="Discover Mnmukt luxury ethnic wear crafted with premium fabrics, elegant designs and thoughtful details."
+          content="Discover premium fashion and lifestyle products at Mnmukt."
         />
       </Helmet>
 
+      {/* 1. HERO — Instantly visible, no reveal delay */}
       <Suspense fallback={<HeroSkeleton />}>
         <HeroBanner />
       </Suspense>
 
-      <Suspense fallback={<HeroSkeleton />}>
+      <Suspense fallback={<ImageSkeleton />}>
+        <LazyImage />
+      </Suspense>
+
+      <Suspense fallback={<GridSectionSkeleton />}>
         <VideoSection />
       </Suspense>
+      <CategoriesSection categories={categories} />
 
-      <Suspense fallback={<CategoriesSkeleton />}>
-        <CategoriesSection
-          categories={allCategories}
-          loading={categoriesLoading}
-        />
-      </Suspense>
+      {/* 3. NEW ARRIVALS / FEATURED SECTION */}
+      {featuredSection && (
+        <div className="w-full pt-8 md:pt-16">
+          <Reveal>
+            <Suspense fallback={<GridSectionSkeleton />}>
+              <ProductSection
+                title={featuredSection.title}
+                subtitle={featuredSection.subtitle}
+                products={homeProducts[featuredSection.key] || []}
+                loading={productsLoading}
+              />
+            </Suspense>
+          </Reveal>
+        </div>
+      )}
 
-      {productSections.map((section) => (
-        <Suspense
-          key={`featured-${section.key}`}
-          fallback={<GridSectionSkeleton />}>
-          <FeaturedCollectionSection
-            title={section.title}
-            products={homeProducts[section.key] || []}
-            loading={productsLoading}
-          />
-        </Suspense>
+      {/* 4. SPLIT COLLECTION BANNER */}
+      <div className="w-full pt-10 md:pt-20 pb-4 md:pb-8">
+        <Reveal>
+          <Suspense
+            fallback={<div className="h-[500px] bg-gray-100 animate-pulse" />}>
+            <CollectionBanner />
+          </Suspense>
+        </Reveal>
+      </div>
+
+      {/* 5. REMAINING PRODUCT SECTIONS */}
+      {remainingSections.map((section, idx) => (
+        <div key={section.key} className="w-full pt-8 md:pt-16">
+          <Reveal>
+            <Suspense fallback={<GridSectionSkeleton />}>
+              <ProductSection
+                title={section.title}
+                subtitle={section.subtitle}
+                products={homeProducts[section.key] || []}
+                loading={productsLoading}
+              />
+            </Suspense>
+          </Reveal>
+        </div>
       ))}
 
-      {productSections.map((section) => (
-        <Suspense
-          key={`product-${section.key}`}
-          fallback={<GridSectionSkeleton />}>
-          <ProductSection
-            title={section.title}
-            subtitle={section.subtitle}
-            products={homeProducts[section.key] || []}
-            loading={productsLoading}
-          />
+      <Reveal>
+        <Suspense fallback={<TestimonialsSkeleton />}>
+          <TestimonialsSection testimonials={testimonials} loading={loading} />
         </Suspense>
-      ))}
-
-      <Suspense fallback={<CollectionGridSkeleton />}>
-        <CollectionGrid title="SHOP BY COLLECTIONS" items={collection} />
-      </Suspense>
-
-      <Suspense fallback={<TestimonialsSkeleton />}>
-        <TestimonialsSection />
-      </Suspense>
-    </div>
+      </Reveal>
+      {/* 6. CATEGORIES / COLLECTION GRID */}
+      <div className="w-full  ">
+        <Reveal>
+          <Suspense fallback={<CollectionGridSkeleton />}>
+            <CollectionGrid
+              title="Shop by Collection"
+              items={collectionItems}
+            />
+          </Suspense>
+        </Reveal>
+      </div>
+    </main>
   );
 };
 

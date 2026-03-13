@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
@@ -15,217 +15,208 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../../auth/context/UserContext";
 
+const NAV_ITEMS = [
+  { label: "Home", icon: Home, path: "/" },
+  { label: "Archive", icon: LayoutGrid, path: "/categories" },
+];
+
+const ACTIVITY_ITEMS = [
+  { label: "My Orders", icon: Package, path: "/user/orders" },
+  { label: "Wishlist", icon: Heart, path: "/wishlist" },
+];
+
 const NavbarDropdown = ({ isOpen, onClose, menuItems = [] }) => {
   const { user, isLoggedIn, logout } = useAuth();
   const navigate = useNavigate();
+  const asideRef = useRef(null);
 
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "unset";
-    }
+    document.body.style.overflow = isOpen ? "hidden" : "";
     return () => {
-      document.body.style.overflow = "unset";
+      document.body.style.overflow = "";
     };
   }, [isOpen]);
+
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (e.key === "Escape" && isOpen) onClose();
+    };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [isOpen, onClose]);
 
   const handleLogout = async () => {
     await logout();
     onClose();
     navigate("/");
   };
+  const go = (path) => {
+    onClose();
+    navigate(path);
+  };
 
-  const BRAND_PINK = "#ff356c";
+  const firstName = user?.name?.split(" ")[0] || "User";
 
   return createPortal(
-    <div
-      className={`fixed  w-full inset-0 z-10000 ${isOpen ? "visible" : "invisible"}`}>
-      {/* 1. Transparent Backdrop */}
+    <>
+      {/* Backdrop */}
       <div
         onClick={onClose}
-        className={`absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity duration-500 ${
-          isOpen ? "opacity-100" : "opacity-0"
+        className={`fixed inset-0 z-[9998] bg-black/30 transition-opacity duration-200 ${
+          isOpen ? "opacity-100 visible" : "opacity-0 invisible"
         }`}
       />
 
-      {/* 2. Minimalist Side Drawer */}
+      {/* Drawer */}
       <aside
-        className={`absolute top-0 left-0 h-full w-[100%] max-w-[520px] bg-white flex flex-col transform transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+        ref={asideRef}
+        className={`fixed top-0 left-0 h-full z-[9999] bg-white flex flex-col transition-transform duration-300 ease-in-out ${
           isOpen ? "translate-x-0" : "-translate-x-full"
-        }`}>
-        {/* --- A. THE HEADER (Editorial Style) --- */}
-        <div className="px-8 pt-16 pb-10 border-b border-slate-50 relative">
+        }`}
+        style={{
+          width: "min(85vw, 300px)",
+          boxShadow: isOpen ? "4px 0 20px rgba(0,0,0,0.08)" : "none",
+        }}>
+        {/* ── Header ───────────────────────────────── */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <span className="text-[13px] font-semibold text-gray-800">Menu</span>
           <button
             onClick={onClose}
-            className="absolute top-6 right-6 p-2 text-slate-300 hover:text-[#ff356c] transition-colors">
-            <X size={20} strokeWidth={1.5} />
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
+            <X size={16} strokeWidth={2} />
           </button>
+        </div>
 
-          <div className="flex flex-col gap-6">
-            <div className="w-16 h-16 rounded-full border border-slate-100 p-1">
-              <div className="w-full h-full rounded-full bg-slate-50 flex items-center justify-center overflow-hidden">
-                {isLoggedIn && user?.photoURL ? (
-                  <img
-                    src={user.photoURL}
-                    alt="Profile"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <User size={24} strokeWidth={1} className="text-slate-300" />
+        {/* ── User info ───────────────────────────── */}
+        <div className="px-5 py-4 border-b border-gray-100">
+          {isLoggedIn ? (
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-[13px] font-bold text-gray-600 shrink-0">
+                {firstName[0].toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <p className="text-[13px] font-semibold text-gray-800 truncate">
+                  {firstName}
+                </p>
+                {user?.email && (
+                  <p className="text-[11px] text-gray-400 truncate">
+                    {user.email}
+                  </p>
                 )}
               </div>
             </div>
-
-            <div>
-              <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em] mb-2">
-                Identity
-              </p>
-              {isLoggedIn ? (
-                <h2 className="text-2xl font-light tracking-tighter text-slate-900">
-                  {user?.name?.split(" ")[0] || "User"}{" "}
-                  <span className="italic font-serif text-[#ff356c]">.</span>
-                </h2>
-              ) : (
-                <button
-                  onClick={() => {
-                    onClose();
-                    navigate("/auth/login");
-                  }}
-                  className="text-2xl font-light tracking-tighter text-slate-900 flex items-center gap-2 group">
-                  Authenticate{" "}
-                  <ChevronRight
-                    size={18}
-                    className="text-[#ff356c] group-hover:translate-x-1 transition-transform"
-                  />
-                </button>
-              )}
-            </div>
-          </div>
+          ) : (
+            <button
+              onClick={() => go("/auth/login")}
+              className="flex items-center gap-2 text-[13px] font-medium text-gray-600 hover:text-gray-900 transition-colors">
+              <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
+                <User size={16} strokeWidth={1.5} className="text-gray-400" />
+              </div>
+              <span>Sign In</span>
+              <ChevronRight size={14} className="text-gray-400" />
+            </button>
+          )}
         </div>
 
-        {/* --- B. NAVIGATION MENU --- */}
-        <div className="flex-1 overflow-y-auto py-8 px-4">
-          <div className="mb-10">
-            <h3 className="px-4 text-[9px] font-black text-slate-300 uppercase tracking-[0.5em] mb-6">
-              Navigation
-            </h3>
-            <ul className="space-y-1">
-              {[
-                { label: "Home", icon: Home, path: "/" },
-                { label: "Archive", icon: LayoutGrid, path: "/categories" },
-              ].map((item) => (
-                <li key={item.label}>
-                  <button
-                    onClick={() => {
-                      onClose();
-                      navigate(item.path);
-                    }}
-                    className="w-full flex items-center gap-6 px-4 py-4 text-sm font-medium text-slate-600 hover:text-slate-950 transition-colors">
-                    <item.icon
-                      size={18}
-                      strokeWidth={1.2}
-                      className="text-slate-300"
-                    />
-                    {item.label}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
+        {/* ── Scrollable body ─────────────────────── */}
+        <div className="flex-1 overflow-y-auto py-2">
+          <SectionLabel text="Navigate" />
+          {NAV_ITEMS.map((item) => (
+            <DrawerItem
+              key={item.path}
+              icon={item.icon}
+              label={item.label}
+              onClick={() => go(item.path)}
+            />
+          ))}
 
-          <div className="mb-10">
-            <h3 className="px-4 text-[9px] font-black text-slate-300 uppercase tracking-[0.5em] mb-6">
-              Collections
-            </h3>
-            <ul className="space-y-1">
-              {menuItems.map((item, index) => (
-                <li key={index}>
-                  <NavLink
-                    to={item.path}
-                    onClick={onClose}
-                    className={({ isActive }) => `
-                      flex items-center justify-between px-4 py-4 text-sm tracking-tight transition-all
-                      ${isActive ? "text-[#ff356c] font-bold" : "text-slate-600 font-medium"}
-                    `}>
-                    {item.label}
-                    <div
-                      className={`w-1 h-1 rounded-full bg-[#ff356c] transition-opacity ${item.isActive ? "opacity-100" : "opacity-0"}`}
-                    />
-                  </NavLink>
-                </li>
+          {menuItems.length > 0 && (
+            <>
+              <SectionLabel text="Collections" />
+              {menuItems.map((item) => (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  onClick={onClose}
+                  className={({ isActive }) =>
+                    `flex items-center justify-between px-5 py-2.5 text-[13px] transition-colors ${
+                      isActive
+                        ? "text-gray-900 font-medium bg-gray-50"
+                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                    }`
+                  }>
+                  <span>{item.label}</span>
+                  <ChevronRight size={13} className="text-gray-300" />
+                </NavLink>
               ))}
-            </ul>
-          </div>
+            </>
+          )}
 
-          <div>
-            <h3 className="px-4 text-[9px] font-black text-slate-300 uppercase tracking-[0.5em] mb-6">
-              Activity
-            </h3>
-            <ul className="space-y-1">
-              {[
-                { label: "Orders", icon: Package, path: "/user/profile" },
-                { label: "Wishlist", icon: Heart, path: "/wishlist" },
-              ].map((item) => (
-                <li key={item.label}>
-                  <button
-                    onClick={() => {
-                      onClose();
-                      navigate(item.path);
-                    }}
-                    className="w-full flex items-center gap-6 px-4 py-4 text-sm font-medium text-slate-600 hover:text-slate-950 group">
-                    <item.icon
-                      size={18}
-                      strokeWidth={1.2}
-                      className="text-slate-300 group-hover:text-[#ff356c] transition-colors"
-                    />
-                    {item.label}
-                  </button>
-                </li>
+          {isLoggedIn && (
+            <>
+              <SectionLabel text="Activity" />
+              {ACTIVITY_ITEMS.map((item) => (
+                <DrawerItem
+                  key={item.path}
+                  icon={item.icon}
+                  label={item.label}
+                  onClick={() => go(item.path)}
+                />
               ))}
-            </ul>
-          </div>
+            </>
+          )}
+
+          <SectionLabel text="More" />
+          <DrawerItem
+            icon={HelpCircle}
+            label="Support"
+            onClick={() => go("/contact-us")}
+          />
+          <DrawerItem
+            icon={Settings}
+            label="Settings"
+            onClick={() => go("/settings")}
+          />
         </div>
 
-        {/* --- C. THE FOOTER (HUD Style) --- */}
-        <div className="p-8 border-t border-slate-50">
-          <div className="flex gap-4 mb-8">
-            <button
-              onClick={() => {
-                onClose();
-                navigate("/contact-us");
-              }}
-              className="flex-1 flex items-center justify-center gap-2 py-4 border border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-950 transition-colors">
-              <HelpCircle size={14} /> Concierge
-            </button>
-            <button
-              onClick={() => {
-                onClose();
-                navigate("/settings");
-              }}
-              className="flex-1 flex items-center justify-center gap-2 py-4 border border-slate-100 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-950 transition-colors">
-              <Settings size={14} /> System
-            </button>
-          </div>
-
+        {/* ── Footer ──────────────────────────────── */}
+        <div className="px-4 py-4 border-t border-gray-100">
           {isLoggedIn ? (
             <button
               onClick={handleLogout}
-              className="w-full py-5 text-[10px] font-black text-center text-[#ff356c] border border-red-50 bg-red-50/20 uppercase tracking-[0.4em] transition-all hover:bg-red-50">
-              De-Authenticate
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-red-100 text-[12px] font-medium text-red-500 hover:bg-red-50 transition-colors">
+              <LogOut size={14} strokeWidth={1.5} />
+              Sign Out
             </button>
           ) : (
-            <div className="flex flex-col items-center opacity-20">
-              <p className="text-[10px] font-black text-slate-900 uppercase tracking-[0.8em]">
-                MNMUKT
-              </p>
-            </div>
+            <button
+              onClick={() => go("/auth/signup")}
+              className="w-full py-2.5 rounded-lg bg-gray-900 text-white text-[12px] font-medium hover:bg-gray-700 transition-colors">
+              Create Account
+            </button>
           )}
         </div>
       </aside>
-    </div>,
+    </>,
     document.body,
   );
 };
+
+/* ── Helpers ──────────────────────────────────────── */
+
+const SectionLabel = ({ text }) => (
+  <p className="px-5 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-widest text-gray-400">
+    {text}
+  </p>
+);
+
+const DrawerItem = ({ icon: Icon, label, onClick }) => (
+  <button
+    onClick={onClick}
+    className="w-full flex items-center gap-3 px-5 py-2.5 text-[13px] text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors">
+    <Icon size={15} strokeWidth={1.5} className="text-gray-400 shrink-0" />
+    <span>{label}</span>
+  </button>
+);
 
 export default NavbarDropdown;

@@ -6,10 +6,9 @@ import {
   ArrowLeft,
   Loader2,
   Camera,
-  ShieldCheck,
-  ChevronRight,
   Globe,
   User as UserIcon,
+  CheckCircle2,
 } from "lucide-react";
 import NotificationProduct from "../../../components/cards/NotificationProduct";
 
@@ -55,7 +54,7 @@ const EditProfilePage = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      if (!form.name.trim()) throw new Error("Full identity required");
+      if (!form.name.trim()) throw new Error("Please enter your name");
       let finalAddressId = user.defaultAddressId;
       if (form.addressLine1 || form.city) {
         const savedAddr = await saveAddress({
@@ -77,14 +76,14 @@ const EditProfilePage = () => {
       await updateUserAndSync(updates);
       setToast({
         show: true,
-        message: "Manifest Updated Successfully",
+        message: "Profile updated successfully!",
         type: "success",
       });
       setTimeout(() => navigate("/user/profile"), 1500);
     } catch (err) {
       setToast({
         show: true,
-        message: err.message || "Protocol Failure",
+        message: err.message || "Something went wrong",
         type: "error",
       });
     } finally {
@@ -93,7 +92,7 @@ const EditProfilePage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#FBFBFA] font-sans">
+    <div className="min-h-screen bg-[#F8F9FA] font-sans pb-20">
       {toast.show && (
         <NotificationProduct
           message={toast.message}
@@ -102,81 +101,68 @@ const EditProfilePage = () => {
         />
       )}
 
-      {/* 1. LUXURY MINIMAL NAV */}
-      <nav className="bg-white border-b border-gray-100 px-8 h-20 flex items-center justify-between sticky top-0 z-50">
+      {/* CLEAN HEADER */}
+      <nav className="bg-white border-b border-gray-200 px-4 sm:px-8 h-16 flex items-center justify-between sticky top-0 z-50">
         <button
           onClick={() => navigate("/user/profile")}
-          className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.4em] text-gray-400 hover:text-black transition-all">
-          <ArrowLeft size={16} strokeWidth={1} />
-          Return to Profile
+          className="flex items-center gap-2 text-[12px] font-bold uppercase tracking-tight text-gray-600 hover:text-[#007673] transition-colors">
+          <ArrowLeft size={18} />
+          Back
         </button>
         <div className="flex items-center gap-2">
-          <ShieldCheck size={16} className="text-[#ff356c]" />
-          <span className="text-[9px] font-black uppercase tracking-widest text-gray-300">
-            Auth Session Active
+          <CheckCircle2 size={16} className="text-[#007673]" />
+          <span className="text-[11px] font-bold text-gray-400 uppercase tracking-tight">
+            Secure Profile Edit
           </span>
         </div>
       </nav>
 
-      <main className="max-w-5xl mx-auto px-6 py-12">
-        <div className="flex flex-col lg:flex-row gap-16">
-          {/* LEFT: Identity Sidebar */}
-          <aside className="lg:w-1/3 space-y-8">
-            <div className="space-y-4">
-              <h1 className="text-4xl font-light tracking-tighter text-gray-900 leading-none">
-                Edit <br />{" "}
-                <span className="italic font-serif text-[#ff356c]">
-                  Personal.
-                </span>
-              </h1>
-            </div>
-
-            <div className="relative inline-block group">
-              <div className="w-32 h-32 rounded-full border border-gray-100 p-2 bg-white shadow-sm transition-transform duration-500 group-hover:scale-[1.02]">
-                <img
-                  src={
-                    user?.photoURL ||
-                    `https://ui-avatars.com/api/?name=${user?.name}&background=f3f4f6&color=9ca3af`
-                  }
-                  alt="Identity"
-                  className="w-full h-full rounded-full object-cover grayscale-[0.5] group-hover:grayscale-0 transition-all"
-                />
+      <main className="max-w-4xl mx-auto px-4 py-8">
+        <div className="flex flex-col md:flex-row gap-8">
+          {/* LEFT: Profile Picture Section */}
+          <aside className="md:w-1/3 flex flex-col items-center">
+            <div className="bg-white p-6 rounded-sm border border-gray-200 w-full flex flex-col items-center shadow-sm">
+              <div className="relative group">
+                <div className="w-28 h-28 rounded-full border-4 border-gray-50 overflow-hidden shadow-sm">
+                  <img
+                    src={
+                      user?.photoURL ||
+                      `https://ui-avatars.com/api/?name=${user?.name}&background=007673&color=fff`
+                    }
+                    alt="User"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <button className="absolute bottom-0 right-0 bg-[#007673] text-white p-2 rounded-full shadow-lg hover:bg-[#005f5c] transition-colors border-2 border-white">
+                  <Camera size={14} />
+                </button>
               </div>
-              <button className="absolute bottom-1 right-1 bg-black text-white p-2.5 rounded-full shadow-xl hover:bg-[#ff356c] transition-colors border-4 border-white">
-                <Camera size={14} />
-              </button>
-            </div>
-
-            <div className="space-y-1">
-              <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">
-                Email Address
-              </p>
-              <p className="text-sm font-medium text-gray-600">{user?.email}</p>
+              <h2 className="mt-4 font-bold text-gray-800">{user?.name}</h2>
+              <p className="text-xs text-gray-400">{user?.email}</p>
             </div>
           </aside>
 
-          {/* RIGHT: Specification Form */}
-          <form
-            onSubmit={handleSubmit}
-            className="flex-1 space-y-12 bg-white p-10 rounded-sm border border-gray-100 shadow-[0_10px_40px_-15px_rgba(0,0,0,0.03)]">
+          {/* RIGHT: Form Section */}
+          <form onSubmit={handleSubmit} className="flex-1 space-y-6">
             {/* PERSONAL SECTION */}
-            <div className="space-y-8">
-              <div className="flex items-center gap-3">
-                <UserIcon size={16} className="text-gray-300" />
-                <h3 className="text-[11px] font-black text-gray-950 uppercase tracking-[0.3em]">
-                  Personal Specification
+            <div className="bg-white border border-gray-200 rounded-sm p-6 shadow-sm">
+              <div className="flex items-center gap-2 mb-6 border-b border-gray-50 pb-4">
+                <UserIcon size={18} className="text-[#007673]" />
+                <h3 className="text-[12px] font-bold text-gray-800 uppercase tracking-wider">
+                  Personal Details
                 </h3>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <ShopifyInput
-                  label="Legal Name"
+                  label="Full Name"
                   name="name"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="Enter your name"
                 />
                 <ShopifyInput
-                  label="Birth Date"
+                  label="Date of Birth"
                   type="date"
                   name="dateOfBirth"
                   value={form.dateOfBirth}
@@ -185,18 +171,18 @@ const EditProfilePage = () => {
                   }
                 />
 
-                <div className="flex flex-col gap-3 group">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest group-focus-within:text-[#ff356c] transition-colors">
-                    Gender Identification
+                <div className="flex flex-col gap-2">
+                  <label className="text-[11px] font-bold text-gray-400 uppercase tracking-tight">
+                    Gender
                   </label>
                   <select
                     value={form.gender}
                     onChange={(e) =>
                       setForm({ ...form, gender: e.target.value })
                     }
-                    className="w-full h-12 bg-gray-50 border-transparent border-b-2 border-b-gray-100 focus:border-b-[#ff356c] focus:bg-white outline-none text-xs font-bold transition-all px-4">
+                    className="w-full h-11 bg-gray-50 border border-gray-200 rounded-sm px-3 text-sm focus:ring-1 focus:ring-[#007673] focus:border-[#007673] outline-none transition-all">
                     <option value="" disabled>
-                      Select Orientation
+                      Select Gender
                     </option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
@@ -206,26 +192,26 @@ const EditProfilePage = () => {
               </div>
             </div>
 
-            {/* LOGISTICS SECTION */}
-            <div className="space-y-8">
-              <div className="flex items-center gap-3">
-                <Globe size={16} className="text-gray-300" />
-                <h3 className="text-[11px] font-black text-gray-950 uppercase tracking-[0.3em]">
-                  Logistics Coordinates
+            {/* ADDRESS SECTION */}
+            <div className="bg-white border border-gray-200 rounded-sm p-6 shadow-sm">
+              <div className="flex items-center gap-2 mb-6 border-b border-gray-50 pb-4">
+                <Globe size={18} className="text-[#007673]" />
+                <h3 className="text-[12px] font-bold text-gray-800 uppercase tracking-wider">
+                  Default Address
                 </h3>
               </div>
 
-              <div className="space-y-8">
+              <div className="space-y-5">
                 <ShopifyInput
-                  label="Street Residence"
+                  label="Street Address"
                   name="addressLine1"
                   value={form.addressLine1}
                   onChange={(e) =>
                     setForm({ ...form, addressLine1: e.target.value })
                   }
-                  placeholder="Apartment, suite, or unit number"
+                  placeholder="House No, Building, Street"
                 />
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                   <ShopifyInput
                     label="City"
                     name="city"
@@ -233,7 +219,7 @@ const EditProfilePage = () => {
                     onChange={(e) => setForm({ ...form, city: e.target.value })}
                   />
                   <ShopifyInput
-                    label="Region / State"
+                    label="State"
                     name="state"
                     value={form.state}
                     onChange={(e) =>
@@ -252,21 +238,16 @@ const EditProfilePage = () => {
               </div>
             </div>
 
-            {/* FINAL ACTION */}
-            <div className="pt-8 border-t border-gray-50 flex flex-col items-center gap-6">
-              <button
-                disabled={loading}
-                className="w-full bg-black text-white py-6 text-[11px] font-black uppercase tracking-[0.5em] hover:bg-[#ff356c] transition-all duration-700 disabled:opacity-30 shadow-2xl flex items-center justify-center gap-4">
-                {loading ? (
-                  <Loader2 size={16} className="animate-spin" />
-                ) : (
-                  "Authorize Manifest"
-                )}
-              </button>
-              <p className="text-[9px] text-gray-300 uppercase tracking-widest">
-                Protocol: Secure Data-Tunnel Active (AES-256)
-              </p>
-            </div>
+            {/* BUTTON */}
+            <button
+              disabled={loading}
+              className="w-full bg-[#007673] text-white py-4 text-[13px] font-bold uppercase tracking-widest rounded-sm hover:bg-[#005f5c] transition-all disabled:opacity-50 shadow-md flex items-center justify-center gap-2">
+              {loading ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                "Save Changes"
+              )}
+            </button>
           </form>
         </div>
       </main>
@@ -275,14 +256,14 @@ const EditProfilePage = () => {
 };
 
 const ShopifyInput = ({ label, type = "text", ...props }) => (
-  <div className="flex flex-col gap-3 group">
-    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest group-focus-within:text-[#ff356c] transition-colors">
+  <div className="flex flex-col gap-2">
+    <label className="text-[11px] font-bold text-gray-400 uppercase tracking-tight">
       {label}
     </label>
     <input
       type={type}
       {...props}
-      className="w-full h-12 bg-gray-50 border-transparent border-b-2 border-b-gray-100 focus:border-b-[#ff356c] focus:bg-white outline-none text-[13px] font-medium text-gray-950 transition-all px-4 placeholder:text-gray-200"
+      className="w-full h-11 bg-gray-50 border border-gray-200 rounded-sm px-4 text-sm font-medium text-gray-800 focus:bg-white focus:ring-1 focus:ring-[#007673] focus:border-[#007673] outline-none transition-all placeholder:text-gray-300"
     />
   </div>
 );

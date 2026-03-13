@@ -7,7 +7,6 @@ import {
   Copy,
   ExternalLink,
   Clock,
-  Package,
 } from "lucide-react";
 
 const PaymentConfirmationPopup = ({
@@ -35,127 +34,124 @@ const PaymentConfirmationPopup = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // const orderId = `MN-${Math.floor(100000 + Math.random() * 900000)}`;
-
   return (
-    <div className="fixed inset-0 z-[200] bg-slate-50 flex items-center justify-center font-sans p-4 md:p-6 animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-[200] flex items-end justify-center md:items-center p-0 md:p-6 animate-in fade-in duration-300">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity"
+        onClick={onClose}
+      />
+
       {/* Main Card Container */}
-      <div className="bg-white w-full max-w-[500px] shadow-2xl shadow-slate-200 flex flex-col relative overflow-hidden rounded-sm border border-slate-100">
-        {/* 1. TOP PROGRESS BAR (Amazon Style) */}
-        <div className="h-1 bg-slate-100 w-full">
-          <div className="h-full bg-[#ff356c] w-full animate-progress-fast" />
+      <div className="bg-white w-full md:max-w-[460px] flex flex-col relative overflow-hidden rounded-t-2xl md:rounded-sm shadow-2xl animate-in slide-in-from-bottom-full md:slide-in-from-bottom-0 md:zoom-in-95 duration-300">
+        {/* 1. TOP PROGRESS BAR */}
+        <div className="h-1.5 bg-gray-100 w-full relative overflow-hidden">
+          <div className="absolute top-0 left-0 h-full bg-[#007673] w-1/2 animate-[pulse_2s_ease-in-out_infinite]" />
         </div>
 
         {/* 2. HEADER */}
-        <div className="px-6 py-5 border-b border-slate-50 flex justify-between items-center bg-white">
-          <div className="flex items-center gap-2">
-            <div className="bg-emerald-500 rounded-full p-1">
-              <Check size={12} className="text-white" strokeWidth={4} />
+        <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-white relative">
+          <div className="flex items-center gap-3">
+            <div className="bg-green-100 rounded-full p-1.5 flex items-center justify-center">
+              <Check size={14} className="text-green-600" strokeWidth={3} />
             </div>
-            <span className="text-[11px] font-bold text-slate-800 uppercase tracking-tight">
-              Order Placed Successfully
+            <span className="text-[13px] font-bold text-gray-900 uppercase tracking-widest">
+              Order Placed
             </span>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-900 transition-colors">
-            <X size={20} />
+            className="text-gray-400 hover:text-gray-800 bg-gray-50 hover:bg-gray-100 rounded-full p-1.5 transition-colors">
+            <X size={18} strokeWidth={2} />
           </button>
         </div>
 
         {/* 3. CONTENT AREA */}
-        <div className="p-6 space-y-6 overflow-y-auto max-h-[80vh]">
+        <div className="p-6 space-y-6 overflow-y-auto max-h-[75vh]">
           {/* Order Summary Box */}
-          <div className="flex items-center justify-between bg-slate-50 p-4 rounded-sm border border-slate-100">
+          <div className="flex items-center justify-between bg-gray-50 p-4 rounded-sm border border-gray-200">
             <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-0.5">
                 Order ID
               </p>
-              <p className="text-sm font-black text-slate-900">{orderId}</p>
+              <p className="text-[14px] font-bold text-gray-900">{orderId}</p>
             </div>
             <div className="text-right">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                Verification
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-0.5">
+                Status
               </p>
-              <p className="text-xs font-bold text-[#ff356c] flex items-center gap-1 justify-end">
-                <Clock size={12} /> Awaiting Payment
+              <p className="text-[12px] font-bold text-orange-500 flex items-center justify-end gap-1.5">
+                <Clock size={12} strokeWidth={2.5} /> Awaiting Payment
               </p>
             </div>
           </div>
 
-          {/* Amazon-Type Information block */}
-          <div className="space-y-3">
-            <h2 className="text-lg font-bold text-slate-900 tracking-tight">
-              Final Step: Verify Acquisition
+          {/* Text Information block */}
+          <div className="space-y-2 text-center md:text-left px-2">
+            <h2 className="text-[16px] font-bold text-gray-900 tracking-tight">
+              Final Step: Verify Payment
             </h2>
-            <p className="text-[13px] text-slate-600 leading-relaxed">
-              We process payments exclusively through our{" "}
-              <span className="font-bold text-slate-900">
-                WhatsApp Concierge
-              </span>{" "}
-              to ensure personalized support and secure transactions.
+            <p className="text-[13px] text-gray-600 leading-relaxed">
+              We process payments exclusively through our WhatsApp Support to
+              ensure personalized service and 100% secure transactions.
             </p>
           </div>
 
-          {/* The "Action Card" (Myntra Style Colors) */}
-          <div className="border border-slate-200 rounded-sm overflow-hidden">
-            <div className="p-4 bg-slate-50/50 flex items-center gap-3 border-b border-slate-100">
-              <Smartphone size={18} className="text-slate-400" />
-              <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">
+          {/* Action Card */}
+          <div className="border border-[#007673]/20 rounded-sm overflow-hidden bg-white shadow-sm">
+            <div className="p-3 bg-[#007673]/5 flex items-center justify-center gap-2 border-b border-[#007673]/10">
+              <Smartphone size={16} className="text-[#007673]" />
+              <span className="text-[11px] font-bold text-[#007673] uppercase tracking-widest">
                 Payment Gateway
               </span>
             </div>
 
-            <div className="p-6 space-y-6">
+            <div className="p-6 space-y-5">
               <div
                 onClick={handleCopy}
-                className="flex items-center justify-between cursor-pointer group">
+                className="flex items-center justify-between cursor-pointer group bg-gray-50 hover:bg-gray-100 p-4 rounded-sm border border-gray-200 transition-all">
                 <div>
-                  <p className="text-2xl font-black text-slate-900 tracking-tighter">
+                  <p className="text-[18px] font-bold text-gray-900 tracking-wider">
                     +91 {whatsappNumber}
                   </p>
-                  <p className="text-[10px] text-[#ff356c] font-bold uppercase mt-1">
-                    {copied ? "✓ Copied to clipboard" : "Click to copy number"}
+                  <p
+                    className={`text-[10px] font-bold uppercase tracking-wide mt-1 transition-colors ${copied ? "text-green-600" : "text-gray-500"}`}>
+                    {copied ? "✓ Copied!" : "Tap to copy number"}
                   </p>
                 </div>
-                <div className="bg-slate-100 p-2 group-hover:bg-slate-200 transition-colors">
-                  <Copy size={16} className="text-slate-500" />
+                <div className="bg-white p-2 rounded-sm shadow-sm border border-gray-200 text-gray-400 group-hover:text-[#007673] transition-colors">
+                  <Copy size={16} strokeWidth={1.5} />
                 </div>
               </div>
 
               <a
-                href={`https://wa.me/${whatsappNumber}`}
+                href={`https://wa.me/${whatsappNumber}?text=Hi,%20I%20want%20to%20complete%20the%20payment%20for%20my%20order%20%2A${orderId}%2A.`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full bg-slate-900 text-white flex items-center justify-center gap-2 py-4 text-[12px] font-bold uppercase tracking-widest hover:bg-black transition-all active:scale-[0.98]">
-                Go to WhatsApp <ExternalLink size={14} />
+                className="w-full bg-[#25D366] text-white flex items-center justify-center gap-2 py-3.5 rounded-sm text-[13px] font-bold uppercase tracking-widest hover:bg-[#1da851] transition-all shadow-sm">
+                Message on WhatsApp <ExternalLink size={16} strokeWidth={2} />
               </a>
             </div>
           </div>
 
           {/* Secure Badge */}
-          <div className="flex items-center justify-center gap-2 py-2">
-            <ShieldCheck size={14} className="text-emerald-600" />
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-              100% Secure Transaction Protocol
+          <div className="flex items-center justify-center gap-1.5 pt-2">
+            <ShieldCheck size={14} className="text-[#007673]" strokeWidth={2} />
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">
+              100% Secure Transaction
             </span>
           </div>
         </div>
 
-        {/* 4. FOOTER (Myntra Style Thin) */}
-        <div className="p-6 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
-          <div className="flex flex-col">
-            <span className="text-[10px] font-bold text-slate-900 uppercase tracking-[0.3em]">
-              Mnmukt
-            </span>
-            <span className="text-[9px] text-slate-400 italic">
-              Purity in Essence
-            </span>
-          </div>
+        {/* 4. FOOTER */}
+        <div className="p-5 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+            Mnmukt
+          </span>
           <button
             onClick={onClose}
-            className="text-[11px] font-bold text-slate-500 hover:text-slate-900 border-b border-slate-300 pb-0.5">
-            Manage Orders
+            className="text-[11px] font-bold text-[#007673] hover:underline uppercase tracking-widest transition-all">
+            Go to Orders
           </button>
         </div>
       </div>

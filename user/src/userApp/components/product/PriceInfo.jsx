@@ -3,10 +3,10 @@ export const PriceInfo = ({ product, discount, formatPrice }) => (
     <div className="flex items-center gap-3 flex-wrap">
       <span>MRP</span>
       <span className="text-xl text-gray-500 line-through">
-        ₹{formatPrice(product.originalPrice)}
+        {/* ₹{formatPrice(product.originalPrice)} */}
       </span>
 
-      {discount > 0 && (
+      {/* {discount > 0 && (
         <>
           <span className="text-md font-bold text-gray-900">
             ₹{formatPrice(product.price)}
@@ -15,7 +15,7 @@ export const PriceInfo = ({ product, discount, formatPrice }) => (
             {discount}% OFF!
           </span>
         </>
-      )}
+      )} */}
     </div>
     <div className="flex items-center gap-2">
       <p className="text-sm text-gray-500">Inclusive of all taxes</p>

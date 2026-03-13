@@ -173,7 +173,7 @@ const ProductTable = ({
               {/* Actions */}
               <div className="flex lg:justify-end gap-2 mt-3 lg:mt-0 w-full lg:w-auto border-t border-gray-100 pt-3 lg:border-0 lg:pt-0">
                 <button
-                  onClick={() => navigate(`/admin/products/edit/${product.id}`)}
+                  onClick={() => navigate(`/products/edit/${product.id}`)}
                   title="Edit Product"
                   className="flex-1 lg:flex-none flex items-center justify-center p-2 text-[#878787] hover:text-[#2874F0] hover:bg-blue-50 rounded-sm transition-colors border border-transparent hover:border-blue-100">
                   <Edit2 size={16} />

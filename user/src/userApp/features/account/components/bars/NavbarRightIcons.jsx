@@ -1,17 +1,8 @@
 import React from "react";
 import { useAuth } from "../../../auth/context/UserContext";
-import { usePopup } from "../../../../context/SignUpPopContext";
 
-const NavbarRightIcons = ({
-  scrolled,
-  menuOpen,
-  setMenuOpen,
-  menuItems,
-  DropdownComponent,
-  categoryMenuItems,
-}) => {
+const NavbarRightIcons = ({ menuItems }) => {
   const { isLoggedIn } = useAuth();
-  // const { openSignupPopup } = usePopup();
 
   return (
     <div className="flex items-center gap-6 relative">
@@ -19,21 +10,15 @@ const NavbarRightIcons = ({
         <button
           key={index}
           onClick={() => {
-            // 👇 If item is protected & user is not logged in → open signup popup
             if (item.protected && !isLoggedIn) {
-              // return openSignupPopup();
+              return; // Could open a signup popup here
             }
-
-            // Normal action
             item.onClick();
           }}
           className={`hover:opacity-70 ${
             item.visibleDesktop === false ? "md:hidden" : ""
           } ${item.visibleMobile === false ? "hidden md:block" : ""}`}>
-          <item.icon
-            size={item.size || 24}
-            className={`${scrolled ? "text-black" : "text-white"}`}
-          />
+          <item.icon size={item.size || 24} className="text-black" />
 
           {/* Badge (Cart or notifications) */}
           {item.showBadge && item.badgeValue > 0 && (
@@ -43,24 +28,6 @@ const NavbarRightIcons = ({
           )}
         </button>
       ))}
-
-      {/* Mobile Menu Toggle */}
-      <button
-        onClick={() => setMenuOpen(!menuOpen)}
-        className="hover:opacity-70 md:hidden">
-        <span className={`${scrolled ? "text-black" : "text-white"}`}>☰</span>
-      </button>
-
-      {/* Mobile Dropdown */}
-      {menuOpen && (
-        <div className="absolute top-14 right-0 w-56 bg-white text-black rounded-lg shadow-xl md:hidden">
-          <DropdownComponent
-            isOpen={menuOpen}
-            onClose={() => setMenuOpen(false)}
-            menuItems={categoryMenuItems}
-          />
-        </div>
-      )}
     </div>
   );
 };

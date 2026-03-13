@@ -1,5 +1,5 @@
 import React from "react";
-import { Check, Trash2 } from "lucide-react";
+import { Check } from "lucide-react";
 
 const CartControlHeader = ({
   cartItems,
@@ -8,37 +8,44 @@ const CartControlHeader = ({
   onClearCart,
   totalPrice,
 }) => {
-  // console.log(selectedItems);
   const allSelected =
     selectedItems.length === cartItems.length && cartItems.length > 0;
 
   return (
-    <div className="flex md:max-w-2xl items-center justify-between bg-gray-100 p-2 rounded mb-2 gap-2 text-sm">
-      {/* Select All */}
-      <button
-        onClick={onToggleSelect}
-        className="flex items-center gap-2 px-2 py-1 uppercase transition">
+    <div className="flex items-center justify-between bg-white px-4 py-3 border-b border-gray-100 w-full rounded-t-sm">
+      {/* Left side: Checkbox + Selection Count + Price */}
+      <div
+        className="flex items-center gap-3 cursor-pointer"
+        onClick={onToggleSelect}>
+        {/* Custom Teal Checkbox */}
         <div
-          className={`w-5 h-5 flex items-center justify-center rounded-sm border transition
-          ${
+          className={`w-[18px] h-[18px] flex items-center justify-center rounded-sm border transition-colors ${
             allSelected
-              ? "bg-[#ff356c] border-none"
-              : "bg-white border-gray-400"
+              ? "bg-[#007673] border-[#007673]"
+              : "bg-white border-gray-300"
           }`}>
-          {allSelected && <Check size={14} className="text-white" />}
+          {allSelected && (
+            <Check size={14} className="text-white" strokeWidth={3} />
+          )}
         </div>
-        {selectedItems.length}/{cartItems.length} Selected
-      </button>
 
-      {/* Clear Cart */}
-      <button
-        onClick={onClearCart}
-        className="flex items-center hover:bg-gray-200 px-2 py-1 rounded transition">
-        <Trash2 size={17} />
-      </button>
+        {/* Text Label */}
+        <span className="text-[12px] font-bold text-gray-700 tracking-wide uppercase flex items-center">
+          {selectedItems.length}/{cartItems.length} Items Selected
+          {selectedItems.length > 0 && (
+            <span className="text-[#007673] ml-1">(₹ {totalPrice})</span>
+          )}
+        </span>
+      </div>
 
-      {/* Total */}
-      <div className="px-2 py-1 font-semibold">Total: ₹{totalPrice}</div>
+      {/* Right side: Clear Cart (Text-based to match the clean aesthetic) */}
+      {cartItems.length > 0 && (
+        <button
+          onClick={onClearCart}
+          className="text-[11px] font-bold text-gray-400 hover:text-red-500 uppercase tracking-widest transition-colors">
+          Clear
+        </button>
+      )}
     </div>
   );
 };

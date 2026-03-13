@@ -1,9 +1,9 @@
 import React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Home, LayoutGrid, Leaf, Heart, User, ShoppingBag } from "lucide-react";
+import { Home, LayoutGrid, Leaf, Heart, User } from "lucide-react";
 import { useAuth } from "../../../auth/context/UserContext";
 
-const BottomNavbar = ({ cartCount = 0 }) => {
+const BottomNavbar = ({ wishlistCount = 0 }) => {
   const { isLoggedIn } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -21,23 +21,21 @@ const BottomNavbar = ({ cartCount = 0 }) => {
 
   const navItems = [
     { name: "Home", path: "/", icon: Home },
-    { name: "Categories", path: "/categories", icon: LayoutGrid },
+    { name: "Explore", path: "/categories", icon: LayoutGrid },
     { name: "Taruveda", path: "/taruveda-organic-shampoo-oil", icon: Leaf },
-    { name: "Wishlist", path: "/wishlist", icon: Heart },
+    { name: "Saved", path: "/wishlist", icon: Heart, badge: wishlistCount },
     { name: "Profile", path: "/user/profile", icon: User, protected: true },
   ];
 
-  const BRAND_COLOR = "#B4292F";
-
   return (
-    <nav className="fixed md:hidden bottom-0 left-0 w-full bg-white border-t border-gray-100 pb-safe z-50">
-      <ul className="flex justify-around items-center h-16">
+    <nav className="fixed md:hidden bottom-0 left-0 w-full bg-white/95 backdrop-blur-md border-t border-gray-200 z-[100] pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_20px_rgba(0,0,0,0.04)] font-sans">
+      <ul className="flex justify-between items-center h-[64px] px-1">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
 
           return (
-            <li key={item.name} className="flex-1 h-full">
+            <li key={item.name} className="flex-1 h-full relative">
               <button
                 type="button"
                 onClick={() =>
@@ -45,36 +43,46 @@ const BottomNavbar = ({ cartCount = 0 }) => {
                     ? handleProtected(item.path)
                     : navigate(item.path)
                 }
-                className="w-full h-full flex flex-col items-center justify-center relative transition-all duration-200 active:scale-90">
-                {/* Active Indicator Line (Amazon Style) */}
-                {isActive && (
-                  <div
-                    className="absolute top-0 w-12 h-1 rounded-b-lg transition-all"
-                    style={{ backgroundColor: BRAND_COLOR }}
-                  />
-                )}
+                className="w-full h-full flex flex-col items-center justify-center gap-1 relative transition-transform active:scale-90 group">
+                {/* Premium Active Top Border */}
+                <div
+                  className={`absolute top-0 left-1/2 -translate-x-1/2 h-[2px] bg-[#007673] transition-all duration-300 ease-out ${
+                    isActive ? "w-8 opacity-100" : "w-0 opacity-0"
+                  }`}
+                />
 
-                <div className="relative">
+                {/* Icon Wrapper */}
+                <div className="relative mt-1">
                   <Icon
                     size={22}
-                    strokeWidth={isActive ? 2.5 : 2}
-                    className={`transition-colors duration-200 ${
-                      isActive ? "" : "text-gray-500"
+                    strokeWidth={isActive ? 2 : 1.5}
+                    className={`transition-all duration-300 ${
+                      isActive
+                        ? "text-[#007673]"
+                        : "text-gray-400 group-hover:text-gray-600"
                     }`}
-                    style={{ color: isActive ? BRAND_COLOR : undefined }}
+                    style={{
+                      fill:
+                        isActive && item.name !== "Explore"
+                          ? "#007673"
+                          : "transparent",
+                    }}
                   />
 
-                  {/* Optional: Cart Badge for Shopify vibe */}
-                  {item.name === "Wishlist" && cartCount > 0 && (
-                    <span className="absolute -top-1.5 -right-2 bg-[#B4292F] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white">
-                      {cartCount}
+                  {/* Badge */}
+                  {item.badge > 0 && (
+                    <span className="absolute -top-1.5 -right-2 bg-[#007673] text-white text-[9px] font-bold rounded-full min-w-[16px] h-[16px] px-1 flex items-center justify-center tracking-tighter border-2 border-white shadow-sm z-10">
+                      {item.badge > 99 ? "99+" : item.badge}
                     </span>
                   )}
                 </div>
 
+                {/* Label */}
                 <span
-                  className={`text-[10px] mt-1 font-semibold tracking-wide transition-colors ${
-                    isActive ? "text-gray-900" : "text-gray-400"
+                  className={`text-[9px] font-bold uppercase tracking-widest transition-colors duration-300 ${
+                    isActive
+                      ? "text-[#007673]"
+                      : "text-gray-400 group-hover:text-gray-600"
                   }`}>
                   {item.name}
                 </span>

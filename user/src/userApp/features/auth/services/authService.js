@@ -5,13 +5,13 @@ import {
   signInWithEmailAndPassword,
   updateProfile,
   GoogleAuthProvider,
+  FacebookAuthProvider,
   signInWithPopup,
   updatePassword,
   reauthenticateWithCredential,
   EmailAuthProvider,
   sendPasswordResetEmail,
 } from "firebase/auth";
-
 import {
   setDoc,
   doc,
@@ -20,16 +20,17 @@ import {
   serverTimestamp,
   collection,
   addDoc,
+  getDocs,
+  query,
+  where,
+  writeBatch,
 } from "firebase/firestore";
 
-/* ==============================
-   HELPER: Fetch Full Address
-   (Used internally by Login/Google)
-============================== */
+// ─── Helper: fetch default address ───────────────────────────────────────────
 const fetchDefaultAddress = async (uid, defaultAddressId) => {
   if (!defaultAddressId) return null;
   try {
-    const addrRef = doc(db, "users", uid, "addresses", defaultAddressId);
+    const addrRef  = doc(db, "users", uid, "addresses", defaultAddressId);
     const addrSnap = await getDoc(addrRef);
     return addrSnap.exists() ? { id: addrSnap.id, ...addrSnap.data() } : null;
   } catch (err) {
@@ -38,84 +39,127 @@ const fetchDefaultAddress = async (uid, defaultAddressId) => {
   }
 };
 
-/* ==============================
-   ERROR FORMATTING
-============================== */
+// ─── Error formatting ─────────────────────────────────────────────────────────
 const formatError = (code) => {
   switch (code) {
-    case "auth/email-already-in-use": return "This email is already registered.";
-    case "auth/invalid-email": return "Invalid email address.";
-    case "auth/weak-password": return "Password must be at least 6 characters.";
+    case "auth/email-already-in-use":    return "This email is already registered.";
+    case "auth/invalid-email":           return "Invalid email address.";
+    case "auth/weak-password":           return "Password must be at least 6 characters.";
     case "auth/user-not-found":
     case "auth/wrong-password":
-    case "auth/invalid-credential": return "Incorrect email or password.";
-    case "auth/email-not-verified": return "Please verify your email before logging in.";
-    default: return "Something went wrong. Please try again.";
+    case "auth/invalid-credential":      return "Incorrect email or password.";
+    case "auth/email-not-verified":      return "Please verify your email before logging in.";
+    case "auth/user-blocked":            return "Your account has been blocked. Please contact support.";
+    case "auth/popup-closed-by-user":    return "Sign-in was cancelled.";
+    case "auth/cancelled-popup-request": return "Only one sign-in popup can be open at a time.";
+    case "auth/network-request-failed":  return "Network error. Please check your connection.";
+    // Thrown when same email was registered with a different provider (e.g. Google vs Facebook)
+    case "auth/account-exists-with-different-credential":
+      return "An account already exists with this email. Try signing in with Google or email/password.";
+    default:                             return "Something went wrong. Please try again.";
   }
 };
 
-/* ==============================
+// ─── Shared social login handler ──────────────────────────────────────────────
+// Google and Facebook share identical post-auth logic — extracted to avoid duplication.
+const handleSocialLogin = async (user, providerName) => {
+  const userRef = doc(db, "users", user.uid);
+  const snap    = await getDoc(userRef);
+
+  if (snap.exists()) {
+    // Existing user
+    const existing = snap.data();
+    if (existing.isBlocked) throw { code: "auth/user-blocked" };
+
+    const address = existing.defaultAddressId
+      ? await fetchDefaultAddress(user.uid, existing.defaultAddressId)
+      : null;
+
+    const updates = {
+      name:          user.displayName || existing.name,
+      emailVerified: user.emailVerified,
+      updatedAt:     serverTimestamp(),
+    };
+
+    await updateDoc(userRef, updates);
+    return { ...existing, ...updates, address };
+
+  } else {
+    // New user — create Firestore record
+    const newUser = {
+      uid:              user.uid,
+      role:             "user",
+      provider:         providerName,
+      isBlocked:        false,
+      name:             user.displayName || "",
+      email:            user.email       || "",
+      phone:            user.phoneNumber || "",
+      emailVerified:    user.emailVerified,
+      defaultAddressId: null,
+      createdAt:        serverTimestamp(),
+      updatedAt:        serverTimestamp(),
+    };
+
+    await setDoc(userRef, newUser);
+    return { ...newUser, address: null };
+  }
+};
+
+/* ══════════════════════════════════════════════
    1. SIGNUP (EMAIL)
-============================== */
-export const signupUser = async ({ email, password, name, phone,role }) => {
+══════════════════════════════════════════════ */
+export const signupUser = async ({ email, password, name, phone }) => {
   try {
-    const cred = await createUserWithEmailAndPassword(auth, email, password,role);
+    const cred = await createUserWithEmailAndPassword(auth, email, password);
     const user = cred.user;
 
     await updateProfile(user, { displayName: name });
     await sendEmailVerification(user);
 
     const userDoc = {
-      uid: user.uid,
-      role: "user",
-      provider: "email",
-      isBlocked: false,
+      uid:              user.uid,
+      role:             "user",
+      provider:         "email",
+      isBlocked:        false,
       name,
       email,
-      phone: phone || "",
-      emailVerified: false,
-      defaultAddressId: null, // DB only stores the ID
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
+      phone:            phone || "",
+      emailVerified:    false,
+      defaultAddressId: null,
+      createdAt:        serverTimestamp(),
+      updatedAt:        serverTimestamp(),
     };
 
     await setDoc(doc(db, "users", user.uid), userDoc);
-    
-    // Return userDoc (address is null initially)
     return { ...userDoc, address: null };
   } catch (err) {
     throw new Error(formatError(err.code));
   }
 };
 
-/* ==============================
-   2. LOGIN (EMAIL) - UPDATED 🚀
-============================== */
+/* ══════════════════════════════════════════════
+   2. LOGIN (EMAIL)
+══════════════════════════════════════════════ */
 export const loginUser = async (email, password) => {
   try {
     const result = await signInWithEmailAndPassword(auth, email, password);
-    const user = result.user;
+    const user   = result.user;
 
     if (!user.emailVerified) throw { code: "auth/email-not-verified" };
 
     const userRef = doc(db, "users", user.uid);
-    const snap = await getDoc(userRef);
+    const snap    = await getDoc(userRef);
 
     if (!snap.exists()) throw new Error("User record missing.");
 
-    let userData = snap.data();
+    const userData = snap.data();
 
-    // 🚀 HYBRID SYNC:
-    // If DB has a defaultAddressId, fetch the actual address data now
-    // so we can save it to LocalStorage immediately.
-    if (userData.defaultAddressId) {
-       const fullAddress = await fetchDefaultAddress(user.uid, userData.defaultAddressId);
-       userData.address = fullAddress; // Attach to memory object (for LocalStorage)
-    } else {
-       userData.address = null;
-    }
+    if (userData.isBlocked) throw { code: "auth/user-blocked" };
 
-    // Auto-sync verification status
+    userData.address = userData.defaultAddressId
+      ? await fetchDefaultAddress(user.uid, userData.defaultAddressId)
+      : null;
+
     if (user.emailVerified && !userData.emailVerified) {
       await updateDoc(userRef, { emailVerified: true });
       userData.emailVerified = true;
@@ -123,75 +167,72 @@ export const loginUser = async (email, password) => {
 
     return userData;
   } catch (err) {
-    throw new Error(formatError(err.code) || err.message);
+    throw new Error(formatError(err.code));
   }
 };
 
-/* ==============================
-   3. GOOGLE LOGIN - UPDATED 🚀
-============================== */
+/* ══════════════════════════════════════════════
+   3. GOOGLE LOGIN
+══════════════════════════════════════════════ */
 export const googleSignup = async () => {
   try {
-    const provider = new GoogleAuthProvider();
-    const result = await signInWithPopup(auth, provider);
-    const user = result.user;
-
-    const userRef = doc(db, "users", user.uid);
-    const snap = await getDoc(userRef);
-
-    let finalUser;
-
-    if (snap.exists()) {
-      // EXISTING USER
-      finalUser = snap.data();
-      
-      // 🚀 Fetch Address for LocalStorage
-      if (finalUser.defaultAddressId) {
-        finalUser.address = await fetchDefaultAddress(user.uid, finalUser.defaultAddressId);
-      }
-
-      await updateDoc(userRef, {
-        name: user.displayName,
-        emailVerified: user.emailVerified,
-        updatedAt: serverTimestamp(),
-      });
-      
-      finalUser = { ...finalUser, name: user.displayName, emailVerified: user.emailVerified };
-
-    } else {
-      // NEW USER
-      finalUser = {
-        uid: user.uid,
-        role: "user",
-        provider: "google",
-        isBlocked: false,
-        name: user.displayName || "",
-        email: user.email || "",
-        phone: user.phoneNumber || "",
-        emailVerified: user.emailVerified,
-        defaultAddressId: null,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      };
-      
-      await setDoc(userRef, finalUser);
-      finalUser.address = null;
-    }
-
-    return finalUser;
+    const result = await signInWithPopup(auth, new GoogleAuthProvider());
+    return await handleSocialLogin(result.user, "google");
   } catch (err) {
-    throw new Error("Google login failed.");
+    throw new Error(formatError(err.code));
   }
 };
 
-/* ==============================
-   4. ADD ADDRESS - UPDATED 🚀
-============================== */
+/* ══════════════════════════════════════════════
+   4. FACEBOOK LOGIN
+   ── Setup checklist (do this once) ────────────
+   1. Firebase Console → Authentication →
+      Sign-in method → Facebook → Enable
+   2. developers.facebook.com → Your App →
+      Add "Facebook Login" product
+   3. In Facebook app settings → Valid OAuth redirect URIs → add:
+      https://YOUR-PROJECT-ID.firebaseapp.com/__/auth/handler
+   4. Copy Facebook App ID + App Secret →
+      paste into Firebase Console Facebook provider settings
+══════════════════════════════════════════════ */
+export const facebookLogin = async () => {
+  try {
+    const provider = new FacebookAuthProvider();
+
+    // Request email explicitly — Facebook doesn't always include it by default
+    provider.addScope("email");
+    provider.addScope("public_profile");
+
+    const result = await signInWithPopup(auth, provider);
+    return await handleSocialLogin(result.user, "facebook");
+
+  } catch (err) {
+    // auth/account-exists-with-different-credential:
+    // User already signed up with same email via Google or email/password.
+    // Firebase blocks the login — surface a clear message.
+    throw new Error(formatError(err.code));
+  }
+};
+
+/* ══════════════════════════════════════════════
+   5. ADD ADDRESS
+══════════════════════════════════════════════ */
 export const addAddress = async (uid, address) => {
   if (!uid) throw new Error("UID required");
 
-  // 1. Add to Subcollection (History)
   const addressColRef = collection(db, "users", uid, "addresses");
+
+  if (address.isDefault) {
+    const existingSnap = await getDocs(
+      query(addressColRef, where("isDefault", "==", true))
+    );
+    if (!existingSnap.empty) {
+      const batch = writeBatch(db);
+      existingSnap.docs.forEach((d) => batch.update(d.ref, { isDefault: false }));
+      await batch.commit();
+    }
+  }
+
   const docRef = await addDoc(addressColRef, {
     ...address,
     createdAt: serverTimestamp(),
@@ -199,23 +240,19 @@ export const addAddress = async (uid, address) => {
 
   const addressData = { id: docRef.id, ...address };
 
-  // 2. If Default, Update Main Profile ID
   if (address.isDefault) {
     await updateDoc(doc(db, "users", uid), {
-      defaultAddressId: docRef.id, // Only save ID to DB
-      updatedAt: serverTimestamp(),
+      defaultAddressId: docRef.id,
+      updatedAt:        serverTimestamp(),
     });
   }
 
-  // 3. Return Full Object
-  // The frontend Context will take this 'addressData' and save it 
-  // into localStorage as 'user.address'
   return addressData;
 };
 
-/* ==============================
-   5. CHANGE PASSWORD
-============================== */
+/* ══════════════════════════════════════════════
+   6. CHANGE PASSWORD
+══════════════════════════════════════════════ */
 export const changePassword = async (currentPassword, newPassword) => {
   const user = auth.currentUser;
   if (!user) throw new Error("Not logged in");
@@ -227,23 +264,24 @@ export const changePassword = async (currentPassword, newPassword) => {
   return "Password updated";
 };
 
-/* ==============================
-   6. UPDATE PROFILE
-============================== */
+/* ══════════════════════════════════════════════
+   7. UPDATE PROFILE
+══════════════════════════════════════════════ */
 export const updateProfileData = async (uid, updates) => {
   if (!uid) throw new Error("UID required");
 
   const allowedFields = {
-    name: updates.name,
-    gender: updates.gender,
+    name:        updates.name,
+    gender:      updates.gender,
     dateOfBirth: updates.dateOfBirth,
-    phone: updates.phone,
-    // Note: We don't allow updating address here directly anymore
+    phone:       updates.phone,
   };
 
-  Object.keys(allowedFields).forEach(
-    (k) => allowedFields[k] == null && delete allowedFields[k]
-  );
+  Object.keys(allowedFields).forEach((k) => {
+    if (allowedFields[k] == null || allowedFields[k] === "") delete allowedFields[k];
+  });
+
+  if (!Object.keys(allowedFields).length) return {};
 
   await updateDoc(doc(db, "users", uid), {
     ...allowedFields,
@@ -251,18 +289,20 @@ export const updateProfileData = async (uid, updates) => {
   });
 
   if (allowedFields.name && auth.currentUser) {
-    await updateProfile(auth.currentUser, {
-      displayName: allowedFields.name,
-    });
+    await updateProfile(auth.currentUser, { displayName: allowedFields.name });
   }
 
   return allowedFields;
 };
 
-/* ==============================
-   7. FORGOT PASSWORD
-============================== */
+/* ══════════════════════════════════════════════
+   8. FORGOT PASSWORD
+══════════════════════════════════════════════ */
 export const forgotPassword = async (email) => {
-  await sendPasswordResetEmail(auth, email);
-  return "Password reset email sent";
+  try {
+    await sendPasswordResetEmail(auth, email);
+    return "Password reset email sent";
+  } catch (err) {
+    throw new Error(formatError(err.code));
+  }
 };
