@@ -1,29 +1,14 @@
 import React, { useEffect, useState } from "react";
-import { Check, X, AlertCircle, Info, ShoppingBag } from "lucide-react";
+import { CheckCircle2, X, AlertCircle, ShoppingBag } from "lucide-react";
 
 /* ─────────────────────────────────────────────────────────────
-   NotificationProduct — Streetwear / Modern E-commerce Edition
-   Aesthetic: Sharp edges, high contrast, bold typography
+   NotificationProduct — Premium App Edition
+   Aesthetic: Floating pill, soft glass shadows, bottom-aligned
 ───────────────────────────────────────────────────────────── */
 
 const STYLES = `
-  .toast-enter {
-    animation: toastIn 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-  }
-  .toast-exit {
-    animation: toastOut 0.25s cubic-bezier(0.4, 0, 1, 1) forwards;
-  }
-  @keyframes toastIn {
-    from { transform: translateX(-50%) translateY(20px); opacity: 0; }
-    to   { transform: translateX(-50%) translateY(0); opacity: 1; }
-  }
-  @keyframes toastOut {
-    from { transform: translateX(-50%) translateY(0); opacity: 1; }
-    to   { transform: translateX(-50%) translateY(20px); opacity: 0; }
-  }
-
   .toast-progress {
-    animation: toastDrain 3.7s linear forwards;
+    animation: toastDrain 3.5s linear forwards;
   }
   @keyframes toastDrain {
     from { width: 100%; }
@@ -33,79 +18,101 @@ const STYLES = `
 
 const CONFIG = {
   success: {
-    icon: Check,
-    colorBar: "bg-green-600",
-    label: "SUCCESS",
+    icon: CheckCircle2,
+    accentText: "text-emerald-500",
+    accentBg: "bg-emerald-50",
+    progressBg: "bg-emerald-500",
+    label: "Success",
   },
   error: {
     icon: AlertCircle,
-    colorBar: "bg-[#e11b22]", // Matches the Add to Cart button
-    label: "ERROR",
+    accentText: "text-[#ff3f6c]", // Myntra Pink
+    accentBg: "bg-pink-50",
+    progressBg: "bg-[#ff3f6c]",
+    label: "Attention",
   },
   info: {
     icon: ShoppingBag,
-    colorBar: "bg-gray-900",
-    label: "BAGGED",
+    accentText: "text-[#ff3f6c]", // Myntra Pink
+    accentBg: "bg-pink-50",
+    progressBg: "bg-[#ff3f6c]",
+    label: "Added to Bag",
   },
 };
 
 const NotificationProduct = ({ message, type = "success", onClose }) => {
-  const [exiting, setExiting] = useState(false);
+  const [isShowing, setIsShowing] = useState(false);
 
-  const handleClose = () => {
-    setExiting(true);
-    setTimeout(onClose, 250);
-  };
+  // Determine type based on message content if type isn't explicitly passed
+  const resolvedType = message.toLowerCase().includes("bag") ? "info" : type;
+  const config = CONFIG[resolvedType] || CONFIG.success;
+  const Icon = config.icon;
 
-  /* Auto-close after 4 seconds */
   useEffect(() => {
-    const timer = setTimeout(handleClose, 4000);
+    // Trigger entrance animation shortly after mount
+    requestAnimationFrame(() => setIsShowing(true));
+
+    // Auto-close timer
+    const timer = setTimeout(() => {
+      handleClose();
+    }, 3500);
+
     return () => clearTimeout(timer);
   }, []);
 
-  const config = CONFIG[type] || CONFIG.success;
-  const Icon = config.icon;
+  const handleClose = () => {
+    setIsShowing(false);
+    // Wait for exit animation to finish before unmounting
+    setTimeout(onClose, 300);
+  };
 
   return (
     <>
-      <style>{STYLES}</style>
+      <style dangerouslySetInnerHTML={{ __html: STYLES }} />
 
+      {/* Wrapper to position the toast */}
       <div
-        className={`fixed bottom-6 md:bottom-8 left-1/2 z-[9999] w-[90%] max-w-sm font-sans ${
-          exiting ? "toast-exit" : "toast-enter"
-        }`}
-        style={{ transform: "translateX(-50%)" }}
-        role="alert"
-        aria-live="polite">
-        <div className="bg-white border-2 border-gray-900 shadow-[4px_4px_0px_0px_rgba(17,24,39,1)] flex items-stretch overflow-hidden relative">
-          {/* Left Solid Color Block */}
-          <div
-            className={`w-12 flex-shrink-0 flex items-center justify-center ${config.colorBar} text-white`}>
-            <Icon size={20} strokeWidth={2.5} />
+        className="fixed z-[10000] bottom-6 left-4 right-4 md:left-1/2 md:right-auto md:-translate-x-1/2 md:min-w-[380px] flex justify-center pointer-events-none"
+        role="alert">
+        {/* Main Toast Container */}
+        <div
+          className={`pointer-events-auto w-full bg-white rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-gray-100 overflow-hidden flex flex-col transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+            isShowing
+              ? "translate-y-0 opacity-100 scale-100"
+              : "translate-y-8 opacity-0 scale-95"
+          }`}>
+          <div className="flex items-center p-3 sm:p-4">
+            {/* Icon Block */}
+            <div
+              className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${config.accentBg} ${config.accentText} mr-4`}>
+              <Icon size={20} strokeWidth={2.5} />
+            </div>
+
+            {/* Text Content */}
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-bold tracking-widest uppercase text-gray-400 mb-0.5">
+                {config.label}
+              </p>
+              <p className="text-[14px] font-semibold text-gray-900 truncate leading-tight">
+                {message}
+              </p>
+            </div>
+
+            {/* Close Button */}
+            <button
+              onClick={handleClose}
+              className="flex-shrink-0 ml-4 p-2 rounded-full text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition-colors active:scale-95"
+              aria-label="Close notification">
+              <X size={18} strokeWidth={2.5} />
+            </button>
           </div>
 
-          {/* Text Content */}
-          <div className="flex-1 py-3 px-4 flex flex-col justify-center min-w-0">
-            <p className="text-[10px] font-bold tracking-widest uppercase text-gray-500 mb-0.5">
-              {config.label}
-            </p>
-            <p className="text-sm font-bold text-gray-900 truncate">
-              {message}
-            </p>
+          {/* Animated Progress Bar */}
+          <div className="w-full h-[3px] bg-gray-100">
+            <div
+              className={`h-full ${config.progressBg} toast-progress origin-left rounded-r-full`}
+            />
           </div>
-
-          {/* Close Button */}
-          <button
-            onClick={handleClose}
-            aria-label="Dismiss"
-            className="px-4 flex items-center justify-center text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition-colors border-l border-gray-200">
-            <X size={16} strokeWidth={2.5} />
-          </button>
-
-          {/* Draining Progress Bar */}
-          <div
-            className={`absolute bottom-0 left-12 right-0 h-1 ${config.colorBar} toast-progress origin-left`}
-          />
         </div>
       </div>
     </>

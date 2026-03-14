@@ -22,19 +22,12 @@ const AUTH_BANNERS = {
     "https://www.biba.in/on/demandware.static/-/Library-Sites-BibaSharedLibrary/en_IN/dw166ba4ee/login-sept19.jpg",
 };
 
-// --- Hero / Fallback Images ---
-const HERO_DEFAULTS = {
-  mobile:
-    "https://www.libas.in/cdn/shop/files/mobile-banner_1_6f485ab4-0aaa-4411-9be5-1e2539965dff.jpg?v=1769691939&width=832",
-  desktop:
-    "https://babli.in/cdn/shop/files/Desktop_Banner_6975bce7-2e4e-43af-b227-10b31b949ea9.jpg?v=1755754950",
-};
-
 // --- Hero Slides (Desktop) ---
 const HERO_SLIDES_DESKTOP = [
-  "https://prod-img.thesouledstore.com/public/theSoul/storage/mobile-cms-media-prod/banner-images/keep_it_short_-_homepage.jpg?w=1500&dpr=2",
-  "https://prod-img.thesouledstore.com/public/theSoul/storage/mobile-cms-media-prod/banner-images/Homepage_banner__-_Summer_done_right_copy.jpg?w=1500&dpr=2",
-  "https://prod-img.thesouledstore.com/public/theSoul/storage/mobile-cms-media-prod/banner-images/Home_page_2_W7jtUov.jpg?w=1500&dpr=2",
+  "https://babli.in/cdn/shop/files/HANDMADE-WITH-LOVE.jpg?v=1768278946&width=2000",
+  "https://babli.in/cdn/shop/files/WhatsApp_Image_2026-03-11_at_7.30.23_PM.jpg?v=1773238019&width=1600",
+  "https://letsdressup.in/cdn/shop/files/Holi_Special_4000px.jpg?v=1772523580",
+  "https://babli.in/cdn/shop/files/69a684099361e_IMG_7712.jpg?v=1772526574&width=2000",
 ];
 
 // --- Hero Slides (Mobile) ---
@@ -72,8 +65,6 @@ export const IMAGES = {
    */
   hero: {
     // Individual fallbacks
-    defaultDesktop: HERO_DEFAULTS.desktop,
-    defaultMobile: HERO_DEFAULTS.mobile,
 
     // Slider Arrays
     desktopSlides: HERO_SLIDES_DESKTOP,

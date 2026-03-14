@@ -1,9 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import ProductCard from "../cards/ProductCard";
-import MoveToCartPopUp from "../../features/wishList/components/pop-up/MoveToCartPopUp";
-import Notification from "../../../shared/components/Notification";
-import { useProducts } from "../../features/product/hook/useProducts";
 
 const ProductSection = ({
   title,
@@ -12,70 +9,46 @@ const ProductSection = ({
   loading = false,
 }) => {
   const [selectedProduct, setSelectedProduct] = useState(null);
-  const [notification, setNotification] = useState(null);
   const navigate = useNavigate();
-  const { prefetchBySlug } = useProducts();
-
-  const showNotification = (msg, type = "info") => {
-    setNotification({ message: msg, type });
-    setTimeout(() => setNotification(null), 2000);
-  };
 
   if (!loading && (!products || products.length === 0)) return null;
 
   return (
     <>
-      {/* Global Notification */}
-      {notification && (
-        <Notification
-          type={notification.type}
-          message={notification.message}
-          onClose={() => setNotification(null)}
-          duration={2000}
-        />
-      )}
+      <section className="w-full bg-white py-16 md:py-24 font-sans border-b border-gray-100">
+        <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-10">
+          {/* Header */}
+          <div className="flex flex-col items-center justify-center text-center mb-12 md:mb-16">
+            {subtitle && (
+              <span className="text-[#da127d] uppercase tracking-[0.2em] text-xs font-semibold mb-3 block">
+                {subtitle}
+              </span>
+            )}
 
-      <section className="w-full bg-white py-10 md:py-14 font-sans">
-        <div className="max-w-[1400px] mx-auto   ">
-          {/* ── Header Area ── */}
-          <div className="flex flex-col items-center justify-center text-center mb-8">
             <h2
-              style={{
-                fontFamily: "Playfair Display, serif",
-              }}
-              className="text-center text-3xl md:text-4xl tracking-wide mb-12 text-gray-900">
-              {" "}
+              style={{ fontFamily: "'Playfair Display', serif" }}
+              className="text-3xl md:text-4xl lg:text-5xl tracking-wide text-gray-900">
               {title}
             </h2>
-            {subtitle && (
-              <p className="text-[11px] md:text-[12px] text-gray-500 uppercase tracking-widest mt-1 font-medium">
-                {subtitle}
-              </p>
-            )}
+
+            <div className="w-16 h-[1px] bg-[#da127d] mx-auto mt-6 opacity-50"></div>
           </div>
 
-          {/* ── Product Grid ── */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-8 md:gap-x-5 md:gap-y-10">
-            {/* Loading Skeletons */}
+          {/* Product Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-10 md:gap-x-8 md:gap-y-14">
             {loading
               ? Array.from({ length: 4 }).map((_, i) => (
                   <div key={i} className="flex flex-col w-full animate-pulse">
-                    <div className="w-full aspect-[3/4] bg-gray-200 mb-3" />
-                    <div className="h-3 bg-gray-200 w-3/4 mb-1.5" />
-                    <div className="h-2.5 bg-gray-200 w-1/2 mb-3" />
-                    <div className="h-3 bg-gray-200 w-1/4" />
+                    <div className="w-full aspect-[3/4] bg-gray-100 rounded-sm mb-4" />
+                    <div className="h-3 bg-gray-200 w-3/4 mb-2 mx-auto rounded" />
+                    <div className="h-3 bg-gray-200 w-1/2 mb-4 mx-auto rounded" />
+                    <div className="h-4 bg-gray-200 w-1/4 mx-auto rounded" />
                   </div>
                 ))
-              : /* Actual Products */
-                products.slice(0, 8).map((product) => (
+              : products.slice(0, 8).map((product) => (
                   <div
                     key={product.id || product.sku || product.name}
-                    className="w-full animate-in fade-in zoom-in-95 duration-500"
-                    onMouseEnter={() => {
-                      if (product?.slug) {
-                        prefetchBySlug(product.slug);
-                      }
-                    }}>
+                    className="w-full group animate-in fade-in zoom-in-95 duration-700">
                     <ProductCard
                       product={product}
                       onMoveToCart={() => setSelectedProduct(product)}
@@ -84,32 +57,19 @@ const ProductSection = ({
                 ))}
           </div>
 
-          {/* ── View All Footer ── */}
+          {/* View All */}
           {!loading && products.length > 4 && (
-            <div className="mt-12 flex flex-col items-center justify-center">
+            <div className="mt-16 flex flex-col items-center justify-center">
               <button
                 onClick={() => navigate("/products")}
                 aria-label={`View all ${title} products`}
-                className="border border-gray-300 text-gray-800 hover:border-gray-900 hover:bg-gray-900 hover:text-white px-10 py-3.5 text-[11px] font-bold uppercase tracking-widest transition-all duration-300">
-                View All
+                className="border border-[#da127d] text-[#da127d] hover:bg-[#da127d] hover:text-white px-10 py-3.5 text-[12px] font-semibold uppercase tracking-widest transition-colors duration-300">
+                View All {title}
               </button>
             </div>
           )}
         </div>
       </section>
-
-      {/* Cart Popup */}
-      {selectedProduct && (
-        <MoveToCartPopUp
-          open={true}
-          product={selectedProduct}
-          onClose={() => setSelectedProduct(null)}
-          onCompleted={() => {
-            showNotification("Added to bag!", "success");
-            setSelectedProduct(null);
-          }}
-        />
-      )}
     </>
   );
 };

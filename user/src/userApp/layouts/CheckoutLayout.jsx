@@ -7,7 +7,7 @@ const CheckoutLayout = () => {
     <div className="w-full min-h-screen   bg-white">
       <CheckoutNavbar />
 
-      <div className="max-w-5xl mx-auto   ">
+      <div className="max-w-7xl mx-auto   ">
         <Outlet />
       </div>
     </div>

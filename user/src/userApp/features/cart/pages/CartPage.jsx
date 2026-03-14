@@ -1,21 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useCart } from "../context/CartContext";
 import { useProducts } from "../../product/hook/useProducts";
+import { useQueryClient } from "@tanstack/react-query";
+
 import CartItemCard from "../components/cards/CartItemCard";
 import CartControlHeader from "../components/header/CartControlHeader";
 import CartSummary from "../components/CartSummary";
 import CheckOutBottomBar from "../components/bars/CheckOutBottomBar";
 import EmptyCart from "../components/EmptyCart";
 import CartSkeleton from "../components/skeleton/CartSkeleton";
-import { useNavigate } from "react-router-dom";
+
+import { Link, useNavigate } from "react-router-dom";
 import LoginPopup from "../../../components/pop-up/LoginPoup";
 import { useAuth } from "../../auth/context/UserContext";
 
 const CartPage = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const { isLoggedIn } = useAuth();
   const [isLoginOpen, setIsLoginOpen] = useState(false);
+
   const { cart, updateQuantity, updateSize, remove, clear } = useCart();
   const { getProductsByIds } = useProducts();
 
@@ -25,26 +30,26 @@ const CartPage = () => {
 
   /*
   ────────────────────────────────────────
-  Stable ID Signature
-  Only changes when items added/removed
+  Stable Product ID Signature
   ────────────────────────────────────────
   */
   const cartIds = useMemo(
     () =>
       cart
-        .map((i) => String(i.productId ?? i.id))
+        .map((i) => String(i.id))
         .sort()
         .join(","),
     [cart],
   );
 
-  /*
-  ────────────────────────────────────────
-  Prevent duplicate fetches
-  ────────────────────────────────────────
-  */
   const prevCartIds = useRef("");
 
+  /*
+  ────────────────────────────────────────
+  Fetch Product Details
+  Uses React Query cache first
+  ────────────────────────────────────────
+  */
   useEffect(() => {
     if (!cart.length) {
       setProducts([]);
@@ -53,7 +58,6 @@ const CartPage = () => {
       return;
     }
 
-    // prevent re-fetch if same items
     if (cartIds === prevCartIds.current) return;
 
     let cancelled = false;
@@ -69,7 +73,26 @@ const CartPage = () => {
           return;
         }
 
-        const data = await getProductsByIds(ids);
+        /*
+        ─────────────────────────────
+        Check React Query cache first
+        ─────────────────────────────
+        */
+        const cachedProducts = ids
+          .map((id) => queryClient.getQueryData(["products", "id", id]))
+          .filter(Boolean);
+
+        const missingIds = ids.filter(
+          (id) => !queryClient.getQueryData(["products", "id", id]),
+        );
+
+        let fetchedProducts = [];
+
+        if (missingIds.length) {
+          fetchedProducts = await getProductsByIds(missingIds);
+        }
+
+        const data = [...cachedProducts, ...fetchedProducts];
 
         if (!cancelled) {
           setProducts(data.filter(Boolean));
@@ -87,12 +110,11 @@ const CartPage = () => {
     return () => {
       cancelled = true;
     };
-  }, [cartIds, getProductsByIds, cart.length]);
+  }, [cartIds, cart.length, getProductsByIds, queryClient]);
 
   /*
   ────────────────────────────────────────
   Product Map (O(1) lookup)
-  Avoids products.find() loops
   ────────────────────────────────────────
   */
   const productMap = useMemo(() => {
@@ -103,19 +125,20 @@ const CartPage = () => {
 
   /*
   ────────────────────────────────────────
-  Merge cart + product data
+  Merge Cart + Product Data
   ────────────────────────────────────────
   */
   const mergedCart = useMemo(() => {
     return cart
       .map((cartItem) => {
-        const id = String(cartItem.productId ?? cartItem.id);
+        const id = String(cartItem.id);
         const product = productMap.get(id);
 
         if (!product) return null;
 
         return {
           ...product,
+          cartKey: cartItem.cartKey,
           selectedQuantity: cartItem.selectedQuantity || 1,
           selectedSize: cartItem.selectedSize || "",
         };
@@ -125,46 +148,50 @@ const CartPage = () => {
 
   /*
   ────────────────────────────────────────
-  Auto-select all items once
+  Auto Select Items
   ────────────────────────────────────────
   */
   const hasAutoSelected = useRef(false);
 
   useEffect(() => {
     if (mergedCart.length > 0 && !hasAutoSelected.current) {
-      setSelected(mergedCart.map((i) => i.id));
+      setSelected(mergedCart.map((i) => i.cartKey));
       hasAutoSelected.current = true;
     }
   }, [mergedCart]);
 
   /*
   ────────────────────────────────────────
-  Selection handlers
+  Selection Handlers
   ────────────────────────────────────────
   */
-  const handleSelectItem = (id) =>
+  const handleSelectItem = (cartKey) =>
     setSelected((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+      prev.includes(cartKey)
+        ? prev.filter((x) => x !== cartKey)
+        : [...prev, cartKey],
     );
 
   const handleSelectAll = () =>
     setSelected(
-      selected.length === mergedCart.length ? [] : mergedCart.map((i) => i.id),
+      selected.length === mergedCart.length
+        ? []
+        : mergedCart.map((i) => i.cartKey),
     );
 
   /*
   ────────────────────────────────────────
-  Selected items
+  Selected Items
   ────────────────────────────────────────
   */
   const selectedItems = useMemo(
-    () => mergedCart.filter((i) => selected.includes(i.id)),
+    () => mergedCart.filter((i) => selected.includes(i.cartKey)),
     [mergedCart, selected],
   );
 
   /*
   ────────────────────────────────────────
-  Price calculations
+  Price Calculations
   ────────────────────────────────────────
   */
   const subtotal = useMemo(
@@ -188,7 +215,6 @@ const CartPage = () => {
     }
 
     if (!isLoggedIn) {
-      // Show login popup instead of navigating
       setIsLoginOpen(true);
       return;
     }
@@ -216,9 +242,34 @@ const CartPage = () => {
   ────────────────────────────────────────
   */
   return (
-    <div className="min-h-screen pb-24 lg:pb-8 text-gray-800">
-      <div className="max-w-[1200px] mx-auto px-2 py-8 flex flex-col lg:flex-row gap-8">
-        {/* Left Column: Product Cards */}
+    <div className="min-h-screen  mt-5 pb-24 lg:pb-8 text-gray-800">
+      {/* Breadcrumbs */}
+      <div className="text-gray-500 text-sm flex flex-wrap gap-1 mb-4 px-4 md:px-0">
+        <Link to="/" className="hover:text-gray-800">
+          Home
+        </Link>
+        <span>/</span>
+        <span className="text-gray-800 truncate max-w-[150px]">Mnmukt</span>
+      </div>
+
+      {/* cart Header */}
+      <header className="flex flex-col items-center text-center mb-16 px-4 md:px-0">
+        <span className="text-[#da127d] text-[10px] sm:text-xs uppercase tracking-widest font-semibold mb-2">
+          Personal Edit
+        </span>
+
+        <h1
+          className="text-xl sm:text-2xl md:text-4xl lg:text-5xl text-gray-900 font-light mb-2"
+          style={{ fontFamily: "'Playfair Display', serif" }}>
+          My Cart
+        </h1>
+
+        <p className="text-sm text-gray-400 tracking-wide">
+          {cart.length} {cart.length > 1 ? "items" : "item"} saved
+        </p>
+      </header>
+      <div className=" mx-auto px-2 pb-8 flex flex-col lg:flex-row gap-8">
+        {/* Left Column */}
         <div className="flex-1 space-y-4">
           <div className="bg-white border border-gray-200 rounded-sm shadow-sm">
             <CartControlHeader
@@ -232,15 +283,15 @@ const CartPage = () => {
             <div className="divide-y divide-gray-100">
               {mergedCart.map((item) => (
                 <div
-                  key={item.id}
+                  key={item.cartKey}
                   className="p-4 bg-white hover:bg-gray-50/50 transition-colors">
                   <CartItemCard
                     product={item}
-                    selected={selected.includes(item.id)}
-                    onSelect={() => handleSelectItem(item.id)}
-                    onRemove={() => remove(item.id)}
-                    onQtyChange={(qty) => updateQuantity(item.id, qty)}
-                    onSizeChange={(size) => updateSize(item.id, size)}
+                    selected={selected.includes(item.cartKey)}
+                    onSelect={() => handleSelectItem(item.cartKey)}
+                    onRemove={() => remove(item.cartKey)}
+                    onQtyChange={(qty) => updateQuantity(item.cartKey, qty)}
+                    onSizeChange={(size) => updateSize(item.cartKey, size)}
                   />
                 </div>
               ))}
@@ -248,7 +299,7 @@ const CartPage = () => {
           </div>
         </div>
 
-        {/* Right Column: Order Summary */}
+        {/* Right Column */}
         <div className="w-full lg:w-[400px]">
           <div className="sticky top-24">
             <CartSummary
@@ -262,12 +313,12 @@ const CartPage = () => {
         </div>
       </div>
 
-      {/* Mobile Checkout Bar */}
+      {/* Mobile Checkout */}
       <CheckOutBottomBar
         selectedItems={selectedItems}
         totalPrice={subtotal}
         onPlaceOrder={handleCheckout}
-        disabled={!selectedItems.length || !isLoggedIn}
+        disabled={!selectedItems.length}
       />
 
       <LoginPopup isOpen={isLoginOpen} onClose={() => setIsLoginOpen(false)} />

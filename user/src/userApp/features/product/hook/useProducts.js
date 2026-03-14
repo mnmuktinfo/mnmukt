@@ -136,6 +136,7 @@ export const useProducts = () => {
 
   const prefetchCategory = useCallback(
     (categoryId) => {
+      console.log(categoryId)
       if (!categoryId) return;
 
       qc.prefetchQuery({

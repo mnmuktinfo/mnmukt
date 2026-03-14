@@ -17,7 +17,7 @@ import { useAuth } from "../../../auth/context/UserContext";
 
 const NAV_ITEMS = [
   { label: "Home", icon: Home, path: "/" },
-  { label: "Archive", icon: LayoutGrid, path: "/categories" },
+  { label: "Explore", icon: LayoutGrid, path: "/categories" },
 ];
 
 const ACTIVITY_ITEMS = [
@@ -30,6 +30,7 @@ const NavbarDropdown = ({ isOpen, onClose, menuItems = [] }) => {
   const navigate = useNavigate();
   const asideRef = useRef(null);
 
+  // Prevent background scrolling when menu is open
   useEffect(() => {
     document.body.style.overflow = isOpen ? "hidden" : "";
     return () => {
@@ -37,6 +38,7 @@ const NavbarDropdown = ({ isOpen, onClose, menuItems = [] }) => {
     };
   }, [isOpen]);
 
+  // Close on Escape key
   useEffect(() => {
     const handleKey = (e) => {
       if (e.key === "Escape" && isOpen) onClose();
@@ -50,56 +52,62 @@ const NavbarDropdown = ({ isOpen, onClose, menuItems = [] }) => {
     onClose();
     navigate("/");
   };
+
   const go = (path) => {
     onClose();
     navigate(path);
   };
 
-  const firstName = user?.name?.split(" ")[0] || "User";
+  const firstName = user?.name?.split(" ")[0] || "Guest";
 
   return createPortal(
     <>
-      {/* Backdrop */}
+      {/* ── Cinematic Backdrop ── */}
       <div
         onClick={onClose}
-        className={`fixed inset-0 z-[9998] bg-black/30 transition-opacity duration-200 ${
+        className={`fixed inset-0 z-[9998] bg-black/40 backdrop-blur-sm transition-all duration-500 ease-in-out ${
           isOpen ? "opacity-100 visible" : "opacity-0 invisible"
         }`}
       />
 
-      {/* Drawer */}
+      {/* ── Drawer Menu ── */}
       <aside
         ref={asideRef}
-        className={`fixed top-0 left-0 h-full z-[9999] bg-white flex flex-col transition-transform duration-300 ease-in-out ${
+        className={`fixed top-0 left-0 h-full z-[9999] bg-white flex flex-col transition-transform duration-500 ease-out shadow-2xl rounded-r-2xl md:rounded-r-none ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
-        style={{
-          width: "min(85vw, 300px)",
-          boxShadow: isOpen ? "4px 0 20px rgba(0,0,0,0.08)" : "none",
-        }}>
-        {/* ── Header ───────────────────────────────── */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <span className="text-[13px] font-semibold text-gray-800">Menu</span>
+        style={{ width: "min(85vw, 360px)" }}>
+        {/* ── Header ── */}
+        <div className="flex items-center justify-between px-6 pt-8 pb-6 border-b border-gray-100">
+          <h2
+            className="text-2xl text-gray-900 tracking-wide"
+            style={{ fontFamily: "'Playfair Display', serif" }}>
+            Menu
+          </h2>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
-            <X size={16} strokeWidth={2} />
+            aria-label="Close menu"
+            className="w-10 h-10 flex items-center justify-center rounded-full text-gray-400 hover:text-[#da127d] hover:bg-[#F9F5F6] transition-all duration-300 active:scale-95">
+            <X size={20} strokeWidth={1.5} />
           </button>
         </div>
 
-        {/* ── User info ───────────────────────────── */}
-        <div className="px-5 py-4 border-b border-gray-100">
+        {/* ── User Profile Area ── */}
+        <div className="px-6 py-6 border-b border-gray-100 bg-[#FAFAFA]">
           {isLoggedIn ? (
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-[13px] font-bold text-gray-600 shrink-0">
+            <div className="flex items-center gap-4">
+              {/* Premium Avatar */}
+              <div className="w-12 h-12 rounded-full bg-[#F9F5F6] border border-[#da127d]/20 flex items-center justify-center text-lg font-semibold text-[#da127d] shrink-0 shadow-sm">
                 {firstName[0].toUpperCase()}
               </div>
-              <div className="min-w-0">
-                <p className="text-[13px] font-semibold text-gray-800 truncate">
-                  {firstName}
+              <div className="min-w-0 flex-1">
+                <p
+                  className="text-[16px] text-gray-900 truncate tracking-wide"
+                  style={{ fontFamily: "'Playfair Display', serif" }}>
+                  Welcome, {firstName}
                 </p>
                 {user?.email && (
-                  <p className="text-[11px] text-gray-400 truncate">
+                  <p className="text-[12px] text-gray-500 truncate mt-0.5">
                     {user.email}
                   </p>
                 )}
@@ -108,19 +116,35 @@ const NavbarDropdown = ({ isOpen, onClose, menuItems = [] }) => {
           ) : (
             <button
               onClick={() => go("/auth/login")}
-              className="flex items-center gap-2 text-[13px] font-medium text-gray-600 hover:text-gray-900 transition-colors">
-              <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
-                <User size={16} strokeWidth={1.5} className="text-gray-400" />
+              className="w-full flex items-center justify-between group p-3 -m-3 rounded-xl hover:bg-white transition-colors duration-300">
+              <div className="flex items-center gap-4 text-gray-800 group-hover:text-[#da127d] transition-colors">
+                <div className="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center group-hover:bg-[#da127d] transition-colors duration-300">
+                  <User
+                    size={20}
+                    strokeWidth={1.5}
+                    className="text-gray-400 group-hover:text-white transition-colors"
+                  />
+                </div>
+                <div className="text-left">
+                  <span className="block text-[15px] font-medium font-serif">
+                    Sign In
+                  </span>
+                  <span className="block text-[11px] text-gray-400 mt-0.5 uppercase tracking-wider">
+                    Access your account
+                  </span>
+                </div>
               </div>
-              <span>Sign In</span>
-              <ChevronRight size={14} className="text-gray-400" />
+              <ChevronRight
+                size={18}
+                className="text-gray-300 group-hover:text-[#da127d] transition-transform group-hover:translate-x-1"
+              />
             </button>
           )}
         </div>
 
-        {/* ── Scrollable body ─────────────────────── */}
-        <div className="flex-1 overflow-y-auto py-2">
-          <SectionLabel text="Navigate" />
+        {/* ── Scrollable Navigation Body ── */}
+        <div className="flex-1 overflow-y-auto py-4 scrollbar-hide">
+          <SectionLabel text="Discover" />
           {NAV_ITEMS.map((item) => (
             <DrawerItem
               key={item.path}
@@ -132,6 +156,7 @@ const NavbarDropdown = ({ isOpen, onClose, menuItems = [] }) => {
 
           {menuItems.length > 0 && (
             <>
+              <div className="my-4 border-t border-gray-50" />
               <SectionLabel text="Collections" />
               {menuItems.map((item) => (
                 <NavLink
@@ -139,14 +164,14 @@ const NavbarDropdown = ({ isOpen, onClose, menuItems = [] }) => {
                   to={item.path}
                   onClick={onClose}
                   className={({ isActive }) =>
-                    `flex items-center justify-between px-5 py-2.5 text-[13px] transition-colors ${
+                    `flex items-center justify-between px-6 py-3.5 text-[14px] transition-all duration-300 border-l-2 ${
                       isActive
-                        ? "text-gray-900 font-medium bg-gray-50"
-                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                        ? "text-[#da127d] font-medium bg-[#F9F5F6] border-[#da127d]"
+                        : "text-gray-600 border-transparent hover:text-[#da127d] hover:bg-[#F9F5F6] hover:border-[#da127d]/30"
                     }`
                   }>
-                  <span>{item.label}</span>
-                  <ChevronRight size={13} className="text-gray-300" />
+                  <span className="tracking-wide">{item.label}</span>
+                  <ChevronRight size={14} className="opacity-40" />
                 </NavLink>
               ))}
             </>
@@ -154,7 +179,8 @@ const NavbarDropdown = ({ isOpen, onClose, menuItems = [] }) => {
 
           {isLoggedIn && (
             <>
-              <SectionLabel text="Activity" />
+              <div className="my-4 border-t border-gray-50" />
+              <SectionLabel text="Your Account" />
               {ACTIVITY_ITEMS.map((item) => (
                 <DrawerItem
                   key={item.path}
@@ -166,10 +192,11 @@ const NavbarDropdown = ({ isOpen, onClose, menuItems = [] }) => {
             </>
           )}
 
-          <SectionLabel text="More" />
+          <div className="my-4 border-t border-gray-50" />
+          <SectionLabel text="Support" />
           <DrawerItem
             icon={HelpCircle}
-            label="Support"
+            label="Customer Care"
             onClick={() => go("/contact-us")}
           />
           <DrawerItem
@@ -179,19 +206,19 @@ const NavbarDropdown = ({ isOpen, onClose, menuItems = [] }) => {
           />
         </div>
 
-        {/* ── Footer ──────────────────────────────── */}
-        <div className="px-4 py-4 border-t border-gray-100">
+        {/* ── Footer Actions ── */}
+        <div className="px-6 py-6 border-t border-gray-100 bg-[#FAFAFA]">
           {isLoggedIn ? (
             <button
               onClick={handleLogout}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-red-100 text-[12px] font-medium text-red-500 hover:bg-red-50 transition-colors">
-              <LogOut size={14} strokeWidth={1.5} />
+              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-sm border border-gray-200 text-[12px] font-bold uppercase tracking-[0.15em] text-gray-600 hover:text-white hover:bg-gray-900 hover:border-gray-900 transition-all duration-300">
+              <LogOut size={16} strokeWidth={1.5} />
               Sign Out
             </button>
           ) : (
             <button
               onClick={() => go("/auth/signup")}
-              className="w-full py-2.5 rounded-lg bg-gray-900 text-white text-[12px] font-medium hover:bg-gray-700 transition-colors">
+              className="w-full py-4 rounded-sm bg-[#da127d] text-white text-[12px] font-bold uppercase tracking-[0.2em] hover:bg-[#b80f6a] transition-colors duration-300 shadow-md">
               Create Account
             </button>
           )}
@@ -202,10 +229,10 @@ const NavbarDropdown = ({ isOpen, onClose, menuItems = [] }) => {
   );
 };
 
-/* ── Helpers ──────────────────────────────────────── */
+/* ── Premium Sub-Components ── */
 
 const SectionLabel = ({ text }) => (
-  <p className="px-5 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-widest text-gray-400">
+  <p className="px-6 pt-5 pb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#da127d]">
     {text}
   </p>
 );
@@ -213,9 +240,13 @@ const SectionLabel = ({ text }) => (
 const DrawerItem = ({ icon: Icon, label, onClick }) => (
   <button
     onClick={onClick}
-    className="w-full flex items-center gap-3 px-5 py-2.5 text-[13px] text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors">
-    <Icon size={15} strokeWidth={1.5} className="text-gray-400 shrink-0" />
-    <span>{label}</span>
+    className="w-full flex items-center gap-4 px-6 py-3.5 text-[14px] text-gray-600 hover:text-[#da127d] hover:bg-[#F9F5F6] border-l-2 border-transparent hover:border-[#da127d]/30 transition-all duration-300 group">
+    <Icon
+      size={18}
+      strokeWidth={1.5}
+      className="text-gray-400 group-hover:text-[#da127d] transition-colors shrink-0"
+    />
+    <span className="tracking-wide">{label}</span>
   </button>
 );
 

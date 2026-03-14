@@ -28,8 +28,8 @@ const BottomNavbar = ({ wishlistCount = 0 }) => {
   ];
 
   return (
-    <nav className="fixed md:hidden bottom-0 left-0 w-full bg-white/95 backdrop-blur-md border-t border-gray-200 z-[100] pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_20px_rgba(0,0,0,0.04)] font-sans">
-      <ul className="flex justify-between items-center h-[64px] px-1">
+    <nav className="fixed md:hidden bottom-0 left-0 w-full bg-white/90 backdrop-blur-xl border-t border-gray-100 z-30 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_30px_rgba(0,0,0,0.04)] font-sans transition-colors duration-300">
+      <ul className="flex justify-between items-center h-16 px-2">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
@@ -43,10 +43,10 @@ const BottomNavbar = ({ wishlistCount = 0 }) => {
                     ? handleProtected(item.path)
                     : navigate(item.path)
                 }
-                className="w-full h-full flex flex-col items-center justify-center gap-1 relative transition-transform active:scale-90 group">
-                {/* Premium Active Top Border */}
+                className="w-full h-full flex flex-col items-center justify-center gap-1 relative transition-transform active:scale-95 group">
+                {/* Premium Active Top Line */}
                 <div
-                  className={`absolute top-0 left-1/2 -translate-x-1/2 h-[2px] bg-[#007673] transition-all duration-300 ease-out ${
+                  className={`absolute top-0 left-1/2 -translate-x-1/2 h-[2.5px] rounded-b-md bg-[#da127d] transition-all duration-300 ease-out ${
                     isActive ? "w-8 opacity-100" : "w-0 opacity-0"
                   }`}
                 />
@@ -58,20 +58,20 @@ const BottomNavbar = ({ wishlistCount = 0 }) => {
                     strokeWidth={isActive ? 2 : 1.5}
                     className={`transition-all duration-300 ${
                       isActive
-                        ? "text-[#007673]"
-                        : "text-gray-400 group-hover:text-gray-600"
+                        ? "text-[#da127d]"
+                        : "text-gray-400 group-hover:text-gray-700"
                     }`}
                     style={{
                       fill:
                         isActive && item.name !== "Explore"
-                          ? "#007673"
+                          ? "#da127d"
                           : "transparent",
                     }}
                   />
 
-                  {/* Badge */}
+                  {/* iOS-Style Notification Badge */}
                   {item.badge > 0 && (
-                    <span className="absolute -top-1.5 -right-2 bg-[#007673] text-white text-[9px] font-bold rounded-full min-w-[16px] h-[16px] px-1 flex items-center justify-center tracking-tighter border-2 border-white shadow-sm z-10">
+                    <span className="absolute -top-1.5 -right-2 bg-[#da127d] text-white text-[9px] font-bold rounded-full min-w-4 h-4 px-1 flex items-center justify-center tracking-tighter border-2 border-white shadow-sm z-10">
                       {item.badge > 99 ? "99+" : item.badge}
                     </span>
                   )}
@@ -79,10 +79,10 @@ const BottomNavbar = ({ wishlistCount = 0 }) => {
 
                 {/* Label */}
                 <span
-                  className={`text-[9px] font-bold uppercase tracking-widest transition-colors duration-300 ${
+                  className={`text-[9px] font-semibold uppercase tracking-widest transition-colors duration-300 ${
                     isActive
-                      ? "text-[#007673]"
-                      : "text-gray-400 group-hover:text-gray-600"
+                      ? "text-[#da127d]"
+                      : "text-gray-400 group-hover:text-gray-700"
                   }`}>
                   {item.name}
                 </span>

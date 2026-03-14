@@ -6,10 +6,10 @@ import {
   Loader2,
   MapPin,
   Phone,
-  MessageSquare,
-  ChevronRight,
-  CheckCircle2,
   Mail,
+  Clock,
+  Instagram,
+  Check,
 } from "lucide-react";
 
 const ContactUsPage = () => {
@@ -18,6 +18,7 @@ const ContactUsPage = () => {
     email: "",
     phone: "",
     orderId: "",
+    subject: "General Inquiry",
     message: "",
   });
   const [status, setStatus] = useState("idle");
@@ -35,170 +36,237 @@ const ContactUsPage = () => {
         createdAt: serverTimestamp(),
       });
       setStatus("success");
-      setFormData({ name: "", email: "", phone: "", orderId: "", message: "" });
+      setFormData({
+        name: "",
+        email: "",
+        phone: "",
+        orderId: "",
+        subject: "General Inquiry",
+        message: "",
+      });
       setTimeout(() => setStatus("idle"), 6000);
     } catch (err) {
       setStatus("error");
+      setTimeout(() => setStatus("idle"), 4000);
     }
   };
 
   return (
-    <div className="min-h-screen bg-white font-sans pb-24">
-      {/* 1. TOP NAV BAR (Mnmukt Minimalist) */}
-      <div className="bg-white border-b border-slate-50 px-6 py-12 md:py-20 text-center">
-        <h1 className="text-4xl md:text-6xl font-light tracking-tighter text-slate-900 leading-none">
-          Contact{" "}
-          <span className="italic font-serif text-[#ff356c]">Concierge.</span>
-        </h1>
-        <p className="text-slate-400 text-sm uppercase tracking-[0.3em] font-bold mt-6">
-          Excellence in assistance, 24/7
-        </p>
-      </div>
-
-      <main className="max-w-4xl mx-auto px-6">
-        {/* 2. QUICK CONTACT TILES (Clean HUD Style) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 -mt-8 relative z-10">
-          <a
-            href="https://wa.me/919899990772"
-            className="bg-white p-6 border border-slate-100 shadow-sm flex items-center justify-between hover:border-[#ff356c]/30 transition-all">
-            <div className="flex items-center gap-6">
-              <div className="text-[#ff356c]">
-                <MessageSquare size={20} strokeWidth={1.5} />
-              </div>
-              <div>
-                <p className="text-[10px] uppercase tracking-[0.2em] font-black text-slate-900">
-                  Live Chat
-                </p>
-                <p className="text-xs text-slate-400">Response in 5 mins</p>
-              </div>
-            </div>
-            <ChevronRight size={16} className="text-slate-200" />
-          </a>
-
-          <a
-            href="tel:+919899990772"
-            className="bg-white p-6 border border-slate-100 shadow-sm flex items-center justify-between hover:border-[#ff356c]/30 transition-all">
-            <div className="flex items-center gap-6">
-              <div className="text-[#ff356c]">
-                <Phone size={20} strokeWidth={1.5} />
-              </div>
-              <div>
-                <p className="text-[10px] uppercase tracking-[0.2em] font-black text-slate-900">
-                  Direct Line
-                </p>
-                <p className="text-xs text-slate-400">9 AM - 6 PM IST</p>
-              </div>
-            </div>
-            <ChevronRight size={16} className="text-slate-200" />
-          </a>
+    <div className="min-h-screen bg-white font-sans selection:bg-[#da127d] selection:text-white">
+      {/* ── HEADER: Editorial Title ── */}
+      <header className="w-full pt-20 pb-16 px-6 border-b border-gray-100 bg-[#FAFAFA]">
+        <div className="max-w-[1500px] mx-auto text-center">
+          <span className="text-[#da127d] text-[11px] font-bold uppercase tracking-[0.4em] mb-4 block">
+            Bespoke Assistance
+          </span>
+          <h1
+            className="text-4xl md:text-6xl lg:text-7xl text-gray-900 tracking-tight"
+            style={{ fontFamily: "'Playfair Display', serif" }}>
+            Connect with <span className="italic">Mnmukt</span>
+          </h1>
         </div>
+      </header>
 
-        {/* 3. THE FORM (Minimalist Manifest) */}
-        <div className="mt-20">
-          <div className="mb-12">
-            <h2 className="text-[10px] uppercase tracking-[0.5em] font-black text-slate-300">
-              Send Manifest
+      <main className="max-w-[1500px] mx-auto flex flex-col lg:flex-row border-l border-gray-100">
+        {/* ── LEFT: The Inquiry Form ── */}
+        <section className="flex-1 p-8 md:p-16 lg:p-20 border-r border-b lg:border-b-0 border-gray-100">
+          <div className="max-w-xl">
+            <h2
+              className="text-2xl md:text-3xl text-gray-900 mb-10 tracking-wide"
+              style={{ fontFamily: "'Playfair Display', serif" }}>
+              Send <span className="italic">Inquiry</span>
             </h2>
-          </div>
 
-          {status === "success" && (
-            <div className="mb-10 p-4 border border-green-100 bg-green-50/50 text-green-700 text-[10px] uppercase tracking-widest font-bold flex items-center gap-3">
-              <CheckCircle2 size={16} /> Message Dispatched Successfully
-            </div>
-          )}
+            {status === "success" && (
+              <div className="mb-10 bg-emerald-50 border border-emerald-100 p-4 flex items-center gap-3 text-emerald-700 text-[12px] font-bold uppercase tracking-widest animate-in fade-in slide-in-from-top-2">
+                <Check size={18} /> Our concierge will contact you shortly.
+              </div>
+            )}
 
-          <form onSubmit={handleSubmit} className="space-y-12">
-            <div className="group relative">
-              <label className="text-[10px] uppercase tracking-[0.3em] font-bold text-slate-400 group-focus-within:text-[#ff356c] transition-colors">
-                Full Identity
-              </label>
-              <input
-                name="name"
-                required
-                value={formData.name}
-                onChange={handleChange}
-                className="w-full border-b border-slate-100 py-4 text-lg bg-transparent focus:border-[#ff356c] focus:outline-none transition-all placeholder:text-slate-100"
-                placeholder="Required"
-              />
-            </div>
+            <form onSubmit={handleSubmit} className="space-y-10">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                {/* Name */}
+                <div className="group border-b border-gray-200 focus-within:border-[#da127d] transition-colors">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 group-focus-within:text-[#da127d]">
+                    Full Identity
+                  </label>
+                  <input
+                    name="name"
+                    required
+                    value={formData.name}
+                    onChange={handleChange}
+                    className="w-full py-3 text-[15px] bg-transparent outline-none placeholder:text-gray-200"
+                    placeholder="Enter your name"
+                  />
+                </div>
+                {/* Email */}
+                <div className="group border-b border-gray-200 focus-within:border-[#da127d] transition-colors">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 group-focus-within:text-[#da127d]">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    required
+                    value={formData.email}
+                    onChange={handleChange}
+                    className="w-full py-3 text-[15px] bg-transparent outline-none placeholder:text-gray-200"
+                    placeholder="name@example.com"
+                  />
+                </div>
+              </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-              <div className="group relative">
-                <label className="text-[10px] uppercase tracking-[0.3em] font-bold text-slate-400 group-focus-within:text-[#ff356c] transition-colors">
-                  Email Address
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                {/* Order ID */}
+                <div className="group border-b border-gray-200 focus-within:border-[#da127d] transition-colors">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 group-focus-within:text-[#da127d]">
+                    Order Reference
+                  </label>
+                  <input
+                    name="orderId"
+                    value={formData.orderId}
+                    onChange={handleChange}
+                    className="w-full py-3 text-[15px] bg-transparent outline-none placeholder:text-gray-200"
+                    placeholder="#MN-0000 (Optional)"
+                  />
+                </div>
+                {/* Subject */}
+                <div className="group border-b border-gray-200 focus-within:border-[#da127d] transition-colors">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 group-focus-within:text-[#da127d]">
+                    Query Subject
+                  </label>
+                  <select
+                    name="subject"
+                    value={formData.subject}
+                    onChange={handleChange}
+                    className="w-full py-3 text-[15px] bg-transparent outline-none cursor-pointer">
+                    <option>General Inquiry</option>
+                    <option>Order Status</option>
+                    <option>Custom Tailoring</option>
+                    <option>Returns & Exchange</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Message */}
+              <div className="group border-b border-gray-200 focus-within:border-[#da127d] transition-colors">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 group-focus-within:text-[#da127d]">
+                  Message Essence
                 </label>
-                <input
-                  type="email"
-                  name="email"
+                <textarea
+                  name="message"
                   required
-                  value={formData.email}
+                  rows="4"
+                  value={formData.message}
                   onChange={handleChange}
-                  className="w-full border-b border-slate-100 py-4 text-lg bg-transparent focus:border-[#ff356c] focus:outline-none transition-all placeholder:text-slate-100"
-                  placeholder="name@example.com"
+                  className="w-full py-3 text-[15px] bg-transparent outline-none resize-none placeholder:text-gray-200"
+                  placeholder="How may we assist your journey?"
                 />
               </div>
-              <div className="group relative">
-                <label className="text-[10px] uppercase tracking-[0.3em] font-bold text-slate-400 group-focus-within:text-[#ff356c] transition-colors">
-                  Order Reference
-                </label>
-                <input
-                  name="orderId"
-                  value={formData.orderId}
-                  onChange={handleChange}
-                  className="w-full border-b border-slate-100 py-4 text-lg bg-transparent focus:border-[#ff356c] focus:outline-none transition-all placeholder:text-slate-100"
-                  placeholder="#MN-0000 (Optional)"
-                />
-              </div>
-            </div>
 
-            <div className="group relative">
-              <label className="text-[10px] uppercase tracking-[0.3em] font-bold text-slate-400 group-focus-within:text-[#ff356c] transition-colors">
-                Message Essence
-              </label>
-              <textarea
-                name="message"
-                required
-                rows="3"
-                value={formData.message}
-                onChange={handleChange}
-                className="w-full border-b border-slate-100 py-4 mt-2 text-lg bg-transparent focus:border-[#ff356c] focus:outline-none resize-none transition-all placeholder:text-slate-100"
-                placeholder="Tell us how we may assist..."
+              {/* Submit Button (Sharp Editorial) */}
+              <button
+                type="submit"
+                disabled={status === "loading"}
+                className="w-full md:w-auto bg-gray-900 text-white px-12 py-5 text-[11px] font-bold uppercase tracking-[0.4em] hover:bg-[#da127d] transition-all duration-500 disabled:opacity-50 flex items-center justify-center gap-4">
+                {status === "loading" ? (
+                  <Loader2 className="animate-spin w-4 h-4" />
+                ) : (
+                  <>
+                    Send Query <ArrowRight size={14} />
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+        </section>
+
+        {/* ── RIGHT: Contact Info ── */}
+        <aside className="lg:w-[400px] xl:w-[450px] bg-white p-8 md:p-16 lg:p-20 flex flex-col gap-16">
+          {/* Studio Location */}
+          <div className="animate-in fade-in slide-in-from-right-4 duration-700">
+            <span className="text-[#da127d] text-[10px] font-bold uppercase tracking-[0.3em] mb-6 block">
+              The Atelier
+            </span>
+            <div className="flex gap-4 items-start">
+              <MapPin
+                size={20}
+                strokeWidth={1.5}
+                className="text-gray-400 shrink-0"
               />
-            </div>
-
-            <button
-              type="submit"
-              disabled={status === "loading"}
-              className="w-full bg-slate-950 text-white font-black text-[10px] uppercase tracking-[0.5em] py-5 hover:bg-[#ff356c] transition-all disabled:opacity-30">
-              {status === "loading" ? (
-                <Loader2 className="animate-spin mx-auto w-5 h-5" />
-              ) : (
-                "Submit Request"
-              )}
-            </button>
-          </form>
-        </div>
-
-        {/* 4. ADDRESS & FOOTNOTE */}
-        <div className="mt-32 grid grid-cols-1 md:grid-cols-2 gap-12 pt-12 border-t border-slate-50">
-          <div>
-            <h3 className="text-[10px] font-black text-slate-900 mb-6 uppercase tracking-[0.4em]">
-              The Studio
-            </h3>
-            <div className="flex gap-4 items-start text-sm text-slate-500 font-light leading-relaxed">
-              <MapPin size={18} className="text-[#ff356c] shrink-0" />
-              <span>B 005, Sector 85, Noida, UP 201301</span>
+              <div>
+                <p className="text-[15px] text-gray-900 font-medium leading-relaxed">
+                  B-005, Sector 85,
+                  <br />
+                  Noida, Uttar Pradesh 201305
+                </p>
+                <a
+                  href="https://maps.google.com"
+                  className="text-[11px] font-bold uppercase tracking-widest text-[#da127d] mt-4 block hover:underline">
+                  Navigate
+                </a>
+              </div>
             </div>
           </div>
-          <div>
-            <h3 className="text-[10px] font-black text-slate-900 mb-6 uppercase tracking-[0.4em]">
-              Hours
-            </h3>
-            <p className="text-sm text-slate-500 font-light tracking-wide italic font-serif">
-              Mon — Sat: 09:00 — 18:00 IST
-            </p>
+
+          {/* Digital Connection */}
+          <div className="animate-in fade-in slide-in-from-right-4 duration-700 delay-150">
+            <span className="text-[#da127d] text-[10px] font-bold uppercase tracking-[0.3em] mb-6 block">
+              Digital Support
+            </span>
+            <div className="space-y-6">
+              <div className="flex items-center gap-4 group cursor-pointer">
+                <Mail
+                  size={20}
+                  strokeWidth={1.5}
+                  className="text-gray-400 group-hover:text-[#da127d] transition-colors"
+                />
+                <p className="text-[15px] text-gray-900 font-medium">
+                  concierge@mnmukt.com
+                </p>
+              </div>
+              <div className="flex items-center gap-4 group cursor-pointer">
+                <Phone
+                  size={20}
+                  strokeWidth={1.5}
+                  className="text-gray-400 group-hover:text-[#da127d] transition-colors"
+                />
+                <p className="text-[15px] text-gray-900 font-medium">
+                  +91 989 999 0772
+                </p>
+              </div>
+            </div>
           </div>
-        </div>
+
+          {/* Working Hours */}
+          <div className="animate-in fade-in slide-in-from-right-4 duration-700 delay-300">
+            <span className="text-[#da127d] text-[10px] font-bold uppercase tracking-[0.3em] mb-6 block">
+              Timings
+            </span>
+            <div className="flex gap-4 items-start">
+              <Clock size={20} strokeWidth={1.5} className="text-gray-400" />
+              <p className="text-[14px] text-gray-600 italic font-serif leading-relaxed">
+                Monday — Saturday
+                <br />
+                09:00 — 18:00 IST
+              </p>
+            </div>
+          </div>
+
+          {/* Social */}
+          <div className="pt-8 border-t border-gray-100 mt-auto">
+            <div className="flex items-center gap-6">
+              <a
+                href="#"
+                className="text-gray-400 hover:text-[#da127d] transition-colors">
+                <Instagram size={20} strokeWidth={1.5} />
+              </a>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-300">
+                Follow our journey
+              </span>
+            </div>
+          </div>
+        </aside>
       </main>
     </div>
   );

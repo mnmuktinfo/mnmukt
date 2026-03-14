@@ -1,6 +1,5 @@
 import React, { useState } from "react";
-import { X, ChevronLeft } from "lucide-react";
-import { Link } from "react-router-dom";
+import { X, Share2, ShoppingBag } from "lucide-react";
 import SizeSelector from "../../../../components/selector/SizeSelector";
 import { useCart } from "../../../cart/context/CartContext";
 
@@ -11,101 +10,137 @@ const MoveToCartPopUp = ({ onClose, product, onCompleted }) => {
   const { addToCart } = useCart();
 
   const handleAdd = async () => {
-    if (product.sizes && product.sizes.length > 0 && !selectedSize) {
-      setError("Please select a size");
+    if (product.sizes?.length > 0 && !selectedSize) {
+      setError("Select size");
       return;
     }
 
-    await addToCart({
-      id: product.id,
-      selectedSize: selectedSize,
-      selectedQuantity: 1,
-    });
+    try {
+      await addToCart({
+        id: product.id,
+        selectedSize,
+        selectedQuantity: 1,
+      });
 
-    if (onCompleted) onCompleted();
-    onClose();
+      onCompleted?.();
+      onClose();
+    } catch (err) {
+      console.error(err);
+      setError("Could not add to cart");
+    }
   };
 
-  const price = Number(product.price);
-  const originalPrice = Number(product.originalPrice);
+  const handleShare = async () => {
+    const productUrl = `${window.location.origin}/product/${product.slug}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: product.name,
+          text: `Check out ${product.name}`,
+          url: productUrl,
+        });
+      } catch {}
+    } else {
+      try {
+        await navigator.clipboard.writeText(productUrl);
+        alert("Link copied to clipboard");
+      } catch {}
+    }
+  };
+
+  const price = Number(product.price || 0);
+  const originalPrice = Number(product.originalPrice || 0);
   const discount =
     originalPrice > price
       ? Math.round(((originalPrice - price) / originalPrice) * 100)
       : 0;
 
   return (
-    <div className="fixed inset-0 bg-white md:bg-black/40 md:backdrop-blur-sm flex flex-col md:items-center md:justify-center z-[100]">
-      {/* Container: 
-          - Mobile: Full width/height, no rounding
-          - Desktop: Max width, centered, rounded corners
-      */}
-      <div className="bg-white w-full h-full md:h-auto md:max-w-md md:rounded-2xl md:shadow-2xl flex flex-col relative animate-in slide-in-from-bottom md:zoom-in duration-300">
-        {/* MOBILE HEADER BAR */}
-        <div className="flex md:hidden items-center justify-between px-4 h-16 border-b border-slate-50">
-          <button onClick={onClose} className="p-2 -ml-2 text-slate-900">
-            <ChevronLeft size={24} />
+    <div className="fixed inset-0 z-[10000] flex items-end md:items-center md:justify-center font-sans">
+      {/* BACKDROP */}
+      <div
+        onClick={onClose}
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+      />
+
+      {/* MODAL */}
+      <div className="relative bg-white w-full h-[100dvh] md:h-auto md:w-[480px] shadow-[0_40px_80px_rgba(0,0,0,0.25)] flex flex-col md:rounded-md">
+        {/* HEADER */}
+        <div className="flex items-center justify-between px-5 h-14 border-b border-gray-200">
+          <button
+            onClick={onClose}
+            className="p-1 text-gray-500 hover:text-gray-900 transition">
+            <X size={20} />
           </button>
-          <span className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-900">
+
+          <span className="text-[10px] tracking-[0.35em] uppercase font-semibold text-gray-700">
             Select Size
           </span>
-          <div className="w-10" /> {/* Spacer for centering */}
+
+          <button
+            onClick={handleShare}
+            className="p-1 text-gray-500 hover:text-[#0073e6] transition">
+            <Share2 size={20} />
+          </button>
         </div>
 
-        {/* DESKTOP CLOSE BUTTON */}
-        <button
-          onClick={onClose}
-          className="hidden md:flex absolute top-5 right-5 p-2 text-slate-300 hover:text-slate-900 transition-colors">
-          <X size={20} />
-        </button>
-
-        {/* CONTENT AREA */}
-        <div className="flex-1 overflow-y-auto p-6 md:p-8">
+        {/* CONTENT */}
+        <div className="flex-1 overflow-y-auto px-6 py-6">
           {/* PRODUCT INFO */}
-          <div className="flex gap-6 mb-10">
-            <div className="shrink-0">
+          <div className="flex gap-4 mb-8">
+            <div className="w-24 h-32 bg-gray-50 border border-gray-100 overflow-hidden rounded-sm">
               <img
+                loading="lazy"
+                decoding="async"
                 src={
-                  product.images?.[0] || product.banner || "/placeholder.jpg"
+                  product.banner || product.images?.[0] || "/placeholder.jpg"
                 }
                 alt={product.name}
-                className="w-24 h-32 object-cover border border-slate-50"
+                className="w-full h-full object-cover"
               />
             </div>
 
             <div className="flex flex-col justify-center">
-              <h3 className="text-xl font-light tracking-tighter text-slate-900 leading-tight mb-2 italic font-serif">
+              <span className="text-[9px] tracking-[0.25em] uppercase text-[#da127d] font-semibold mb-1">
+                {product.category || "New Arrival"}
+              </span>
+
+              <h3
+                className="text-[15px] text-gray-900 leading-snug mb-1"
+                style={{ fontFamily: "'Playfair Display', serif" }}>
                 {product.name}
               </h3>
 
-              <div className="flex items-baseline gap-3">
-                <span className="text-lg font-medium text-slate-950">
+              <div className="flex items-center gap-2">
+                <span className="text-[14px] font-semibold text-gray-900">
                   ₹{price}
                 </span>
+
                 {originalPrice > price && (
-                  <span className="line-through text-xs text-slate-300 tracking-tighter">
+                  <span className="text-[12px] line-through text-gray-400">
                     ₹{originalPrice}
                   </span>
                 )}
+
                 {discount > 0 && (
-                  <span className="text-[10px] font-black text-[#FF356C] uppercase tracking-widest">
-                    {discount}% OFF
+                  <span className="text-[9px] bg-[#fce4ec] text-[#da127d] px-2 py-[2px] uppercase tracking-wider font-semibold rounded">
+                    {discount}% off
                   </span>
                 )}
               </div>
             </div>
           </div>
 
-          <div className="h-[1px] bg-slate-50 w-full mb-10" />
+          {/* SIZE SECTION */}
+          {product.sizes?.length > 0 && (
+            <div className="mb-6">
+              <div className="flex justify-between items-center mb-4">
+                <span className="text-[10px] uppercase tracking-[0.35em] text-gray-500 font-semibold">
+                  Size
+                </span>
 
-          {/* SIZE SELECTOR SECTION */}
-          {product.sizes && product.sizes.length > 0 && (
-            <div className="mb-10">
-              <div className="flex justify-between items-center mb-6">
-                <h4 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em]">
-                  Available Sizes
-                </h4>
                 {error && (
-                  <span className="text-[10px] text-[#FF356C] font-black uppercase tracking-widest">
+                  <span className="text-[10px] text-[#da127d] font-semibold">
                     {error}
                   </span>
                 )}
@@ -119,23 +154,33 @@ const MoveToCartPopUp = ({ onClose, product, onCompleted }) => {
                   setError("");
                 }}
               />
+
+              <p className="text-[10px] text-gray-400 mt-3">
+                True to size • Check size guide for exact fit
+              </p>
             </div>
           )}
         </div>
 
-        {/* STICKY FOOTER BUTTON */}
-        <div className="p-6 md:p-8 border-t border-slate-50 bg-white">
+        {/* FOOTER */}
+        <div className="border-t border-gray-200 p-5">
           <button
             onClick={handleAdd}
-            className={`
-              w-full py-5 text-[10px] font-black tracking-[0.4em] uppercase transition-all
+            disabled={product.sizes?.length > 0 && !selectedSize}
+            className={`w-full flex items-center justify-center gap-2
+              py-3 text-[10px] tracking-[0.35em] uppercase font-semibold
+              transition-all duration-300 rounded-md
               ${
-                !product.sizes || selectedSize
-                  ? "bg-slate-950 text-white hover:bg-[#FF356C]"
-                  : "bg-slate-50 text-slate-300 cursor-not-allowed"
-              }
-            `}>
-            {selectedSize ? `Move to Cart — ${selectedSize}` : "Select a Size"}
+                selectedSize || !product.sizes?.length
+                  ? "bg-[#da127d] text-white hover:bg-[#c20f6e]"
+                  : "bg-gray-100 text-gray-400 cursor-not-allowed"
+              }`}>
+            <ShoppingBag size={16} />
+            {selectedSize
+              ? `Add To Bag — ${selectedSize}`
+              : product.sizes?.length
+                ? "Select Size"
+                : "Add To Bag"}
           </button>
         </div>
       </div>

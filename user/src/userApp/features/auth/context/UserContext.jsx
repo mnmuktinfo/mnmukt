@@ -28,15 +28,15 @@ import {
 /* ════════════════════════════════════════════════════════════
    CONSTANTS
 ════════════════════════════════════════════════════════════ */
-const SAFE_CACHE_FIELDS = ["uid", "name", "email", "defaultAddressId"];
+const STORAGE_KEY = "mnmukt_user_cache";
+const ADDR_KEY = "mnmukt_user_cache";
+const REVALIDATE_MS = 60 * 60 * 1000; // 1 hour — max 1 Firestore read/session
 const MAX_RETRIES = 3;
 const RETRY_BASE_MS = 300;
 
 /* ════════════════════════════════════════════════════════════
-   UTILITIES  (outside component — stable references)
+   UTILITIES
 ════════════════════════════════════════════════════════════ */
-
-/** Exponential back-off retry for any async fn */
 const withRetry = async (fn, retries = MAX_RETRIES, label = "op") => {
   let lastErr;
   for (let attempt = 0; attempt <= retries; attempt++) {
@@ -44,11 +44,8 @@ const withRetry = async (fn, retries = MAX_RETRIES, label = "op") => {
       return await fn();
     } catch (err) {
       lastErr = err;
-      if (attempt < retries) {
-        await new Promise((r) =>
-          setTimeout(r, RETRY_BASE_MS * Math.pow(2, attempt)),
-        );
-      }
+      if (attempt < retries)
+        await new Promise((r) => setTimeout(r, RETRY_BASE_MS * 2 ** attempt));
     }
   }
   console.error(
@@ -58,9 +55,8 @@ const withRetry = async (fn, retries = MAX_RETRIES, label = "op") => {
   throw lastErr;
 };
 
-/** Firebase error code → human message */
-const authErrorMessage = (code) => {
-  const map = {
+const authErrorMessage = (code) =>
+  ({
     "auth/user-not-found": "No account found with this email.",
     "auth/wrong-password": "Incorrect password.",
     "auth/invalid-email": "Invalid email address.",
@@ -70,22 +66,8 @@ const authErrorMessage = (code) => {
     "auth/network-request-failed": "Network error. Check your connection.",
     "auth/requires-recent-login":
       "Please log out and log in again to continue.",
-  };
-  return map[code] ?? "An unexpected error occurred. Please try again.";
-};
+  })[code] ?? "An unexpected error occurred. Please try again.";
 
-/** Pick only safe fields for localStorage */
-const toSafeCache = (user) =>
-  user
-    ? Object.fromEntries(
-        SAFE_CACHE_FIELDS.filter((k) => user[k] !== undefined).map((k) => [
-          k,
-          user[k],
-        ]),
-      )
-    : null;
-
-/** Firestore Timestamp → ISO string */
 const toISO = (v) => {
   if (!v) return null;
   if (typeof v.toDate === "function") return v.toDate().toISOString();
@@ -93,29 +75,55 @@ const toISO = (v) => {
   return v;
 };
 
-// ✅ FIX 4: cache helpers outside component — stable, no re-creation on render
-const _setLocalCache = (user, address) => {
+// ── Cache helpers ──────────────────────────────────────────
+const readUserCache = () => {
   try {
-    localStorage.setItem("auth_cache", JSON.stringify(toSafeCache(user)));
-    if (address) {
-      // ✅ FIX 5: store full address so checkout can read line1, line2 etc.
-      localStorage.setItem("addr_cache", JSON.stringify(address));
-    } else {
-      localStorage.removeItem("addr_cache");
-    }
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
   } catch {
-    /* quota exceeded or private browsing — silent */
+    return null;
   }
 };
 
-const _clearLocalCache = () => {
+const readAddrCache = () => {
   try {
-    localStorage.removeItem("auth_cache");
-    localStorage.removeItem("addr_cache");
-    localStorage.removeItem("auth_uid");
+    const raw = localStorage.getItem(ADDR_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
+const writeCache = (user, address) => {
+  try {
+    if (!user) return;
+    // Strip Firestore Timestamps — they don't serialize
+    const safe = { ...user };
+    ["createdAt", "updatedAt"].forEach((k) => {
+      if (safe[k]?.seconds)
+        safe[k] = new Date(safe[k].seconds * 1000).toISOString();
+    });
+    safe.syncedAt = new Date().toISOString();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(safe));
+    if (address) localStorage.setItem(ADDR_KEY, JSON.stringify(address));
+    else localStorage.removeItem(ADDR_KEY);
+  } catch {
+    /* quota exceeded / private browsing — silent */
+  }
+};
+
+const clearCache = () => {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(ADDR_KEY);
   } catch {
     /* ignore */
   }
+};
+
+const isCacheStale = (cached) => {
+  if (!cached?.syncedAt) return true;
+  return Date.now() - new Date(cached.syncedAt).getTime() > REVALIDATE_MS;
 };
 
 /* ════════════════════════════════════════════════════════════
@@ -125,6 +133,7 @@ const INITIAL_STATE = {
   user: null,
   address: null,
   isLoggedIn: false,
+  // ✅ KEY: 3 distinct loading states
   authLoading: true, // true until Firebase confirms state
   actionLoading: false,
   error: null,
@@ -139,15 +148,11 @@ const authReducer = (state, action) => {
         address: action.address ?? state.address,
         isLoggedIn: true,
         authLoading: false,
-        actionLoading: false, // clear any stale loading
+        actionLoading: false,
         error: null,
       };
     case "AUTH_CLEAR":
-      return {
-        ...INITIAL_STATE,
-        authLoading: false,
-        actionLoading: false, // ✅ FIX Minor: reset on clear too
-      };
+      return { ...INITIAL_STATE, authLoading: false };
     case "SET_ADDRESS":
       return { ...state, address: action.address };
     case "PATCH_USER":
@@ -169,7 +174,20 @@ const authReducer = (state, action) => {
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [state, dispatch] = useReducer(authReducer, INITIAL_STATE);
+  // ✅ Bootstrap instantly from cache — no loading flicker on refresh
+  const cachedUser = readUserCache();
+  const cachedAddr = readAddrCache();
+
+  const [state, dispatch] = useReducer(authReducer, {
+    ...INITIAL_STATE,
+    // Pre-fill from cache only if user was verified (unverified users are never cached)
+    user: cachedUser?.emailVerified ? cachedUser : null,
+    address: cachedUser?.emailVerified ? cachedAddr : null,
+    isLoggedIn: !!cachedUser?.emailVerified,
+    authLoading: true, // still true — Firebase must confirm before we trust cache fully
+  });
+
+  const lastVerifiedUid = useRef(cachedUser?.uid ?? null);
   const aliveRef = useRef(true);
 
   /* ── Firebase auth listener ──────────────────────────────── */
@@ -177,66 +195,109 @@ export const AuthProvider = ({ children }) => {
     aliveRef.current = true;
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      // ── CASE 1: No Firebase session ──────────────────────────
       if (!firebaseUser) {
         if (aliveRef.current) {
           dispatch({ type: "AUTH_CLEAR" });
-          _clearLocalCache();
+          clearCache();
         }
         return;
       }
 
+      // ── CASE 2: Email NOT verified ────────────────────────────
+      // Do NOT read Firestore. Do NOT cache. Show "verify email" state only.
+      if (!firebaseUser.emailVerified) {
+        if (aliveRef.current) {
+          dispatch({
+            type: "AUTH_SUCCESS",
+            // Minimal user object — just enough to show "please verify" UI
+            user: {
+              uid: firebaseUser.uid,
+              email: firebaseUser.email,
+              name: firebaseUser.displayName || "",
+              emailVerified: false,
+              role: "unverified",
+            },
+            address: null,
+          });
+        }
+        // ✅ No Firestore read — unverified users cost nothing
+        return;
+      }
+
+      // ── CASE 3: Verified — check cache freshness ──────────────
+      const cached = readUserCache();
+      if (
+        cached?.emailVerified &&
+        cached.uid === firebaseUser.uid &&
+        !isCacheStale(cached) &&
+        lastVerifiedUid.current === firebaseUser.uid
+      ) {
+        // Cache is fresh and same user — skip Firestore read entirely
+        if (aliveRef.current) {
+          dispatch({
+            type: "AUTH_SUCCESS",
+            user: cached,
+            address: readAddrCache(),
+          });
+          dispatch({ type: "ACTION_END" }); // ensure authLoading clears
+        }
+        return;
+      }
+
+      // ── CASE 4: Verified + stale/missing cache → Firestore read ──
       try {
-        const userRef = doc(db, "users", firebaseUser.uid);
-        // ✅ FIX 1: fetch user doc directly — no pointless single-item Promise.all
         const userSnap = await withRetry(
-          () => getDoc(userRef),
+          () => getDoc(doc(db, "users", firebaseUser.uid)),
           MAX_RETRIES,
-          "onAuthStateChanged:getDoc",
+          "authListener:getUser",
         );
 
         if (!userSnap.exists()) {
           if (aliveRef.current) {
             dispatch({ type: "AUTH_CLEAR" });
-            _clearLocalCache();
+            clearCache();
           }
           return;
         }
 
-        const userData = userSnap.data();
-
-        // ✅ FIX 3: block check in auth listener — blocked users never get through
-        if (userData.isBlocked) {
+        const data = userSnap.data();
+        if (data.isBlocked) {
           await signOut(auth);
           if (aliveRef.current) {
             dispatch({ type: "AUTH_CLEAR" });
-            _clearLocalCache();
+            clearCache();
           }
-          console.warn(
-            "[AuthContext] Blocked user attempted login:",
-            firebaseUser.uid,
-          );
           return;
+        }
+
+        // ✅ Sync emailVerified to Firestore if it changed (e.g. user just clicked link)
+        if (firebaseUser.emailVerified && !data.emailVerified) {
+          await updateDoc(doc(db, "users", firebaseUser.uid), {
+            emailVerified: true,
+            updatedAt: serverTimestamp(),
+          }).catch(() => {}); // non-fatal
         }
 
         const finalUser = {
           uid: firebaseUser.uid,
-          role: userData.role || "user",
-          provider: userData.provider || "email",
-          name: userData.name || "",
-          email: userData.email || firebaseUser.email || "",
-          phone: userData.phone || "",
-          gender: userData.gender || "",
-          dateOfBirth: userData.dateOfBirth || "",
-          defaultAddressId: userData.defaultAddressId || null,
-          emailVerified: firebaseUser.emailVerified,
+          role: data.role || "user",
+          provider: data.provider || "email",
+          name: data.name || "",
+          email: data.email || firebaseUser.email || "",
+          phone: data.phone || "",
+          gender: data.gender || "",
+          dateOfBirth: data.dateOfBirth || "",
+          defaultAddressId: data.defaultAddressId || null,
+          emailVerified: true, // guaranteed by CASE 3 check above
           isBlocked: false,
-          createdAt: toISO(userData.createdAt),
-          updatedAt: toISO(userData.updatedAt),
+          createdAt: toISO(data.createdAt),
+          updatedAt: toISO(data.updatedAt),
         };
 
-        // ✅ FIX 1: fetch address in true parallel with nothing else blocking it
+        // Fetch address in parallel — non-fatal if missing
         let address = null;
-        if (userData.defaultAddressId) {
+        if (data.defaultAddressId) {
           try {
             const addrSnap = await withRetry(
               () =>
@@ -246,32 +307,35 @@ export const AuthProvider = ({ children }) => {
                     "users",
                     firebaseUser.uid,
                     "addresses",
-                    userData.defaultAddressId,
+                    data.defaultAddressId,
                   ),
                 ),
               MAX_RETRIES,
-              "onAuthStateChanged:getAddress",
+              "authListener:getAddress",
             );
             if (addrSnap.exists())
               address = { id: addrSnap.id, ...addrSnap.data() };
-          } catch (addrErr) {
-            // Non-fatal — address missing shouldn't block login
+          } catch (e) {
             console.warn(
               "[AuthContext] Address fetch failed (non-fatal):",
-              addrErr.message,
+              e.message,
             );
           }
         }
 
         if (!aliveRef.current) return;
 
+        lastVerifiedUid.current = firebaseUser.uid;
         dispatch({ type: "AUTH_SUCCESS", user: finalUser, address });
-        _setLocalCache(finalUser, address);
+        writeCache(finalUser, address);
       } catch (err) {
-        console.error("[AuthContext] Auth sync failed:", err);
+        console.error("[AuthContext] Auth sync error:", err);
         if (aliveRef.current) {
-          dispatch({ type: "AUTH_CLEAR" });
-          _clearLocalCache();
+          // Keep stale cache rather than logging out on network error
+          if (!readUserCache()) {
+            dispatch({ type: "AUTH_CLEAR" });
+            clearCache();
+          } else dispatch({ type: "ACTION_END" });
         }
       }
     });
@@ -287,7 +351,6 @@ export const AuthProvider = ({ children }) => {
     async (addressData) => {
       if (!state.user?.uid) throw new Error("Not authenticated");
       dispatch({ type: "ACTION_START" });
-
       try {
         const { id, ...dataToSave } = addressData;
         const payload = { ...dataToSave, updatedAt: serverTimestamp() };
@@ -296,7 +359,6 @@ export const AuthProvider = ({ children }) => {
         let finalId;
 
         if (!existingId) {
-          // CREATE new address
           const ref = await withRetry(
             () =>
               addDoc(collection(db, "users", state.user.uid, "addresses"), {
@@ -307,7 +369,6 @@ export const AuthProvider = ({ children }) => {
             "saveAddress:create",
           );
           finalId = ref.id;
-
           await withRetry(
             () =>
               updateDoc(doc(db, "users", state.user.uid), {
@@ -317,13 +378,11 @@ export const AuthProvider = ({ children }) => {
             MAX_RETRIES,
             "saveAddress:linkDefault",
           );
-
           dispatch({
             type: "PATCH_USER",
             updates: { defaultAddressId: finalId },
           });
         } else {
-          // UPDATE existing address (merge: true is safe even if doc is missing)
           finalId = existingId;
           await withRetry(
             () =>
@@ -337,11 +396,11 @@ export const AuthProvider = ({ children }) => {
           );
         }
 
-        const savedAddress = { id: finalId, ...dataToSave };
-        dispatch({ type: "SET_ADDRESS", address: savedAddress });
+        const saved = { id: finalId, ...dataToSave };
+        dispatch({ type: "SET_ADDRESS", address: saved });
         dispatch({ type: "ACTION_END" });
-        _setLocalCache(state.user, savedAddress);
-        return savedAddress;
+        writeCache(state.user, saved);
+        return saved;
       } catch (err) {
         dispatch({ type: "SET_ERROR", error: err.message });
         throw err;
@@ -355,16 +414,12 @@ export const AuthProvider = ({ children }) => {
     async (updates) => {
       if (!state.user?.uid) throw new Error("Not authenticated");
       dispatch({ type: "ACTION_START" });
-
       const { address: _ignored, ...profileUpdates } = updates;
       const payload = Object.fromEntries(
         Object.entries(profileUpdates).filter(([, v]) => v !== undefined),
       );
-
-      // ✅ FIX 2: snapshot BEFORE optimistic patch so we can roll back correctly
       const snapshot = { ...state.user };
       dispatch({ type: "PATCH_USER", updates: payload });
-
       try {
         await withRetry(
           () =>
@@ -378,8 +433,7 @@ export const AuthProvider = ({ children }) => {
         dispatch({ type: "ACTION_END" });
         return payload;
       } catch (err) {
-        // ✅ FIX 2: roll back to snapshot, not broken re-spread
-        dispatch({ type: "PATCH_USER", updates: snapshot });
+        dispatch({ type: "PATCH_USER", updates: snapshot }); // rollback
         dispatch({ type: "SET_ERROR", error: err.message });
         throw err;
       }
@@ -392,11 +446,11 @@ export const AuthProvider = ({ children }) => {
     if (!auth.currentUser) throw new Error("Not authenticated");
     dispatch({ type: "ACTION_START" });
     try {
-      const credential = EmailAuthProvider.credential(
+      const cred = EmailAuthProvider.credential(
         auth.currentUser.email,
         currentPassword,
       );
-      await reauthenticateWithCredential(auth.currentUser, credential);
+      await reauthenticateWithCredential(auth.currentUser, cred);
       await updatePassword(auth.currentUser, newPassword);
       dispatch({ type: "ACTION_END" });
     } catch (err) {
@@ -427,50 +481,49 @@ export const AuthProvider = ({ children }) => {
     try {
       await signOut(auth);
       dispatch({ type: "AUTH_CLEAR" });
-      _clearLocalCache();
+      clearCache();
     } catch (err) {
       dispatch({ type: "SET_ERROR", error: err.message });
       throw err;
     }
   }, []);
 
-  /* ── Manual address override (checkout address picker) ───── */
+  /* ── Manual address override ─────────────────────────────── */
   const updateAddressCache = useCallback(
     (newAddress) => {
       dispatch({ type: "SET_ADDRESS", address: newAddress });
-      _setLocalCache(state.user, newAddress);
+      writeCache(state.user, newAddress);
     },
     [state.user],
   );
 
-  /* ── Clear error after toast ─────────────────────────────── */
+  /* ── Clear error ─────────────────────────────────────────── */
   const clearError = useCallback(() => {
     dispatch({ type: "SET_ERROR", error: null });
   }, []);
 
-  /* ── Context value ───────────────────────────────────────── */
-  const value = {
-    user: state.user,
-    address: state.address,
-    isLoggedIn: state.isLoggedIn,
-    authLoading: state.authLoading,
-    actionLoading: state.actionLoading,
-    error: state.error,
-    logout,
-    resetPassword,
-    changePassword,
-    saveAddress,
-    updateUserAndSync,
-    updateAddressCache,
-    clearError,
-  };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider
+      value={{
+        user: state.user,
+        address: state.address,
+        isLoggedIn: state.isLoggedIn,
+        authLoading: state.authLoading,
+        actionLoading: state.actionLoading,
+        error: state.error,
+        logout,
+        resetPassword,
+        changePassword,
+        saveAddress,
+        updateUserAndSync,
+        updateAddressCache,
+        clearError,
+      }}>
+      {children}
+    </AuthContext.Provider>
+  );
 };
 
-/* ════════════════════════════════════════════════════════════
-   HOOK
-════════════════════════════════════════════════════════════ */
 export const useAuth = () => {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used inside <AuthProvider>");

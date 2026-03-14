@@ -1,23 +1,17 @@
 import { COLORS } from "../../../style/theme";
-import useTestimonials from "../../features/testimonials/hooks/useTestimonials";
 import TestimonialCard from "../../../shared/components/TestimonialCard";
 
-const TestimonialsSection = () => {
-  const { testimonials, loading } = useTestimonials();
-
-  // -----------------------------
-  // Skeleton UI
-  // -----------------------------
+const TestimonialsSection = ({ testimonials = [], loading = false }) => {
+  console.log(testimonials);
+  /* ---------------- Skeleton ---------------- */
   if (loading) {
     return (
-      <section className="w-full  bg-white">
-        {/* Heading Skeleton */}
+      <section className="w-full bg-white">
         <div className="text-center mb-16 animate-pulse">
           <div className="h-10 w-60 bg-gray-200 mx-auto rounded mb-4" />
           <div className="h-4 w-40 bg-gray-100 mx-auto rounded" />
         </div>
 
-        {/* Cards Skeleton */}
         <div className="grid gap-14 md:grid-cols-2 lg:grid-cols-3 max-w-7xl mx-auto">
           {[...Array(3)].map((_, i) => (
             <div
@@ -33,6 +27,9 @@ const TestimonialsSection = () => {
       </section>
     );
   }
+
+  /* If no testimonials */
+  if (!testimonials || testimonials.length === 0) return null;
 
   return (
     <section className="w-full py-20 px-4 md:px-10 bg-white">

@@ -16,12 +16,12 @@ const LoginPopup = ({ isOpen, onClose }) => {
   const [loading, setLoading] = useState(null); // null | "email" | "google" | "facebook"
   const [error, setError] = useState("");
 
-  if (!isOpen) return null; // don't render if not open
+  if (!isOpen) return null;
 
   const close = () => onClose();
   const anyLoading = loading !== null;
 
-  /* ── Email + Password login ──────────────────────────────── */
+  /* ── Email + Password login ── */
   const handleEmailLogin = async (e) => {
     e.preventDefault();
     if (!email.trim() || !password) {
@@ -32,7 +32,7 @@ const LoginPopup = ({ isOpen, onClose }) => {
     setError("");
     try {
       await loginUser(email.trim(), password);
-      close(); // AuthContext's onAuthStateChanged handles state update
+      close();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -40,7 +40,7 @@ const LoginPopup = ({ isOpen, onClose }) => {
     }
   };
 
-  /* ── Google ──────────────────────────────────────────────── */
+  /* ── Google ── */
   const handleGoogle = async () => {
     setLoading("google");
     setError("");
@@ -54,7 +54,7 @@ const LoginPopup = ({ isOpen, onClose }) => {
     }
   };
 
-  /* ── Facebook ────────────────────────────────────────────── */
+  /* ── Facebook ── */
   const handleFacebook = async () => {
     setLoading("facebook");
     setError("");
@@ -69,49 +69,58 @@ const LoginPopup = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center md:items-center">
-      {/* Backdrop */}
+    <div className="fixed inset-0 z-9999 flex items-end justify-center md:items-center font-sans selection:bg-[#da127d] selection:text-white">
+      {/* ── Cinematic Backdrop ── */}
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-[2px] animate-in fade-in duration-300"
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-500"
         onClick={close}
       />
 
-      {/* Modal */}
-      <div className="relative w-full md:w-[420px] bg-white  md:rounded-sm shadow-2xl p-6 pt-8 md:p-8 animate-in slide-in-from-bottom-full md:slide-in-from-bottom-0 md:zoom-in-95 duration-300">
-        {/* Close */}
+      {/* ── Modal Container ── */}
+      <div className="relative w-full md:w-[440px] bg-white shadow-2xl p-8 md:p-10 animate-in slide-in-from-bottom-full md:slide-in-from-bottom-0 md:zoom-in-95 duration-500">
+        {/* Close Button */}
         <button
           onClick={close}
-          className="absolute top-5 right-5 text-gray-500 hover:text-gray-800 transition-colors">
-          <X size={24} strokeWidth={1.5} />
+          className="absolute top-6 right-6 w-8 h-8 flex items-center justify-center rounded-full text-gray-500 hover:text-[#da127d] hover:bg-[#F9F5F6] transition-all duration-300">
+          <X size={20} strokeWidth={1.5} />
         </button>
 
-        {/* Header */}
-        <h2 className="text-[22px] font-bold text-[#1f2937] mb-6">
-          Login / Signup
-        </h2>
+        {/* ── Premium Header ── */}
+        <div className="text-center mb-8">
+          <h2
+            className="text-3xl text-gray-900 tracking-wide mb-2"
+            style={{ fontFamily: "'Playfair Display', serif" }}>
+            Welcome Back
+          </h2>
+          <p className="text-[12px] font-semibold text-gray-600 uppercase tracking-widest">
+            Sign in to your account
+          </p>
+        </div>
 
-        {/* Error */}
+        {/* ── Error Notification ── */}
         {error && (
-          <div className="bg-red-50 text-[#f15757] text-[13px] font-medium p-3 rounded-sm mb-4 text-center border border-red-100">
+          <div className="bg-[#F9F5F6] text-[#da127d] text-[13px] font-medium p-3.5 rounded-sm mb-6 text-center border border-[#da127d]/20 animate-in fade-in slide-in-from-top-2">
             {error}
           </div>
         )}
 
-        {/* Email + Password form */}
-        <form onSubmit={handleEmailLogin} className="space-y-3">
+        {/* ── Email + Password Form ── */}
+        <form onSubmit={handleEmailLogin} className="space-y-5">
           {/* Email */}
-          <input
-            type="email"
-            required
-            placeholder="Email Address"
-            value={email}
-            onChange={(e) => {
-              setEmail(e.target.value);
-              setError("");
-            }}
-            disabled={anyLoading}
-            className="w-full border border-gray-300 rounded-sm px-4 py-3.5 text-[14px] text-gray-800 outline-none focus:border-[#f15757] transition-colors placeholder:text-gray-400 disabled:opacity-60"
-          />
+          <div>
+            <input
+              type="email"
+              required
+              placeholder="Email Address"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setError("");
+              }}
+              disabled={anyLoading}
+              className="w-full bg-gray-50 border border-gray-200 rounded-sm px-4 py-3.5 text-[14px] text-gray-900 outline-none focus:bg-white focus:border-[#da127d] focus:ring-1 focus:ring-[#da127d] transition-all placeholder:text-gray-500 disabled:opacity-60"
+            />
+          </div>
 
           {/* Password */}
           <div className="relative">
@@ -125,25 +134,25 @@ const LoginPopup = ({ isOpen, onClose }) => {
                 setError("");
               }}
               disabled={anyLoading}
-              className="w-full border border-gray-300 rounded-sm px-4 py-3.5 pr-14 text-[14px] text-gray-800 outline-none focus:border-[#f15757] transition-colors placeholder:text-gray-400 disabled:opacity-60"
+              className="w-full bg-gray-50 border border-gray-200 rounded-sm px-4 py-3.5 pr-14 text-[14px] text-gray-900 outline-none focus:bg-white focus:border-[#da127d] focus:ring-1 focus:ring-[#da127d] transition-all placeholder:text-gray-500 disabled:opacity-60"
             />
             <button
               type="button"
               onClick={() => setShowPass(!showPass)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-[11px] font-bold uppercase tracking-wider text-gray-400 hover:text-[#f15757] transition-colors">
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold uppercase tracking-[0.15em] text-gray-500 hover:text-[#da127d] transition-colors">
               {showPass ? "Hide" : "Show"}
             </button>
           </div>
 
           {/* Forgot password */}
-          <div className="flex justify-end">
+          <div className="flex justify-end pt-1">
             <button
               type="button"
               onClick={() => {
                 close();
                 navigate("/auth/forgot-password");
               }}
-              className="text-[12px] font-medium text-gray-500 hover:text-[#f15757] transition-colors">
+              className="text-[12px] font-semibold text-gray-600 hover:text-[#da127d] transition-colors">
               Forgot Password?
             </button>
           </div>
@@ -152,28 +161,28 @@ const LoginPopup = ({ isOpen, onClose }) => {
           <button
             type="submit"
             disabled={anyLoading}
-            className="w-full bg-[#f15757] hover:bg-[#e04848] text-white text-[14px] font-bold uppercase tracking-wide py-3.5 rounded-sm transition-colors shadow-sm disabled:opacity-70 disabled:cursor-not-allowed">
-            {loading === "email" ? "Logging in..." : "Continue"}
+            className="w-full bg-[#da127d] hover:bg-[#b80f6a] text-white text-[13px] font-bold uppercase tracking-[0.2em] py-4 rounded-sm transition-all duration-300 shadow-md hover:shadow-lg mt-2 disabled:opacity-70 disabled:cursor-not-allowed">
+            {loading === "email" ? "Authenticating..." : "Sign In"}
           </button>
         </form>
 
-        {/* Divider */}
-        <div className="flex items-center my-6">
+        {/* ── Divider ── */}
+        <div className="flex items-center my-8">
           <div className="flex-1 h-[1px] bg-gray-200" />
-          <span className="px-4 text-[13px] font-bold text-gray-500 uppercase">
-            OR
+          <span className="px-4 text-[11px] font-bold text-gray-500 uppercase tracking-widest">
+            Or continue with
           </span>
           <div className="flex-1 h-[1px] bg-gray-200" />
         </div>
 
-        {/* Social buttons */}
-        <div className="flex justify-center gap-12 mb-4">
+        {/* ── Social Buttons ── */}
+        <div className="flex justify-center gap-10 mb-4">
           {/* Facebook */}
           <div
-            className="flex flex-col items-center gap-2 cursor-pointer group"
+            className="flex flex-col items-center gap-3 cursor-pointer group"
             onClick={!anyLoading ? handleFacebook : undefined}>
             <div
-              className={`w-[52px] h-[52px] rounded-full bg-[#3b5998] flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow ${anyLoading ? "opacity-50 cursor-not-allowed" : ""}`}>
+              className={`w-[56px] h-[56px] rounded-full bg-[#1877F2] flex items-center justify-center shadow-sm group-hover:shadow-md transition-all duration-300 group-hover:-translate-y-1 ${anyLoading ? "opacity-50 cursor-not-allowed" : ""}`}>
               {loading === "facebook" ? (
                 <div className="w-5 h-5 rounded-full border-2 border-white border-t-transparent animate-spin" />
               ) : (
@@ -187,19 +196,19 @@ const LoginPopup = ({ isOpen, onClose }) => {
                 </svg>
               )}
             </div>
-            <span className="text-[12px] font-medium text-gray-600 uppercase tracking-wide">
-              {loading === "facebook" ? "..." : "Facebook"}
+            <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wide group-hover:text-gray-900 transition-colors">
+              {loading === "facebook" ? "Wait..." : "Facebook"}
             </span>
           </div>
 
           {/* Google */}
           <div
-            className="flex flex-col items-center gap-2 cursor-pointer group"
+            className="flex flex-col items-center gap-3 cursor-pointer group"
             onClick={!anyLoading ? handleGoogle : undefined}>
             <div
-              className={`w-[52px] h-[52px] rounded-full bg-white border border-gray-100 flex items-center justify-center shadow-[0_2px_10px_rgba(0,0,0,0.08)] group-hover:shadow-[0_4px_15px_rgba(0,0,0,0.12)] transition-shadow ${anyLoading ? "opacity-50 cursor-not-allowed" : ""}`}>
+              className={`w-[56px] h-[56px] rounded-full bg-white border border-gray-100 flex items-center justify-center shadow-[0_2px_10px_rgba(0,0,0,0.08)] group-hover:shadow-[0_4px_15px_rgba(0,0,0,0.12)] transition-all duration-300 group-hover:-translate-y-1 ${anyLoading ? "opacity-50 cursor-not-allowed" : ""}`}>
               {loading === "google" ? (
-                <div className="w-5 h-5 rounded-full border-2 border-[#f15757] border-t-transparent animate-spin" />
+                <div className="w-5 h-5 rounded-full border-2 border-[#da127d] border-t-transparent animate-spin" />
               ) : (
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -225,22 +234,22 @@ const LoginPopup = ({ isOpen, onClose }) => {
                 </svg>
               )}
             </div>
-            <span className="text-[12px] font-medium text-gray-600 uppercase tracking-wide">
-              {loading === "google" ? "..." : "Google"}
+            <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wide group-hover:text-gray-900 transition-colors">
+              {loading === "google" ? "Wait..." : "Google"}
             </span>
           </div>
         </div>
 
-        {/* Signup link */}
-        <p className="text-center text-[13px] text-gray-500 mt-4">
-          New here?{" "}
+        {/* ── Footer ── */}
+        <p className="text-center text-[13px] text-gray-600 mt-6">
+          New to our store?{" "}
           <button
             onClick={() => {
               close();
               navigate("/auth/signup");
             }}
-            className="text-[#f15757] font-bold hover:underline transition-all">
-            Create Account
+            className="text-[#da127d] font-semibold hover:text-[#b80f6a] transition-colors">
+            Create an Account
           </button>
         </p>
       </div>

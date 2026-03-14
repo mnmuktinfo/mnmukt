@@ -2,16 +2,16 @@ import { Suspense, lazy } from "react";
 import { Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "./userApp/features/auth/context/UserContext";
 
-/* ─── Eager: needed before any route renders ────────────────────────────────
-   These must NOT be lazy — they render on every page load.              */
+/* ─── Eager Components (Render on load) ─────────────────────────────────── */
 import UserLayout from "./userApp/layouts/UserLayout";
 import LoadingScreen from "./userApp/components/loading/LoadingScreen";
 import NotFoundPage from "./userApp/pages/NotFoundPage";
+import ErrorBoundary from "./shared/components/ErrorBoundary";
 
-/* ─── Lazy: auth (lightest bundle — load immediately) ───────────────────── */
+/* ─── Lazy: Auth ────────────────────────────────────────────────────────── */
 const AuthRoutes = lazy(() => import("./userApp/routes/AuthRoutes"));
 
-/* ─── Lazy: storefront ───────────────────────────────────────────────────── */
+/* ─── Lazy: Public Storefront ───────────────────────────────────────────── */
 const HomePage = lazy(() => import("./userApp/pages/HomePage"));
 const CategoriesPage = lazy(
   () => import("./userApp/features/category/pages/CategoriesPage"),
@@ -21,7 +21,7 @@ const ProductDetailsPage = lazy(
 );
 const ContactUsPage = lazy(() => import("./userApp/pages/ContactUsPage"));
 
-/* ─── Lazy: protected storefront ─────────────────────────────────────────── */
+/* ─── Lazy: Protected Storefront ────────────────────────────────────────── */
 const WishlistPage = lazy(
   () => import("./userApp/features/wishList/pages/WishlistPage"),
 );
@@ -30,65 +30,54 @@ const NotificationPreferencesPage = lazy(
   () => import("./userApp/pages/NotificationPreferences"),
 );
 
-/* ─── Lazy: sub-routers ──────────────────────────────────────────────────── */
+/* ─── Lazy: Sub-routers (Own Layouts) ───────────────────────────────────── */
 const AccountRoutes = lazy(() => import("./userApp/routes/AccountRoutes"));
 const CheckoutRoutes = lazy(() => import("./userApp/routes/CheckoutRoutes"));
 const TaruvedaRoutes = lazy(() => import("./userApp/routes/TaruvedaRoutes"));
 
 /* ════════════════════════════════════════════════════════════
-   LOADERS
-   Inline spinner — shown only within a layout section,
-   NOT full-screen, so Navbar never flashes away mid-nav.
+   PREMIUM LOADERS
 ════════════════════════════════════════════════════════════ */
+
+// Full-screen loader for auth/heavy initial routes.
+// Uses solid white background for that clean, high-end feel.
 const FullScreenLoader = () => (
-  <div
-    style={{
-      position: "fixed",
-      inset: 0,
-      zIndex: 9999,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      background: "#FBF8F3",
-    }}>
-    <LoadingScreen />
+  <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-white">
+    <LoadingScreen text="Curating your experience..." />
   </div>
 );
 
-// Lightweight inline loader — used inside layouts so Navbar stays visible
+// Lightweight inline loader used inside UserLayout so Navbar stays visible.
 const InlineLoader = () => (
-  <div className="flex items-center justify-center min-h-[60vh]">
-    <LoadingScreen />
+  <div className="flex items-center justify-center min-h-[60vh] w-full bg-[#f4f4f5]">
+    <LoadingScreen text="Loading..." />
   </div>
 );
 
 /* ════════════════════════════════════════════════════════════
-   PROTECTED ROUTE
-   ✅ FIX Minor: removed memo — useAuth() re-renders it anyway
+   PROTECTED ROUTE GATEWAY
 ════════════════════════════════════════════════════════════ */
-const ProtectedRoute = ({ adminOnly = false }) => {
+const ProtectedRoute = () => {
   const { isLoggedIn, user, authLoading } = useAuth();
   const location = useLocation();
 
-  // Wait for Firebase to confirm auth state before deciding
+  // Wait for Firebase to confirm auth state
   if (authLoading) return <FullScreenLoader />;
 
-  if (!isLoggedIn || !user)
+  // Redirect to login if not authenticated, saving the intended destination
+  if (!isLoggedIn || !user) {
     return <Navigate to="/auth/login" state={{ from: location }} replace />;
-
-  if (adminOnly && user.role !== "admin") return <Navigate to="/" replace />;
+  }
 
   return <Outlet />;
 };
 
 /* ════════════════════════════════════════════════════════════
-   APP ROUTES
+   MAIN APP ROUTER
 ════════════════════════════════════════════════════════════ */
 const AppRoutes = () => (
-  // ✅ FIX 3: Top-level Suspense only for auth routes (no layout)
-  // Each section below has its OWN Suspense so Navbar never disappears
   <Routes>
-    {/* ── A. AUTH (no layout, full-screen loader is fine here) ── */}
+    {/* ── A. AUTH ── */}
     <Route
       path="/auth/*"
       element={
@@ -98,15 +87,16 @@ const AppRoutes = () => (
       }
     />
 
-    {/* ── B. PUBLIC STOREFRONT (Navbar + Footer always visible) ── */}
+    {/* ── B. PUBLIC STOREFRONT (Navbar + Footer visible) ── */}
     <Route element={<UserLayout />}>
       <Route
         index
         element={
-          // ✅ SPEED: HomePage loads independently — other pages don't block it
-          <Suspense fallback={<InlineLoader />}>
-            <HomePage />
-          </Suspense>
+          <ErrorBoundary>
+            <Suspense fallback={<InlineLoader />}>
+              <HomePage />
+            </Suspense>
+          </ErrorBoundary>
         }
       />
       <Route
@@ -135,8 +125,7 @@ const AppRoutes = () => (
       />
     </Route>
 
-    {/* ── C. PROTECTED STOREFRONT (still has Navbar via UserLayout) ── */}
-    {/* ✅ FIX 2: wishlist, settings, notifications moved to protected */}
+    {/* ── C. PROTECTED STOREFRONT (Navbar + Footer visible) ── */}
     <Route element={<UserLayout />}>
       <Route element={<ProtectedRoute />}>
         <Route
@@ -166,10 +155,8 @@ const AppRoutes = () => (
       </Route>
     </Route>
 
-    {/* ── D. PROTECTED SUB-ROUTERS ── */}
+    {/* ── D. PROTECTED SUB-ROUTERS (These have their own layouts inside) ── */}
     <Route element={<ProtectedRoute />}>
-      {/* ✅ FIX 1: removed duplicate user/orders routes — they belong
-          INSIDE AccountRoutes. user/* wildcard was swallowing them. */}
       <Route
         path="user/*"
         element={
@@ -196,7 +183,7 @@ const AppRoutes = () => (
       />
     </Route>
 
-    {/* ── E. 404 ── */}
+    {/* ── E. 404 NOT FOUND (Navbar + Footer visible) ── */}
     <Route element={<UserLayout />}>
       <Route path="*" element={<NotFoundPage />} />
     </Route>

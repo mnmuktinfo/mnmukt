@@ -1,143 +1,210 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useProducts } from "../../product/hook/useProducts";
 import { useWishlist } from "../../../features/wishList/context/WishlistContext";
+import { useAuth } from "../../auth/context/UserContext";
+
 import EmptyWishlist from "./EmptyWishlist";
 import MoveToCartPopUp from "../components/pop-up/MoveToCartPopUp";
 import { WishlistCard } from "../components/cards/WishlistCard";
 import NotificationProduct from "../../../components/cards/NotificationProduct";
+import { Link } from "react-router-dom";
+import { LogIn, Share2 } from "lucide-react";
 
-// ─── Skeleton ─────────────────────────────────────────────────────────────────
+/* ───────────── Minimal Skeleton ───────────── */
 const WishlistSkeleton = () => (
-  <div className="max-w-9xl mt-15 md:mt-35 mx-auto px-1 md:px-4 py-3 md:py-5">
-    <style>{`@keyframes wlPulse{0%,100%{opacity:.5}50%{opacity:.9}}`}</style>
-    <div
-      style={{
-        height: 28,
-        width: 160,
-        background: "#E8E0D5",
-        marginBottom: 24,
-        marginLeft: 12,
-        animation: "wlPulse 1.4s ease-in-out infinite",
-      }}
-    />
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(2, 1fr)",
-        gap: 8,
-      }}>
-      {Array.from({ length: 8 }).map((_, i) => (
-        <div
-          key={i}
-          style={{
-            background: "#F4EFE7",
-            aspectRatio: "3/4",
-            animation: `wlPulse 1.4s ease-in-out ${i * 80}ms infinite`,
-          }}
-        />
-      ))}
+  <div className="w-full bg-[#fcfcfc] min-h-screen pt-28 pb-20">
+    <div className="max-w-[1400px] mx-auto px-6">
+      <div className="flex flex-col items-center mb-16 animate-pulse">
+        <div className="h-3 w-28 bg-gray-200 mb-5 " />
+        <div className="h-8 w-48 bg-gray-200 mb-3" />
+        <div className="h-3 w-32 bg-gray-100" />
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-5 gap-y-10">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="space-y-3">
+            <div className="aspect-3/4 bg-gray-200 w-full" />
+            <div className="h-3 bg-gray-200 w-2/3" />
+            <div className="h-3 bg-gray-100 w-1/2" />
+          </div>
+        ))}
+      </div>
     </div>
   </div>
 );
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+/* ───────────── Page ───────────── */
 const WishlistPage = () => {
-  // ✅ useProducts for fetching — batched, cached, IndexedDB-persisted
+  const queryClient = useQueryClient();
   const { getProductsByIds } = useProducts();
-
-  // ✅ useWishlist for wishlist state (ids + loading flag)
   const { wishlist, wishlistLoading } = useWishlist();
+  const { user } = useAuth();
 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
 
-  // ─── Load wishlist products ──────────────────────────────────────────────
-  // getProductsByIds is batched: all IDs → 1 Firestore call (chunked per 10).
-  // On refresh, React Query returns them from IndexedDB → zero API calls.
+  const firstName = user?.name?.split(" ")[0] || "Guest";
+
+  const wishlistIds = useMemo(
+    () =>
+      wishlist
+        .map((i) => String(i.productId))
+        .sort()
+        .join(","),
+    [wishlist],
+  );
+
+  const prevWishlistIds = useRef("");
+
   const loadProducts = useCallback(async () => {
     if (!wishlist.length) {
       setProducts([]);
       setLoading(false);
+      prevWishlistIds.current = "";
       return;
     }
 
+    if (wishlistIds === prevWishlistIds.current) return;
+
     setLoading(true);
+
     try {
-      const ids = wishlist.map((item) => item.productId);
-      const prods = await getProductsByIds(ids); // ← was fetchProductsByIds
-      setProducts(prods);
+      const ids = wishlistIds.split(",").filter(Boolean);
+
+      const cachedProducts = ids
+        .map((id) => queryClient.getQueryData(["products", "id", id]))
+        .filter(Boolean);
+
+      const missingIds = ids.filter(
+        (id) => !queryClient.getQueryData(["products", "id", id]),
+      );
+
+      let fetchedProducts = [];
+
+      if (missingIds.length) {
+        fetchedProducts = await getProductsByIds(missingIds);
+      }
+
+      const data = [...cachedProducts, ...fetchedProducts];
+
+      setProducts(data.filter(Boolean));
+      prevWishlistIds.current = wishlistIds;
     } catch (err) {
-      console.error("Failed to fetch wishlist products:", err);
-      setProducts([]);
+      console.error("Fetch error:", err);
     } finally {
       setLoading(false);
     }
-  }, [wishlist, getProductsByIds]);
+  }, [wishlistIds, wishlist.length, getProductsByIds, queryClient]);
 
   useEffect(() => {
     if (!wishlistLoading) loadProducts();
   }, [wishlistLoading, loadProducts]);
 
-  // ─── Notification auto-dismiss ───────────────────────────────────────────
   const showNotification = useCallback((message, type = "info") => {
     setNotification({ message, type });
   }, []);
 
   useEffect(() => {
     if (!notification) return;
-    const t = setTimeout(() => setNotification(null), 2200);
+    const t = setTimeout(() => setNotification(null), 3000);
     return () => clearTimeout(t);
   }, [notification]);
 
-  // ─── Guards ──────────────────────────────────────────────────────────────
   if (wishlistLoading || loading) return <WishlistSkeleton />;
 
-  // ─── Render ──────────────────────────────────────────────────────────────
   return (
-    <div className="max-w-9xl mt-15 md:mt-35 mx-auto px-1 md:px-4 py-3 md:py-5">
+    <main className="w-full bg-[#fcfcfc] min-h-screen mt-10 pt-5 md:mt-5  pb-24 font-sans selection:bg-[#da127d] selection:text-white">
+      {/* Notification */}
       {notification && (
-        <NotificationProduct
-          type={notification.type}
-          message={notification.message}
-          onClose={() => setNotification(null)}
-          duration={2200}
-        />
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-100 w-full max-w-sm px-4">
+          <NotificationProduct
+            type={notification.type}
+            message={notification.message}
+            onClose={() => setNotification(null)}
+          />
+        </div>
       )}
 
       {products.length === 0 ? (
         <EmptyWishlist />
       ) : (
-        <>
-          <h2 className="ml-3 text-[20px] font-[crimsonPro] uppercase mb-6">
-            My Wishlist
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-8">
+        <div className="max-w-[1400px] mx-auto  lg:px-5">
+          {/* Breadcrumbs */}
+          <div className="text-gray-500 text-sm flex flex-wrap gap-1 mb-4 px-4 md:px-0">
+            <Link to="/" className="hover:text-gray-800">
+              Home
+            </Link>
+            <span>/</span>
+            <span className="text-gray-800 truncate max-w-[150px]">Mnmukt</span>
+          </div>
+
+          {/* Login Banner */}
+          {!user && (
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 bg-gray-100 rounded-lg p-3 px-4 mb-6 mx-4 sm:mx-0">
+              <LogIn size={18} className="text-gray-600 shrink-0" />
+              <span className="text-gray-700 text-xs sm:text-sm">
+                Please login to save your wishlist across devices.
+              </span>
+              <Link
+                to="/auth/login"
+                className="text-[#da127d] font-semibold uppercase text-xs sm:text-sm hover:underline">
+                LOGIN
+              </Link>
+            </div>
+          )}
+
+          {/* Wishlist Header */}
+          <header className="flex flex-col items-center text-center mb-16 px-4 md:px-0">
+            <span className="text-[#da127d] text-[10px] sm:text-xs uppercase tracking-widest font-semibold mb-2">
+              Personal Edit
+            </span>
+
+            <h1
+              className="text-xl sm:text-2xl md:text-4xl lg:text-5xl text-gray-900 font-light mb-2"
+              style={{ fontFamily: "'Playfair Display', serif" }}>
+              My Wishlist
+            </h1>
+
+            <p className="text-xs sm:text-sm text-gray-400 tracking-wide">
+              {products.length} saved{" "}
+              {products.length === 1 ? "piece" : "pieces"}
+            </p>
+          </header>
+
+          {/* Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-2 gap-y-12 md:gap-x-6 md:gap-y-16">
             {products.map((product) => (
-              <WishlistCard
-                key={product.id}
-                product={product}
-                showNotification={showNotification}
-                onMoveToCart={() => setSelectedProduct(product)}
-              />
+              <div key={product.id} className="group">
+                <WishlistCard
+                  product={product}
+                  showNotification={showNotification}
+                  onMoveToCart={() => setSelectedProduct(product)}
+                />
+              </div>
             ))}
           </div>
-        </>
+        </div>
       )}
 
+      {/* Popup */}
       {selectedProduct && (
-        <MoveToCartPopUp
-          open
-          product={selectedProduct}
-          onClose={() => setSelectedProduct(null)}
-          onCompleted={() => {
-            showNotification("Added to cart!", "success");
-            setSelectedProduct(null);
-          }}
-        />
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+          <div className="w-full max-w-md">
+            <MoveToCartPopUp
+              product={selectedProduct}
+              onClose={() => setSelectedProduct(null)}
+              onCompleted={() => {
+                showNotification("Moved to bag", "info");
+                setSelectedProduct(null);
+              }}
+            />
+          </div>
+        </div>
       )}
-    </div>
+    </main>
   );
 };
 

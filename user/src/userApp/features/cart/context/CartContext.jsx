@@ -13,99 +13,148 @@ export const CartProvider = ({ children }) => {
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  // console.log(cart);
-  // Load cart from IndexedDB
+
+  /*
+  ─────────────────────────────────────────
+  Load cart from IndexedDB
+  ─────────────────────────────────────────
+  */
   useEffect(() => {
     const loadCart = async () => {
-      const data = await getCartDB();
-      setCart(data || []);
-      setLoading(false);
+      try {
+        const data = await getCartDB();
+        setCart(data ?? []);
+      } catch (err) {
+        console.error("Failed to load cart:", err);
+        setCart([]);
+      } finally {
+        setLoading(false);
+      }
     };
+
     loadCart();
   }, []);
 
-  // ✅ FIXED: Now handles variants (Same ID, different Size)
+  /*
+  ─────────────────────────────────────────
+  Add to cart (variant-safe)
+  ─────────────────────────────────────────
+  */
   const addToCart = async (productData) => {
     const { id, selectedSize, selectedQuantity = 1 } = productData;
 
-    // 1. Check if this exact variation exists (Same ID AND Same Size)
-    const existingItemIndex = cart.findIndex(
-      (item) => item.id === id && item.selectedSize === selectedSize,
-    );
+    const cartKey = `${id}_${selectedSize}`;
 
-    let newCart = [...cart];
+    setCart((prev) => {
+      const index = prev.findIndex((item) => item.cartKey === cartKey);
 
-    if (existingItemIndex !== -1) {
-      // SCENARIO A: Item exists -> Increment Quantity
-      newCart[existingItemIndex].selectedQuantity += selectedQuantity;
+      if (index !== -1) {
+        const updated = [...prev];
+        updated[index] = {
+          ...updated[index],
+          selectedQuantity: updated[index].selectedQuantity + selectedQuantity,
+        };
 
-      // Update UI
-      setCart(newCart);
+        updateCartDB(cartKey, {
+          selectedQuantity: updated[index].selectedQuantity,
+        }).catch((err) => console.error("Cart sync failed:", err));
 
-      // Update DB (You might need a separate updateQuantityDB function here)
-      // await updateCartQuantityDB(id, selectedSize, newCart[existingItemIndex].selectedQuantity);
-    } else {
-      // SCENARIO B: New Item -> Add to array
-      const newItem = { id, selectedSize, selectedQuantity };
-      newCart.push(newItem);
-
-      // Update UI
-      setCart(newCart);
-
-      // Add to DB
-      setSyncing(true);
-      try {
-        await addCartDB(newItem);
-      } catch (error) {
-        console.error("Failed to add to cart DB:", error);
+        return updated;
       }
-      setSyncing(false);
-    }
+
+      const newItem = {
+        cartKey,
+        id,
+        selectedSize,
+        selectedQuantity,
+      };
+
+      addCartDB(newItem).catch((err) =>
+        console.error("Cart DB add failed:", err),
+      );
+
+      return [...prev, newItem];
+    });
   };
-  // Update quantity
-  const updateQuantity = async (id, selectedQuantity) => {
+
+  /*
+  ─────────────────────────────────────────
+  Update quantity
+  ─────────────────────────────────────────
+  */
+  const updateQuantity = async (cartKey, selectedQuantity) => {
     if (selectedQuantity < 1) return;
 
     setCart((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, selectedQuantity } : i)),
+      prev.map((item) =>
+        item.cartKey === cartKey ? { ...item, selectedQuantity } : item,
+      ),
     );
 
-    setSyncing(true);
-    await updateCartDB(id, { selectedQuantity });
-    setSyncing(false);
-  };
-
-  // Update size
-  const updateSize = async (id, selectedSize) => {
-    setCart((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, selectedSize } : i)),
+    updateCartDB(cartKey, { selectedQuantity }).catch((err) =>
+      console.error("Cart quantity sync failed:", err),
     );
-
-    setSyncing(true);
-    try {
-      await updateCartDB(id, { selectedSize });
-    } catch (err) {
-      console.error("Failed to update size in DB:", err);
-    }
-    setSyncing(false);
   };
 
-  // Remove from cart
-  const remove = async (id) => {
-    setCart((prev) => prev.filter((i) => i.id !== id));
+  /*
+  ─────────────────────────────────────────
+  Update size (creates new variant)
+  ─────────────────────────────────────────
+  */
+  const updateSize = async (cartKey, newSize) => {
+    setCart((prev) => {
+      const item = prev.find((i) => i.cartKey === cartKey);
+      if (!item) return prev;
 
-    setSyncing(true);
-    await removeCartDB(id);
-    setSyncing(false);
+      const newCartKey = `${item.id}_${newSize}`;
+
+      const updated = prev.filter((i) => i.cartKey !== cartKey);
+
+      const existingVariant = updated.find((i) => i.cartKey === newCartKey);
+
+      if (existingVariant) {
+        existingVariant.selectedQuantity += item.selectedQuantity;
+      } else {
+        updated.push({
+          ...item,
+          cartKey: newCartKey,
+          selectedSize: newSize,
+        });
+      }
+
+      removeCartDB(cartKey).catch(() => {});
+      addCartDB({
+        ...item,
+        cartKey: newCartKey,
+        selectedSize: newSize,
+      }).catch(() => {});
+
+      return [...updated];
+    });
   };
 
-  // Clear cart
+  /*
+  ─────────────────────────────────────────
+  Remove item
+  ─────────────────────────────────────────
+  */
+  const remove = async (cartKey) => {
+    setCart((prev) => prev.filter((item) => item.cartKey !== cartKey));
+
+    removeCartDB(cartKey).catch((err) =>
+      console.error("Cart remove failed:", err),
+    );
+  };
+
+  /*
+  ─────────────────────────────────────────
+  Clear cart
+  ─────────────────────────────────────────
+  */
   const clear = async () => {
     setCart([]);
 
-    setSyncing(true);
-    await clearCartDB();
-    setSyncing(false);
+    clearCartDB().catch((err) => console.error("Cart clear failed:", err));
   };
 
   return (

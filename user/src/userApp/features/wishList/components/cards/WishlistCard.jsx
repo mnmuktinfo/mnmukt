@@ -3,88 +3,95 @@ import { X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useWishlist } from "../../context/WishlistContext";
 
-export const WishlistCard = ({ product, showNotification, onMoveToCart }) => {
+const priceFormatter = new Intl.NumberFormat("en-IN");
+
+const WishlistCardComponent = ({ product, showNotification, onMoveToCart }) => {
   const { removeFromWishlist } = useWishlist();
 
-  // Stock status
   const isInStock = product.stock > 0;
-  const isLowStock = product.stock > 0 && product.stock <= 5;
-
-  // Price & Discount
-  const price = Number(product.price);
-  const originalPrice = Number(product.originalPrice || product.price);
+  const price = Number(product.price || 0);
+  const originalPrice = Number(product.originalPrice || price);
   const discount =
     originalPrice > price
       ? Math.round(((originalPrice - price) / originalPrice) * 100)
       : 0;
 
-  // Remove handler
-  const handleRemove = async () => {
+  // Format date to match image "14 Mar 2026"
+  const formattedDate = new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(product.addedAt ? new Date(product.addedAt) : new Date());
+
+  const handleRemove = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
     try {
       await removeFromWishlist(product.id);
-      showNotification("Item removed from wishlist", "success");
-    } catch (err) {
+    } catch {
       showNotification("Failed to remove item", "error");
     }
   };
 
   return (
-    <div className="border border-gray-200 bg-white hover:shadow-lg transition-all duration-300 flex flex-col">
-      {/* Product Image */}
-      <div className="relative">
-        <Link to={`/product/${product.slug}`} className="block">
-          <img
-            src={product.images?.[0] || product.banner || "/placeholder.jpg"}
-            alt={product.name}
-            className="w-full h-[250px] md:h-[300px] object-cover transition-transform duration-300 hover:scale-[1.03]"
-          />
-        </Link>
+    <div className="flex flex-col bg-white border border-gray-100 hover:shadow-md transition-shadow duration-300 relative h-full">
+      {/* ── Remove Button (Floating Top Right) ── */}
+      <button
+        onClick={handleRemove}
+        aria-label="Remove from wishlist"
+        className="absolute top-3 right-3 p-1.5 rounded-full bg-white/80 text-gray-500 hover:text-red-500 hover:bg-white shadow-sm transition-all duration-200 z-10">
+        <X size={16} strokeWidth={2} />
+      </button>
 
-        {/* Remove button */}
-        <button
-          onClick={handleRemove}
-          aria-label="Remove from wishlist"
-          className="absolute top-3 right-3 p-1 rounded-full shadow-lg bg-white/50 hover:bg-red-100 transition z-10">
-          <X size={18} />
-        </button>
-      </div>
-
-      {/* Product Info */}
-      <div className="p-3 flex flex-col grow">
-        <Link to={`/product/${product.slug}`} className="grow">
-          <h3 className="font-semibold text-sm md:text-base text-gray-800 hover:text-[#FF3F6C] line-clamp-2">
+      {/* ── Top Section: Title & Date (Matches Image) ── */}
+      <div className="px-4 pt-5 pb-4 flex flex-col gap-3">
+        <Link to={`/product/${product.slug}`}>
+          <h3 className="text-[15px] font-normal text-gray-800 line-clamp-1 hover:text-[#da127d] transition-colors">
             {product.name}
           </h3>
         </Link>
-
-        <div className="mt-2 flex items-center gap-2">
-          <span className="font-bold text-gray-900">
-            ₹{price.toLocaleString()}
-          </span>
-          {discount > 0 && (
-            <>
-              <span className="line-through text-gray-500 text-sm">
-                ₹{originalPrice.toLocaleString()}
-              </span>
-              <span className="text-orange-500 text-sm">({discount}% OFF)</span>
-            </>
-          )}
-        </div>
+        <span className="text-[13px] text-gray-400">{formattedDate}</span>
       </div>
 
-      {/* Move to Bag / Out of Stock */}
-      <div className="border-t border-gray-100">
+      {/* ── Bottom Section: Image ── */}
+      <Link
+        to={`/product/${product.slug}`}
+        className="block relative aspect-4/5 bg-gray-50 overflow-hidden shrink-0">
+        <img
+          loading="lazy"
+          decoding="async"
+          src={product.banner || product.images?.[0] || "/placeholder.jpg"}
+          alt={product.name}
+          className="w-full h-full object-cover transition-transform duration-500 hover:scale-[1.03]"
+        />
+      </Link>
+
+      {/* ── Functional Section: Price & CTA (Added below image for e-commerce functionality) ── */}
+      <div className="p-4 flex flex-col gap-3 mt-auto border-t border-gray-50">
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-gray-900 text-[15px]">
+            ₹{priceFormatter.format(price)}
+          </span>
+          {discount > 0 && (
+            <span className="line-through text-gray-400 text-xs">
+              ₹{priceFormatter.format(originalPrice)}
+            </span>
+          )}
+        </div>
+
         <button
           onClick={onMoveToCart}
           disabled={!isInStock}
-          className={`w-full py-3 text-sm font-semibold uppercase transition rounded-b-lg ${
+          className={`w-full py-2.5 text-xs font-semibold uppercase tracking-wider rounded-sm transition-all duration-200 ${
             isInStock
-              ? "text-[#FF3F6C]"
-              : "text-gray-500 bg-gray-100 cursor-not-allowed"
+              ? "border border-[#da127d] text-[#da127d] hover:bg-[#da127d] hover:text-white"
+              : "border border-gray-200 text-gray-400 bg-gray-50 cursor-not-allowed"
           }`}>
-          {isInStock ? "MOVE TO BAG" : "OUT OF STOCK"}
+          {isInStock ? "Move to Bag" : "Sold Out"}
         </button>
       </div>
     </div>
   );
 };
+
+export const WishlistCard = React.memo(WishlistCardComponent);
