@@ -37,43 +37,39 @@ export const CartProvider = ({ children }) => {
 
   /*
   ─────────────────────────────────────────
-  Add to cart (variant-safe)
+  Add to cart
   ─────────────────────────────────────────
   */
   const addToCart = async (productData) => {
     const { id, selectedSize, selectedQuantity = 1 } = productData;
-
     const cartKey = `${id}_${selectedSize}`;
 
     setCart((prev) => {
       const index = prev.findIndex((item) => item.cartKey === cartKey);
+      let updatedCart;
 
       if (index !== -1) {
-        const updated = [...prev];
-        updated[index] = {
-          ...updated[index],
-          selectedQuantity: updated[index].selectedQuantity + selectedQuantity,
+        updatedCart = [...prev];
+        updatedCart[index] = {
+          ...updatedCart[index],
+          selectedQuantity:
+            updatedCart[index].selectedQuantity + selectedQuantity,
         };
 
-        updateCartDB(cartKey, {
-          selectedQuantity: updated[index].selectedQuantity,
-        }).catch((err) => console.error("Cart sync failed:", err));
+        // FIX: Pass the FULL updated object to the DB
+        updateCartDB(cartKey, updatedCart[index]).catch((err) =>
+          console.error("Cart sync failed:", err),
+        );
+      } else {
+        const newItem = { cartKey, id, selectedSize, selectedQuantity };
+        updatedCart = [...prev, newItem];
 
-        return updated;
+        addCartDB(newItem).catch((err) =>
+          console.error("Cart DB add failed:", err),
+        );
       }
 
-      const newItem = {
-        cartKey,
-        id,
-        selectedSize,
-        selectedQuantity,
-      };
-
-      addCartDB(newItem).catch((err) =>
-        console.error("Cart DB add failed:", err),
-      );
-
-      return [...prev, newItem];
+      return updatedCart;
     });
   };
 
@@ -85,49 +81,56 @@ export const CartProvider = ({ children }) => {
   const updateQuantity = async (cartKey, selectedQuantity) => {
     if (selectedQuantity < 1) return;
 
-    setCart((prev) =>
-      prev.map((item) =>
-        item.cartKey === cartKey ? { ...item, selectedQuantity } : item,
-      ),
-    );
+    setCart((prev) => {
+      const index = prev.findIndex((item) => item.cartKey === cartKey);
+      if (index === -1) return prev;
 
-    updateCartDB(cartKey, { selectedQuantity }).catch((err) =>
-      console.error("Cart quantity sync failed:", err),
-    );
+      const updatedCart = [...prev];
+      updatedCart[index] = { ...updatedCart[index], selectedQuantity };
+
+      // FIX: Pass the FULL updated object to prevent overwriting the ID
+      updateCartDB(cartKey, updatedCart[index]).catch((err) =>
+        console.error("Cart quantity sync failed:", err),
+      );
+
+      return updatedCart;
+    });
   };
 
   /*
   ─────────────────────────────────────────
-  Update size (creates new variant)
+  Update size
   ─────────────────────────────────────────
   */
   const updateSize = async (cartKey, newSize) => {
     setCart((prev) => {
-      const item = prev.find((i) => i.cartKey === cartKey);
-      if (!item) return prev;
+      const itemIndex = prev.findIndex((i) => i.cartKey === cartKey);
+      if (itemIndex === -1) return prev;
 
+      const item = prev[itemIndex];
       const newCartKey = `${item.id}_${newSize}`;
-
       const updated = prev.filter((i) => i.cartKey !== cartKey);
-
       const existingVariant = updated.find((i) => i.cartKey === newCartKey);
+
+      let finalItemToSave;
 
       if (existingVariant) {
         existingVariant.selectedQuantity += item.selectedQuantity;
+        finalItemToSave = existingVariant;
+
+        updateCartDB(newCartKey, existingVariant).catch(() => {});
       } else {
-        updated.push({
+        finalItemToSave = {
           ...item,
           cartKey: newCartKey,
           selectedSize: newSize,
-        });
+        };
+        updated.push(finalItemToSave);
+
+        addCartDB(finalItemToSave).catch(() => {});
       }
 
       removeCartDB(cartKey).catch(() => {});
-      addCartDB({
-        ...item,
-        cartKey: newCartKey,
-        selectedSize: newSize,
-      }).catch(() => {});
 
       return [...updated];
     });
@@ -140,7 +143,6 @@ export const CartProvider = ({ children }) => {
   */
   const remove = async (cartKey) => {
     setCart((prev) => prev.filter((item) => item.cartKey !== cartKey));
-
     removeCartDB(cartKey).catch((err) =>
       console.error("Cart remove failed:", err),
     );
@@ -153,7 +155,6 @@ export const CartProvider = ({ children }) => {
   */
   const clear = async () => {
     setCart([]);
-
     clearCartDB().catch((err) => console.error("Cart clear failed:", err));
   };
 

@@ -139,36 +139,43 @@ export const productService = {
 
   // ─── GET PRODUCTS BY IDs (batched, avoids N individual calls) ──────────────
   // Firestore doesn't support array-of-ids natively, so we chunk into "in" queries (max 10).
-  async getProductsByIds(ids = []) {
-    if (!ids.length) return [];
+async getProductsByIds(ids = []) {
+  if (!ids.length) return [];
 
-    const unique = [...new Set(ids.map(String))];
-    const cacheKey = `ids_${unique.sort().join(",")}`;
-    if (cache.has(cacheKey)) return cache.get(cacheKey);
+  const unique = [...new Set(ids.map(String))];
 
-    // Split into chunks of 10 (Firestore "in" limit)
-    const chunks = [];
-    for (let i = 0; i < unique.length; i += 10) {
-      chunks.push(unique.slice(i, i + 10));
-    }
+  // 1️⃣ Get cached products
+  const cachedProducts = unique
+    .map(id => cache.get(`product_${id}`))
+    .filter(Boolean);
 
-    const results = await Promise.all(
-      chunks.map((chunk) =>
-        getDocs(query(collection(db, COL), where("__name__", "in", chunk)))
-      )
-    );
+  // 2️⃣ Find missing ids
+  const missingIds = unique.filter(id => !cache.has(`product_${id}`));
 
-    const products = results
-      .flatMap((snap) => snap.docs)
-      .map((d) => {
-        const p = normalize(d.id, d.data());
-        primeRefs(p);
-        return p;
-      });
+  if (!missingIds.length) return cachedProducts;
 
-    cache.set(cacheKey, products);
-    return products;
-  },
+  // 3️⃣ Firestore allows max 10 in "in" query
+  const chunks = [];
+  for (let i = 0; i < missingIds.length; i += 10) {
+    chunks.push(missingIds.slice(i, i + 10));
+  }
+
+  const results = await Promise.all(
+    chunks.map(chunk =>
+      getDocs(query(collection(db, COL), where("__name__", "in", chunk)))
+    )
+  );
+
+  const fetched = results
+    .flatMap(snap => snap.docs)
+    .map(d => {
+      const p = normalize(d.id, d.data());
+      primeRefs(p);
+      return p;
+    });
+
+  return [...cachedProducts, ...fetched];c
+},
 
   // ─── GET PRODUCTS BY CATEGORY ───────────────────────────────────────────────
   async getProductsByCategory(categoryId, pageSize = PAGE_SIZE) {
@@ -252,6 +259,29 @@ export const productService = {
     );
   },
 
+  // ─── GET PRODUCTS BY CATEGORY ───────────────────────────────────────────────
+async getProductsByCategory(categoryId, pageSize = PAGE_SIZE) {
+  if (!categoryId) return [];
+  const cacheKey = `category_${categoryId}_${pageSize}`;
+  if (cache.has(cacheKey)) return cache.get(cacheKey);
+
+  const q = query(
+    collection(db, COL),
+    where("categoryId", "==", categoryId),
+    where("isActive", "==", true),
+    orderBy("createdAt", "desc"),
+    limit(pageSize)
+  );
+  const snap = await getDocs(q);
+  const products = snap.docs.map((d) => {
+    const p = normalize(d.id, d.data());
+    primeRefs(p);
+    return p;
+  });
+
+  cache.set(cacheKey, products);
+  return products;
+},
   // ─── CACHE UTILS ────────────────────────────────────────────────────────────
   /** Call after mutations to bust stale entries */
   bustCache(id, slug) {

@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect, useRef } from "react";
+import React, { Suspense, useEffect, useRef, useState } from "react";
 import { Helmet } from "react-helmet-async";
 
 import { useHomepageProducts } from "../../userApp/features/homepage/hooks/useHomepageProducts";
@@ -12,186 +12,254 @@ import {
   TestimonialsSkeleton,
 } from "../homepage/HomeSkeletons";
 
-import VideoSection from "../homepage/VideoSection";
-import PriceCategories from "../homepage/PriceCategories";
-import ExploreOurPicks from "../homepage/ExploreOurPicks";
-import EthnicWearHero from "../homepage/EthnicWearHero";
-import LuxuryEthnicHero from "../homepage/LuxuryEthnicHero";
-import HeroSection from "../homepage/HeroSection";
+/* ---------- Lazy Components ---------- */
 
-const CollectionBanner = React.lazy(
-  () => import("../components/banner/CollectionBanner"),
+const HeroSection = React.lazy(() => import("../homepage/HeroSection"));
+const EthnicWearHero = React.lazy(() => import("../homepage/EthnicWearHero"));
+const LuxuryEthnicHero = React.lazy(
+  () => import("../homepage/LuxuryEthnicHero"),
 );
+
+const VideoSection = React.lazy(() => import("../homepage/VideoSection"));
+const PriceCategories = React.lazy(() => import("../homepage/PriceCategories"));
+const ExploreOurPicks = React.lazy(() => import("../homepage/ExploreOurPicks"));
+
 const CategoryScroller = React.lazy(
   () => import("../homepage/CategoryScroller"),
 );
+const CollectionGrid = React.lazy(() => import("../homepage/CollectionGrid"));
+
 const ProductSection = React.lazy(
   () => import("../components/section/ProductSection"),
 );
-const CollectionGrid = React.lazy(() => import("../homepage/CollectionGrid"));
+
 const TestimonialsSection = React.lazy(
   () => import("../components/section/TestimonialsSection"),
 );
 
-// ── Feedback banner — just an img, no Suspense needed ──────────────────────
+const CollectionBanner = React.lazy(
+  () => import("../components/banner/CollectionBanner"),
+);
+
+/* ---------- Mobile Detection ---------- */
+
+const useIsMobile = () => {
+  const [mobile, setMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  return mobile;
+};
+
+/* ---------- Viewport Loader (Progressive Rendering) ---------- */
+
+const ViewportLoader = ({ children, rootMargin = "250px" }) => {
+  const ref = useRef(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          observer.unobserve(el);
+        }
+      },
+      { rootMargin },
+    );
+
+    observer.observe(el);
+
+    return () => observer.disconnect();
+  }, []);
+
+  return <div ref={ref}>{visible ? children : null}</div>;
+};
+
+/* ---------- Feedback Banner ---------- */
+
 const FeedbackBanner = () => (
   <div className="w-full bg-[#FAFAFA] py-8 md:py-12 border-y border-gray-100">
     <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-10">
       <img
         src="https://objst0r.thesouledstore.com/mobile-cms-media-prod/feedback-images/430X55_V2_copy_1_vdJw80a_Bai9WOu.jpg"
         alt="Feedback Banner"
-        loading="lazy" // ✅ real lazy loading — browser handles this natively
+        loading="lazy"
+        decoding="async"
         className="w-full h-auto object-cover rounded-md shadow-sm"
       />
     </div>
   </div>
 );
 
-// ── Scroll reveal — useEffect only, no memo (children always new ref anyway) ─
-const Reveal = ({ children, delay = 0 }) => {
-  const ref = useRef(null);
+/* ---------- Sections Config ---------- */
 
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          el.classList.remove("opacity-0", "translate-y-12");
-          el.classList.add("opacity-100", "translate-y-0");
-          observer.unobserve(el);
-        }
-      },
-      { threshold: 0.1 },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
-  return (
-    <div
-      ref={ref}
-      style={delay ? { transitionDelay: `${delay}ms` } : undefined}
-      className="transition-all duration-700 ease-out opacity-0 translate-y-12">
-      {children}
-    </div>
-  );
-};
-
-// ── Sections config — defined outside component, never changes ───────────────
-// ✅ No useMemo needed — this is just a static array slice
 const featuredSection = productSections[0];
 const remainingSections = productSections.slice(1);
 
-// ─────────────────────────────────────────────────────────────────────────────
+/* ========================================================= */
 
 const HomePage = () => {
+  const isMobile = useIsMobile();
+
   const {
     products: homeProducts = {},
     categories = [],
     testimonials = [],
     collections: collectionItems = [],
-    // ✅ Use granular loading states instead of single `loading` boolean
     loadingKeys,
     categoriesLoading,
     testimonialsLoading,
     collectionsLoading,
   } = useHomepageProducts(productSections);
 
+  /* Reduce products on mobile */
+
+  const getProducts = (key) => {
+    const items = homeProducts[key] ?? [];
+    return isMobile ? items.slice(0, 4) : items;
+  };
+
   return (
     <main className="w-full min-h-screen bg-white font-sans text-gray-900 overflow-x-hidden selection:bg-[#da127d] selection:text-white">
       <Helmet>
-        <title>Libas — Official Store | Premium Ethnic Wear</title>
+        <title>Mnmukt — Official Store | Premium Ethnic Wear</title>
         <meta
           name="description"
-          content="Discover premium intricately crafted Salwar Suits, Kurta sets, and lifestyle products at Libas."
+          content="Discover premium intricately crafted Salwar Suits, Kurta sets, and lifestyle products at Mnmukt."
         />
       </Helmet>
-      {/* ── Hero — above fold, no Reveal animation ── */}
+
+      {/* ---------- HERO ---------- */}
+
       <Suspense fallback={<HeroSkeleton />}>
         <HeroSection />
       </Suspense>
-      {/* ── Categories — uses its own loading state ── */}
-      <Reveal>
-        <Suspense fallback={<CategoriesSkeleton />}>
-          <CategoryScroller
-            categories={categories}
-            loading={categoriesLoading}
-          />
-        </Suspense>
-      </Reveal>
-      <Suspense fallback={<HeroSkeleton />}>
-        <EthnicWearHero />
+
+      {/* ---------- CATEGORIES ---------- */}
+
+      <Suspense fallback={<CategoriesSkeleton />}>
+        <CategoryScroller categories={categories} loading={categoriesLoading} />
       </Suspense>
-      <Reveal>
-        <VideoSection /> {/* no Suspense — not lazy loaded */}
-      </Reveal>
-      <Reveal>
-        <PriceCategories />
-      </Reveal>
-      <Reveal>
+
+      {/* ---------- ETHNIC HERO ---------- */}
+
+      <ViewportLoader>
+        <Suspense fallback={<HeroSkeleton />}>
+          <EthnicWearHero />
+        </Suspense>
+      </ViewportLoader>
+
+      {/* ---------- DESKTOP ONLY VISUAL SECTIONS ---------- */}
+
+      {!isMobile && (
+        <ViewportLoader>
+          <Suspense fallback={<HeroSkeleton />}>
+            <VideoSection />
+          </Suspense>
+        </ViewportLoader>
+      )}
+
+      {!isMobile && (
+        <ViewportLoader>
+          <Suspense fallback={<HeroSkeleton />}>
+            <PriceCategories />
+          </Suspense>
+        </ViewportLoader>
+      )}
+
+      <ViewportLoader>
         <FeedbackBanner />
-      </Reveal>
-      <Reveal>
-        <ExploreOurPicks />
-      </Reveal>
-      <LuxuryEthnicHero /> {/* above fold enough — no Reveal */}
-      {/* ── Featured product section ── */}
+      </ViewportLoader>
+
+      {!isMobile && (
+        <ViewportLoader>
+          <Suspense fallback={<HeroSkeleton />}>
+            <ExploreOurPicks />
+          </Suspense>
+        </ViewportLoader>
+      )}
+
+      {!isMobile && (
+        <ViewportLoader>
+          <Suspense fallback={<HeroSkeleton />}>
+            <LuxuryEthnicHero />
+          </Suspense>
+        </ViewportLoader>
+      )}
+
+      {/* ---------- FEATURED PRODUCTS ---------- */}
+
       {featuredSection && (
-        <Reveal>
+        <ViewportLoader>
           <Suspense fallback={<GridSectionSkeleton />}>
             <ProductSection
               title={featuredSection.title}
               subtitle={featuredSection.subtitle}
-              products={homeProducts[featuredSection.key] ?? []}
+              products={getProducts(featuredSection.key)}
               loading={loadingKeys.includes(featuredSection.key)}
             />
           </Suspense>
-        </Reveal>
+        </ViewportLoader>
       )}
-      {/* ── Collections ── */}
-      <Reveal>
-        <div className="w-full pb-16">
-          <Suspense fallback={<CollectionGridSkeleton />}>
-            <CollectionGrid
-              title="Shop by Collection"
-              items={collectionItems}
-              loading={collectionsLoading}
-            />
-          </Suspense>
-        </div>
-      </Reveal>
-      {/* ── Collection banner ── */}
-      <Reveal>
-        <Suspense
-          fallback={
-            <div className="h-[60vh] w-full bg-gray-100 animate-pulse" />
-          }>
-          <CollectionBanner />
+
+      {/* ---------- COLLECTION GRID ---------- */}
+
+      <ViewportLoader>
+        <Suspense fallback={<CollectionGridSkeleton />}>
+          <CollectionGrid
+            title="Shop by Collection"
+            items={collectionItems}
+            loading={collectionsLoading}
+          />
         </Suspense>
-      </Reveal>
-      {/* ── Remaining product sections ── */}
+      </ViewportLoader>
+
+      {/* ---------- COLLECTION BANNER ---------- */}
+
+      {!isMobile && (
+        <ViewportLoader>
+          <Suspense
+            fallback={<div className="h-[60vh] bg-gray-100 animate-pulse" />}>
+            <CollectionBanner />
+          </Suspense>
+        </ViewportLoader>
+      )}
+
+      {/* ---------- REMAINING PRODUCT SECTIONS ---------- */}
+
       {remainingSections.map((section) => (
-        <Reveal key={section.key}>
+        <ViewportLoader key={section.key}>
           <Suspense fallback={<GridSectionSkeleton />}>
             <ProductSection
               title={section.title}
               subtitle={section.subtitle}
-              products={homeProducts[section.key] ?? []}
+              products={getProducts(section.key)}
               loading={loadingKeys.includes(section.key)}
             />
           </Suspense>
-        </Reveal>
+        </ViewportLoader>
       ))}
-      {/* ── Testimonials ── */}
-      <Reveal>
+
+      {/* ---------- TESTIMONIALS ---------- */}
+
+      <ViewportLoader>
         <Suspense fallback={<TestimonialsSkeleton />}>
           <TestimonialsSection
             testimonials={testimonials}
             loading={testimonialsLoading}
           />
         </Suspense>
-      </Reveal>
+      </ViewportLoader>
     </main>
   );
 };

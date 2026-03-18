@@ -7,6 +7,8 @@ import UserLayout from "./userApp/layouts/UserLayout";
 import LoadingScreen from "./userApp/components/loading/LoadingScreen";
 import NotFoundPage from "./userApp/pages/NotFoundPage";
 import ErrorBoundary from "./shared/components/ErrorBoundary";
+import AboutUsPage from "./userApp/pages/AboutUsPage";
+import OrderConfirmationPage from "./userApp/components/pop-up/OrderConfirmationPage";
 
 /* ─── Lazy: Auth ────────────────────────────────────────────────────────── */
 const AuthRoutes = lazy(() => import("./userApp/routes/AuthRoutes"));
@@ -123,6 +125,15 @@ const AppRoutes = () => (
           </Suspense>
         }
       />
+      <Route
+        path="about-us"
+        a
+        element={
+          <Suspense fallback={<InlineLoader />}>
+            <AboutUsPage />
+          </Suspense>
+        }
+      />
     </Route>
 
     {/* ── C. PROTECTED STOREFRONT (Navbar + Footer visible) ── */}
@@ -182,6 +193,8 @@ const AppRoutes = () => (
         }
       />
     </Route>
+
+    <Route path="/order-success/:orderId" element={<OrderConfirmationPage />} />
 
     {/* ── E. 404 NOT FOUND (Navbar + Footer visible) ── */}
     <Route element={<UserLayout />}>

@@ -10,6 +10,7 @@ import {
   Clock,
   Instagram,
   Check,
+  MessageCircle,
 } from "lucide-react";
 
 const ContactUsPage = () => {
@@ -52,57 +53,66 @@ const ContactUsPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white font-sans selection:bg-[#da127d] selection:text-white">
+    <div className="min-h-screen bg-white font-sans selection:bg-[#da127d] selection:text-white pb-20">
       {/* ── HEADER: Editorial Title ── */}
-      <header className="w-full pt-20 pb-16 px-6 border-b border-gray-100 bg-[#FAFAFA]">
-        <div className="max-w-[1500px] mx-auto text-center">
-          <span className="text-[#da127d] text-[11px] font-bold uppercase tracking-[0.4em] mb-4 block">
-            Bespoke Assistance
+      <header className="w-full pt-24 pb-16 px-6 text-center">
+        <div className="max-w-3xl mx-auto">
+          <span className="text-[#da127d] text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.3em] mb-4 block">
+            Customer Care
           </span>
           <h1
-            className="text-4xl md:text-6xl lg:text-7xl text-gray-900 tracking-tight"
+            className="text-4xl md:text-5xl lg:text-6xl text-gray-900 font-light mb-4"
             style={{ fontFamily: "'Playfair Display', serif" }}>
-            Connect with <span className="italic">Mnmukt</span>
+            We're Here for You
           </h1>
+          <p className="text-gray-500 text-[14px] md:text-[15px] font-light leading-relaxed max-w-lg mx-auto">
+            Whether you have a question about our collections, sizing, or an
+            existing order, our dedicated concierge is ready to assist you.
+          </p>
         </div>
       </header>
 
-      <main className="max-w-[1500px] mx-auto flex flex-col lg:flex-row border-l border-gray-100">
-        {/* ── LEFT: The Inquiry Form ── */}
-        <section className="flex-1 p-8 md:p-16 lg:p-20 border-r border-b lg:border-b-0 border-gray-100">
-          <div className="max-w-xl">
+      {/* ── MAIN CONTENT: Split Layout ── */}
+      <main className="max-w-[1200px] mx-auto px-4 sm:px-6">
+        <div className="flex flex-col lg:flex-row border border-gray-100 rounded-sm overflow-hidden shadow-[0_4px_40px_rgba(0,0,0,0.02)]">
+          {/* ── LEFT: The Inquiry Form ── */}
+          <section className="flex-[1.5] bg-white p-8 sm:p-12 lg:p-16">
             <h2
-              className="text-2xl md:text-3xl text-gray-900 mb-10 tracking-wide"
+              className="text-2xl text-gray-900 mb-8"
               style={{ fontFamily: "'Playfair Display', serif" }}>
-              Send <span className="italic">Inquiry</span>
+              Send an <span className="italic text-gray-600">Inquiry</span>
             </h2>
 
             {status === "success" && (
-              <div className="mb-10 bg-emerald-50 border border-emerald-100 p-4 flex items-center gap-3 text-emerald-700 text-[12px] font-bold uppercase tracking-widest animate-in fade-in slide-in-from-top-2">
-                <Check size={18} /> Our concierge will contact you shortly.
+              <div className="mb-8 border-l-2 border-[#007673] bg-[#007673]/[0.03] p-4 flex items-start gap-3 text-[#007673] text-[13px] font-medium animate-in fade-in slide-in-from-top-2">
+                <Check size={18} className="shrink-0 mt-0.5" />
+                <p>
+                  Thank you for reaching out. Our concierge team has received
+                  your message and will contact you shortly.
+                </p>
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-10">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+            <form onSubmit={handleSubmit} className="space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Name */}
-                <div className="group border-b border-gray-200 focus-within:border-[#da127d] transition-colors">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 group-focus-within:text-[#da127d]">
-                    Full Identity
+                <div className="group relative">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 block mb-2 transition-colors group-focus-within:text-[#da127d]">
+                    Full Name *
                   </label>
                   <input
                     name="name"
                     required
                     value={formData.name}
                     onChange={handleChange}
-                    className="w-full py-3 text-[15px] bg-transparent outline-none placeholder:text-gray-200"
-                    placeholder="Enter your name"
+                    className="w-full pb-2 text-[14px] text-gray-800 bg-transparent border-b border-gray-200 outline-none focus:border-[#da127d] transition-colors placeholder:text-gray-300"
+                    placeholder="Jane Doe"
                   />
                 </div>
                 {/* Email */}
-                <div className="group border-b border-gray-200 focus-within:border-[#da127d] transition-colors">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 group-focus-within:text-[#da127d]">
-                    Email Address
+                <div className="group relative">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 block mb-2 transition-colors group-focus-within:text-[#da127d]">
+                    Email Address *
                   </label>
                   <input
                     type="email"
@@ -110,163 +120,192 @@ const ContactUsPage = () => {
                     required
                     value={formData.email}
                     onChange={handleChange}
-                    className="w-full py-3 text-[15px] bg-transparent outline-none placeholder:text-gray-200"
-                    placeholder="name@example.com"
+                    className="w-full pb-2 text-[14px] text-gray-800 bg-transparent border-b border-gray-200 outline-none focus:border-[#da127d] transition-colors placeholder:text-gray-300"
+                    placeholder="jane@example.com"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Phone */}
+                <div className="group relative">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 block mb-2 transition-colors group-focus-within:text-[#da127d]">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    className="w-full pb-2 text-[14px] text-gray-800 bg-transparent border-b border-gray-200 outline-none focus:border-[#da127d] transition-colors placeholder:text-gray-300"
+                    placeholder="+91 99999 99999"
+                  />
+                </div>
                 {/* Order ID */}
-                <div className="group border-b border-gray-200 focus-within:border-[#da127d] transition-colors">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 group-focus-within:text-[#da127d]">
+                <div className="group relative">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 block mb-2 transition-colors group-focus-within:text-[#da127d]">
                     Order Reference
                   </label>
                   <input
                     name="orderId"
                     value={formData.orderId}
                     onChange={handleChange}
-                    className="w-full py-3 text-[15px] bg-transparent outline-none placeholder:text-gray-200"
-                    placeholder="#MN-0000 (Optional)"
+                    className="w-full pb-2 text-[14px] text-gray-800 bg-transparent border-b border-gray-200 outline-none focus:border-[#da127d] transition-colors placeholder:text-gray-300"
+                    placeholder="Optional (#MN-0000)"
                   />
-                </div>
-                {/* Subject */}
-                <div className="group border-b border-gray-200 focus-within:border-[#da127d] transition-colors">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 group-focus-within:text-[#da127d]">
-                    Query Subject
-                  </label>
-                  <select
-                    name="subject"
-                    value={formData.subject}
-                    onChange={handleChange}
-                    className="w-full py-3 text-[15px] bg-transparent outline-none cursor-pointer">
-                    <option>General Inquiry</option>
-                    <option>Order Status</option>
-                    <option>Custom Tailoring</option>
-                    <option>Returns & Exchange</option>
-                  </select>
                 </div>
               </div>
 
+              {/* Subject */}
+              <div className="group relative">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 block mb-2 transition-colors group-focus-within:text-[#da127d]">
+                  Query Subject
+                </label>
+                <select
+                  name="subject"
+                  value={formData.subject}
+                  onChange={handleChange}
+                  className="w-full pb-2 text-[14px] text-gray-800 bg-transparent border-b border-gray-200 outline-none focus:border-[#da127d] transition-colors cursor-pointer appearance-none rounded-none">
+                  <option>General Inquiry</option>
+                  <option>Order Status & Tracking</option>
+                  <option>Custom Tailoring / Alterations</option>
+                  <option>Returns & Exchange</option>
+                </select>
+              </div>
+
               {/* Message */}
-              <div className="group border-b border-gray-200 focus-within:border-[#da127d] transition-colors">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 group-focus-within:text-[#da127d]">
-                  Message Essence
+              <div className="group relative">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 block mb-2 transition-colors group-focus-within:text-[#da127d]">
+                  How can we help? *
                 </label>
                 <textarea
                   name="message"
                   required
-                  rows="4"
+                  rows="3"
                   value={formData.message}
                   onChange={handleChange}
-                  className="w-full py-3 text-[15px] bg-transparent outline-none resize-none placeholder:text-gray-200"
-                  placeholder="How may we assist your journey?"
+                  className="w-full pb-2 text-[14px] text-gray-800 bg-transparent border-b border-gray-200 outline-none focus:border-[#da127d] transition-colors resize-none placeholder:text-gray-300"
+                  placeholder="Please share the details of your inquiry..."
                 />
               </div>
 
-              {/* Submit Button (Sharp Editorial) */}
-              <button
-                type="submit"
-                disabled={status === "loading"}
-                className="w-full md:w-auto bg-gray-900 text-white px-12 py-5 text-[11px] font-bold uppercase tracking-[0.4em] hover:bg-[#da127d] transition-all duration-500 disabled:opacity-50 flex items-center justify-center gap-4">
-                {status === "loading" ? (
-                  <Loader2 className="animate-spin w-4 h-4" />
-                ) : (
-                  <>
-                    Send Query <ArrowRight size={14} />
-                  </>
-                )}
-              </button>
+              {/* Submit Button */}
+              <div className="pt-4">
+                <button
+                  type="submit"
+                  disabled={status === "loading"}
+                  className="w-full sm:w-auto bg-[#1a1a1a] text-white px-10 py-4 text-[11px] font-bold uppercase tracking-[0.2em] hover:bg-[#da127d] transition-colors duration-500 disabled:opacity-70 flex items-center justify-center gap-3">
+                  {status === "loading" ? (
+                    <Loader2 className="animate-spin w-4 h-4" />
+                  ) : (
+                    <>
+                      Send Message <ArrowRight size={14} />
+                    </>
+                  )}
+                </button>
+              </div>
             </form>
-          </div>
-        </section>
+          </section>
 
-        {/* ── RIGHT: Contact Info ── */}
-        <aside className="lg:w-[400px] xl:w-[450px] bg-white p-8 md:p-16 lg:p-20 flex flex-col gap-16">
-          {/* Studio Location */}
-          <div className="animate-in fade-in slide-in-from-right-4 duration-700">
-            <span className="text-[#da127d] text-[10px] font-bold uppercase tracking-[0.3em] mb-6 block">
-              The Atelier
-            </span>
-            <div className="flex gap-4 items-start">
-              <MapPin
-                size={20}
-                strokeWidth={1.5}
-                className="text-gray-400 shrink-0"
-              />
+          {/* ── RIGHT: Contact Info ── */}
+          <aside className="flex-1 bg-[#FAFAFA] p-8 sm:p-12 lg:p-16 flex flex-col justify-between border-t lg:border-t-0 lg:border-l border-gray-100">
+            <div className="space-y-12">
+              {/* Studio Location */}
               <div>
-                <p className="text-[15px] text-gray-900 font-medium leading-relaxed">
+                <span className="text-gray-900 text-[11px] font-bold uppercase tracking-widest mb-5 block flex items-center gap-2">
+                  <MapPin size={14} className="text-[#da127d]" /> The Atelier
+                </span>
+                <p className="text-[14px] text-gray-600 leading-relaxed font-light">
                   B-005, Sector 85,
                   <br />
                   Noida, Uttar Pradesh 201305
+                  <br />
+                  India
                 </p>
                 <a
                   href="https://maps.google.com"
-                  className="text-[11px] font-bold uppercase tracking-widest text-[#da127d] mt-4 block hover:underline">
-                  Navigate
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[11px] font-bold uppercase tracking-widest text-[#da127d] mt-3 inline-block hover:underline underline-offset-4">
+                  Get Directions
+                </a>
+              </div>
+
+              {/* Digital Connection */}
+              <div>
+                <span className="text-gray-900 text-[11px] font-bold uppercase tracking-widest mb-5 block flex items-center gap-2">
+                  <Phone size={14} className="text-[#da127d]" /> Get in Touch
+                </span>
+                <div className="space-y-4">
+                  <a
+                    href="mailto:concierge@mnmukt.com"
+                    className="flex items-center gap-3 group">
+                    <Mail
+                      size={16}
+                      strokeWidth={1.5}
+                      className="text-gray-400 group-hover:text-[#da127d] transition-colors"
+                    />
+                    <span className="text-[14px] text-gray-600 group-hover:text-gray-900 transition-colors font-light">
+                      concierge@mnmukt.com
+                    </span>
+                  </a>
+                  <a
+                    href="tel:+919899990772"
+                    className="flex items-center gap-3 group">
+                    <Phone
+                      size={16}
+                      strokeWidth={1.5}
+                      className="text-gray-400 group-hover:text-[#da127d] transition-colors"
+                    />
+                    <span className="text-[14px] text-gray-600 group-hover:text-gray-900 transition-colors font-light">
+                      +91 989 999 0772
+                    </span>
+                  </a>
+                  <a
+                    href="https://wa.me/919899990772"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-3 group">
+                    <MessageCircle
+                      size={16}
+                      strokeWidth={1.5}
+                      className="text-gray-400 group-hover:text-[#25D366] transition-colors"
+                    />
+                    <span className="text-[14px] text-gray-600 group-hover:text-gray-900 transition-colors font-light">
+                      WhatsApp Support
+                    </span>
+                  </a>
+                </div>
+              </div>
+
+              {/* Working Hours */}
+              <div>
+                <span className="text-gray-900 text-[11px] font-bold uppercase tracking-widest mb-4 block flex items-center gap-2">
+                  <Clock size={14} className="text-[#da127d]" /> Business Hours
+                </span>
+                <p className="text-[14px] text-gray-600 leading-relaxed font-light">
+                  Monday — Saturday
+                  <br />
+                  09:00 AM — 06:00 PM (IST)
+                </p>
+              </div>
+            </div>
+
+            {/* Social / Footer of Aside */}
+            <div className="pt-12 mt-12 border-t border-gray-200">
+              <div className="flex items-center gap-4">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                  Follow us
+                </span>
+                <a
+                  href="#"
+                  className="text-gray-400 hover:text-[#da127d] transition-colors">
+                  <Instagram size={16} strokeWidth={1.5} />
                 </a>
               </div>
             </div>
-          </div>
-
-          {/* Digital Connection */}
-          <div className="animate-in fade-in slide-in-from-right-4 duration-700 delay-150">
-            <span className="text-[#da127d] text-[10px] font-bold uppercase tracking-[0.3em] mb-6 block">
-              Digital Support
-            </span>
-            <div className="space-y-6">
-              <div className="flex items-center gap-4 group cursor-pointer">
-                <Mail
-                  size={20}
-                  strokeWidth={1.5}
-                  className="text-gray-400 group-hover:text-[#da127d] transition-colors"
-                />
-                <p className="text-[15px] text-gray-900 font-medium">
-                  concierge@mnmukt.com
-                </p>
-              </div>
-              <div className="flex items-center gap-4 group cursor-pointer">
-                <Phone
-                  size={20}
-                  strokeWidth={1.5}
-                  className="text-gray-400 group-hover:text-[#da127d] transition-colors"
-                />
-                <p className="text-[15px] text-gray-900 font-medium">
-                  +91 989 999 0772
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Working Hours */}
-          <div className="animate-in fade-in slide-in-from-right-4 duration-700 delay-300">
-            <span className="text-[#da127d] text-[10px] font-bold uppercase tracking-[0.3em] mb-6 block">
-              Timings
-            </span>
-            <div className="flex gap-4 items-start">
-              <Clock size={20} strokeWidth={1.5} className="text-gray-400" />
-              <p className="text-[14px] text-gray-600 italic font-serif leading-relaxed">
-                Monday — Saturday
-                <br />
-                09:00 — 18:00 IST
-              </p>
-            </div>
-          </div>
-
-          {/* Social */}
-          <div className="pt-8 border-t border-gray-100 mt-auto">
-            <div className="flex items-center gap-6">
-              <a
-                href="#"
-                className="text-gray-400 hover:text-[#da127d] transition-colors">
-                <Instagram size={20} strokeWidth={1.5} />
-              </a>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-300">
-                Follow our journey
-              </span>
-            </div>
-          </div>
-        </aside>
+          </aside>
+        </div>
       </main>
     </div>
   );

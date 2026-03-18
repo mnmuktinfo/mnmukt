@@ -212,6 +212,29 @@ export const useProducts = () => {
     [fetchIt]
   );
 
+  const getProductsByCategoryLimited = useCallback(
+  async (categoryId, limit = 5) => {
+    if (!categoryId) return [];
+
+    // Create a unique query key including the limit
+    const key = ["products", "category", categoryId, "limit", limit];
+
+    // Check cache first
+    const cached = qc.getQueryData(key);
+    if (cached) return cached;
+
+    // Fetch from service with limit
+    return fetchIt(
+      key,
+      async () => {
+        const allProducts = await productService.getProductsByCategory(categoryId);
+        return allProducts?.slice(0, limit) || [];
+      },
+      "array"
+    );
+  },
+  [fetchIt, qc]
+);
 
   const getProductsByIds = useCallback(
   async (ids = []) => {
@@ -273,5 +296,6 @@ getProductsByIds,
     prefetchById,
     prefetchCategory,
     prefetchNextPage,
+    getProductsByCategoryLimited
   };
 };

@@ -4,10 +4,15 @@ const DB_NAME = "cart-db";
 const STORE = "cart";
 
 const getDB = () =>
-  openDB(DB_NAME, 1, {
-    upgrade(db) {
-      // keyPath: "id" means every object saved MUST have an 'id' property
-      db.createObjectStore(STORE, { keyPath: "id" });
+  // 🔥 FIXED: Bumped version to 2 to trigger the schema upgrade
+  openDB(DB_NAME, 2, {
+    upgrade(db, oldVersion) {
+      // If the old store exists with the wrong keyPath, delete it first
+      if (db.objectStoreNames.contains(STORE)) {
+        db.deleteObjectStore(STORE);
+      }
+      // 🔥 FIXED: keyPath is now "cartKey" to support product variants
+      db.createObjectStore(STORE, { keyPath: "cartKey" });
     },
   });
 
@@ -16,32 +21,35 @@ export const getCartDB = async () => {
   return db.getAll(STORE);
 };
 
-// 🔥 FIXED: Now accepts the full 'item' object instead of just 'id'
 export const addCartDB = async (item) => {
   const db = await getDB();
   
-  // Safety check: Ensure the item has an ID before saving
-  if (!item.id) {
-    console.error("Cannot add to DB: Item is missing 'id'", item);
+  // Safety check: Ensure the item has a cartKey before saving
+  if (!item.cartKey) {
+    console.error("Cannot add to DB: Item is missing 'cartKey'", item);
     return;
   }
 
-  // We save the 'item' directly because it already contains { id, selectedQuantity, selectedSize }
-  // passed from ProductCard -> CartContext -> Here.
   await db.put(STORE, item);
 };
 
-export const updateCartDB = async (id, data) => {
+// 🔥 FIXED: Renamed parameter to 'cartKey' for clarity
+export const updateCartDB = async (cartKey, data) => {
   const db = await getDB();
-  const item = await db.get(STORE, id);
+  const item = await db.get(STORE, cartKey);
+  
   if (item) {
     await db.put(STORE, { ...item, ...data });
+  } else {
+    // Fallback: If it doesn't exist for some reason, just put the new data
+    await db.put(STORE, data);
   }
 };
 
-export const removeCartDB = async (id) => {
+// 🔥 FIXED: Renamed parameter to 'cartKey' for clarity
+export const removeCartDB = async (cartKey) => {
   const db = await getDB();
-  await db.delete(STORE, id);
+  await db.delete(STORE, cartKey);
 };
 
 export const clearCartDB = async () => {

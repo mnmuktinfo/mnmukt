@@ -10,6 +10,7 @@ const CheckoutRoutes = () => {
       <Route path="/" element={<CheckoutLayout />}>
         <Route path="cart" element={<CartPage />} />
         <Route path="address" element={<AddressPage />} />
+
         <Route index element={<CartPage />} />
       </Route>
     </Routes>

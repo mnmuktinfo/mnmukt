@@ -1,257 +1,177 @@
-import React, { useState } from "react";
-
-// Helper component for the SVG icons to keep the main code clean
-const Icons = {
-  Tag: () => (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="text-gray-400">
-      <path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z" />
-      <path d="M7 7h.01" />
-    </svg>
-  ),
-  Ticket: () => (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="text-gray-400">
-      <rect width="20" height="13" x="2" y="5.5" rx="2" ry="2" />
-      <path d="M2 12h20" />
-      <path d="M6 5.5v13" />
-      <path d="M18 5.5v13" />
-    </svg>
-  ),
-  Gift: () => (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="text-[#007673]">
-      <rect x="3" y="8" width="18" height="4" rx="1" />
-      <path d="M12 8v13" />
-      <path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7" />
-      <path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5" />
-    </svg>
-  ),
-  Wallet: () => (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="text-gray-400">
-      <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
-      <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
-      <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
-    </svg>
-  ),
-  ChevronDown: () => (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="text-gray-400">
-      <path d="m6 9 6 6 6-6" />
-    </svg>
-  ),
-};
+import React, { useMemo } from "react";
+import { Tag } from "lucide-react";
 
 const CartSummary = ({
-  subtotal,
-  originalTotalPrice,
+  subtotal = 0,
+  originalTotalPrice = 0,
+  gstAmount = 0,
   platformFee = 0,
-  selectedItems,
   onPlaceOrder,
   btnText = "PLACE ORDER",
+  selectedItems = [],
+  addressPage = false, // new prop
+  button = true,
 }) => {
-  // State for the gift wrap checkbox
-  const [isGiftWrap, setIsGiftWrap] = useState(false);
+  const selectedCount = selectedItems.length;
 
-  const discountOnMrp = Number((originalTotalPrice - subtotal).toFixed(2));
+  const discountOnMrp = useMemo(() => {
+    const diff = originalTotalPrice - subtotal;
+    return diff > 0 ? diff : 0;
+  }, [originalTotalPrice, subtotal]);
 
-  // Mocking GST based on subtotal
-  const gstAmount = Number((subtotal * 0.05).toFixed(2));
+  const total = useMemo(
+    () => subtotal + gstAmount + platformFee,
+    [subtotal, gstAmount, platformFee],
+  );
 
-  // Calculate total, dynamically adding ₹25 if gift wrap is selected
-  const total = subtotal + platformFee + gstAmount + (isGiftWrap ? 25 : 0);
+  const formatPrice = (val) =>
+    Number(val).toLocaleString("en-IN", { maximumFractionDigits: 0 });
+
+  const confetti = Array.from({ length: 14 });
 
   return (
-    <div className="w-full font-sans flex flex-col gap-4">
-      {/* 1. Primary Action Button (Moved to top like the image) */}
-      <button
-        onClick={onPlaceOrder}
-        className="w-full py-3.5 bg-[#007673] text-white text-[13px] font-bold uppercase tracking-wide rounded-sm hover:bg-[#005f5c] transition-colors shadow-sm">
-        {btnText}
-      </button>
-
-      {/* 2. Membership Promo Banner */}
-      <div className="bg-white border border-gray-200 rounded-sm overflow-hidden shadow-sm">
-        <div className="bg-gradient-to-r from-[#e8cbf5] to-[#f4d5ef] px-4 py-2.5 text-center text-[10px] font-black tracking-widest text-gray-900">
-          YOU ARE MISSING OUT ON!
-        </div>
-        <div className="p-4">
-          <div className="flex justify-between items-center gap-4 mb-3">
-            <p className="text-[12px] text-gray-700 leading-snug">
-              Save an additional <span className="font-bold">₹190</span> by
-              adding membership to your cart.
-            </p>
-            <button className="border border-[#007673] text-[#007673] bg-white px-5 py-1.5 text-[11px] font-bold rounded-sm hover:bg-[#007673] hover:text-white transition-colors">
-              ADD
-            </button>
-          </div>
-          <div className="border-t border-dashed border-gray-200 pt-3">
-            <p className="text-[11px] text-gray-400">
-              Free shipping on all orders
-            </p>
-            <button className="text-[11px] font-bold text-gray-800 mt-1 flex items-center gap-1 hover:text-[#007673] transition-colors">
-              View all benefits <Icons.ChevronDown />
-            </button>
+    <div className="w-full bg-white border border-gray-200 shadow-md overflow-hidden font-sans space-y-3">
+      {/* SAVINGS BANNER */}
+      {discountOnMrp > 0 && (
+        <div className="relative overflow-hidden bg-[#e8f5e9] text-[#1b5e20] flex items-center gap-2 px-4 py-2  text-[12px] sm:text-[13px] font-semibold">
+          <Tag size={16} />
+          You'll save ₹{formatPrice(discountOnMrp)} on this order!
+          {/* Confetti */}
+          <div className="absolute inset-0 pointer-events-none">
+            {confetti.map((_, i) => (
+              <span
+                key={i}
+                className="confetti-piece"
+                style={{
+                  left: `${Math.random() * 100}%`,
+                  animationDelay: `${Math.random() * 0.8}s`,
+                }}
+              />
+            ))}
           </div>
         </div>
-      </div>
+      )}
 
-      {/* 3. Expandable Coupon & Voucher Options */}
-      <div className="bg-white border border-gray-200 rounded-sm shadow-sm divide-y divide-gray-100">
-        {/* Apply Coupon */}
-        <div className="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50 transition-colors">
-          <div className="flex items-center gap-3 text-[13px] text-gray-700 font-medium">
-            <Icons.Tag /> Apply Coupon
+      {/* DELIVERY ESTIMATES */}
+      {addressPage && selectedCount > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <h3 className="px-4 py-2 text-[12px] sm:text-[13px] font-bold text-gray-700 uppercase tracking-wide">
+              Delivery Estimates
+            </h3>
           </div>
-          <Icons.ChevronDown />
+
+          <div className="space-y-3 p-3 border border-gray-100 ">
+            {selectedItems.map((item, index) => (
+              <React.Fragment key={item.id || index}>
+                <div className="flex items-center gap-3">
+                  <img
+                    src={item.image || "/api/placeholder/48/64"}
+                    alt="Product"
+                    className="w-10 h-10 sm:w-8 sm:h-12 md:h-8 object-cover  border border-gray-200 bg-white"
+                  />
+                  <div className="text-[12px] sm:text-[13px] text-gray-700 flex-1">
+                    <p className="line-clamp-1 font-medium">
+                      {item.name || "Item"}
+                    </p>
+                    <p className="text-gray-500 mt-0.5">
+                      Delivery by{" "}
+                      <span className="font-bold text-gray-800">
+                        {item.deliveryText}
+                      </span>
+                    </p>
+                  </div>
+                </div>
+                {index < selectedItems.length - 1 && (
+                  <hr className="border-gray-200" />
+                )}
+              </React.Fragment>
+            ))}
+          </div>
         </div>
+      )}
 
-        {/* Gift Voucher */}
-        <div className="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50 transition-colors">
-          <div className="flex items-center gap-3 text-[13px] text-gray-700 font-medium">
-            <Icons.Ticket /> Gift Voucher
-          </div>
-          <Icons.ChevronDown />
-        </div>
+      {/* PRICE DETAILS */}
+      <div>
+        <div className="p-4 sm:px-5 sm:py-2">
+          <h3 className="text-[11px] sm:text-[12px] font-bold text-gray-800 uppercase tracking-wide mb-4">
+            Price Details ({selectedCount} Item{selectedCount > 1 ? "s" : ""})
+          </h3>
 
-        {/* Gift Wrap (Interactive Checkbox) */}
-        <div
-          className="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50 transition-colors"
-          onClick={() => setIsGiftWrap(!isGiftWrap)}>
-          <div className="flex items-center gap-3 text-[13px] text-gray-700 font-medium">
-            <Icons.Gift /> Gift Wrap (₹ 25)
-          </div>
-          <input
-            type="checkbox"
-            checked={isGiftWrap}
-            onChange={() => setIsGiftWrap(!isGiftWrap)}
-            className="w-4 h-4 accent-[#007673] cursor-pointer"
-          />
-        </div>
-
-        {/* TSS Money / Points */}
-        <div className="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50 transition-colors">
-          <div className="flex items-center gap-3 text-[13px] text-gray-700 font-medium">
-            <Icons.Wallet /> TSS Money / TSS Points
-          </div>
-          <Icons.ChevronDown />
-        </div>
-      </div>
-
-      {/* 4. Billing Details Box */}
-      <div className="bg-white border border-gray-200 rounded-sm p-4 sm:p-5 shadow-sm">
-        <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-5">
-          Billing Details
-        </h3>
-
-        <div className="space-y-3">
-          {/* Cart Total */}
-          <div className="flex justify-between text-[13px] text-gray-600">
-            <span>
-              Cart Total{" "}
-              <span className="text-[10px] text-gray-400 ml-1">
-                (Excl. of all taxes)
-              </span>
-            </span>
-            <span className="font-bold text-gray-800">
-              ₹ {subtotal.toFixed(2)}
-            </span>
-          </div>
-
-          {/* Discount */}
-          {discountOnMrp > 0 && (
-            <div className="flex justify-between text-[13px] text-gray-600">
-              <span>Product Discount</span>
-              <span className="font-bold text-[#007673]">
-                −₹ {discountOnMrp.toFixed(2)}
+          <div className="space-y-2 sm:space-y-3">
+            <div className="flex justify-between text-[12px] sm:text-[13px] text-gray-600">
+              <span>Total MRP</span>
+              <span className="text-gray-800">
+                ₹{formatPrice(originalTotalPrice)}
               </span>
             </div>
-          )}
 
-          {/* GST */}
-          <div className="flex justify-between text-[13px] text-gray-600">
-            <span>
-              GST{" "}
-              <span className="text-[10px] text-[#007673] ml-1 cursor-pointer hover:underline">
-                (view details)
+            {discountOnMrp > 0 && (
+              <div className="flex justify-between text-[12px] sm:text-[13px] text-gray-600">
+                <span>Discount on MRP</span>
+                <span className="text-[#038d63] font-medium">
+                  −₹{formatPrice(discountOnMrp)}
+                </span>
+              </div>
+            )}
+
+            {gstAmount > 0 && (
+              <div className="flex justify-between text-[12px] sm:text-[13px] text-gray-600">
+                <span>GST (Estimated)</span>
+                <span className="text-gray-800">₹{formatPrice(gstAmount)}</span>
+              </div>
+            )}
+
+            <div className="flex justify-between text-[12px] sm:text-[13px] text-gray-600">
+              <span className="flex items-center gap-1">
+                Convenience Fee
+                <span className="text-[#f43397] font-semibold text-[10px] ml-1 cursor-pointer">
+                  Know More
+                </span>
               </span>
-            </span>
-            <span className="font-bold text-gray-800">
-              ₹ {gstAmount.toFixed(2)}
-            </span>
-          </div>
 
-          {/* Conditional Gift Wrap Charge */}
-          {isGiftWrap && (
-            <div className="flex justify-between text-[13px] text-gray-600">
-              <span>Gift Wrap</span>
-              <span className="font-bold text-gray-800">₹ 25.00</span>
+              <span>
+                {platformFee === 0 ? (
+                  <>
+                    <span className="text-gray-400 line-through mr-1 text-[11px]">
+                      ₹99
+                    </span>
+                    <span className="text-[#038d63] font-medium">FREE</span>
+                  </>
+                ) : (
+                  <span className="text-gray-800">
+                    ₹{formatPrice(platformFee)}
+                  </span>
+                )}
+              </span>
             </div>
+          </div>
+
+          <hr className="border-gray-200 my-3 sm:my-4" />
+
+          <div className="flex justify-between items-center text-[14px] sm:text-[15px]">
+            <span className="font-bold text-gray-900">Total Amount</span>
+            <span className="font-bold text-gray-900">
+              ₹{formatPrice(total)}
+            </span>
+          </div>
+        </div>
+
+        {/* CHECKOUT BUTTON */}
+        <div className="bg-[#fff0f5] pt-2 fixed md:static bottom-0 left-0 w-full shadow-lg">
+          <div className="text-center text-[10px]  md:hidden sm:text-[11px] font-bold text-[#f43397] pb-2">
+            {selectedCount} Item{selectedCount > 1 ? "s" : ""} selected for
+            order
+          </div>
+          {button && (
+            <button
+              type="button"
+              disabled={selectedCount === 0}
+              onClick={onPlaceOrder}
+              className="w-full py-3.5 sm:py-3 bg-[#f43397] text-white text-[13px] sm:text-[14px] font-bold uppercase tracking-widest hover:bg-[#d82a85] transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+              {btnText}
+            </button>
           )}
-
-          {/* Shipping Charges */}
-          <div className="flex justify-between text-[13px] text-gray-600 border-b border-gray-100 pb-4">
-            <span>Shipping Charges</span>
-            <span className="text-[#007673] font-bold uppercase text-[12px]">
-              {platformFee === 0 ? "Free" : `₹ ${platformFee.toFixed(2)}`}
-            </span>
-          </div>
-
-          {/* Total Payable */}
-          <div className="flex justify-between items-center pt-2">
-            <span className="text-[14px] font-bold text-gray-900">
-              Total Payable
-            </span>
-            <span className="text-[16px] font-bold text-gray-900">
-              ₹ {total.toFixed(2)}
-            </span>
-          </div>
         </div>
       </div>
     </div>

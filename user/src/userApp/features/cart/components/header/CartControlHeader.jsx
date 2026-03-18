@@ -1,27 +1,33 @@
-import React from "react";
+import React, { memo, useMemo } from "react";
 import { Check } from "lucide-react";
 
 const CartControlHeader = ({
-  cartItems,
-  selectedItems,
+  cartItems = [],
+  selectedItems = [],
   onToggleSelect,
   onClearCart,
-  totalPrice,
+  totalPrice = 0,
 }) => {
-  const allSelected =
-    selectedItems.length === cartItems.length && cartItems.length > 0;
+  const allSelected = useMemo(
+    () => selectedItems.length === cartItems.length && cartItems.length > 0,
+    [selectedItems.length, cartItems.length],
+  );
+
+  const handleClear = (e) => {
+    e.stopPropagation();
+    onClearCart();
+  };
 
   return (
-    <div className="flex items-center justify-between bg-white px-4 py-3 border-b border-gray-100 w-full rounded-t-sm">
-      {/* Left side: Checkbox + Selection Count + Price */}
+    <div className="flex items-center justify-between bg-white px-4 py-3 w-full rounded-t-sm shadow-sm border-b border-gray-100">
+      {/* Left: Select All */}
       <div
         className="flex items-center gap-3 cursor-pointer"
         onClick={onToggleSelect}>
-        {/* Custom Teal Checkbox */}
         <div
           className={`w-[18px] h-[18px] flex items-center justify-center rounded-sm border transition-colors ${
             allSelected
-              ? "bg-[#007673] border-[#007673]"
+              ? "bg-[#f43397] border-[#f43397]"
               : "bg-white border-gray-300"
           }`}>
           {allSelected && (
@@ -29,20 +35,21 @@ const CartControlHeader = ({
           )}
         </div>
 
-        {/* Text Label */}
         <span className="text-[12px] font-bold text-gray-700 tracking-wide uppercase flex items-center">
           {selectedItems.length}/{cartItems.length} Items Selected
           {selectedItems.length > 0 && (
-            <span className="text-[#007673] ml-1">(₹ {totalPrice})</span>
+            <span className="text-[#f43397] ml-1">
+              (₹ {totalPrice.toLocaleString("en-IN")})
+            </span>
           )}
         </span>
       </div>
 
-      {/* Right side: Clear Cart (Text-based to match the clean aesthetic) */}
+      {/* Right: Clear Cart */}
       {cartItems.length > 0 && (
         <button
-          onClick={onClearCart}
-          className="text-[11px] font-bold text-gray-400 hover:text-red-500 uppercase tracking-widest transition-colors">
+          onClick={handleClear}
+          className="text-[11px] font-bold text-gray-400 hover:text-[#f43397] uppercase tracking-widest transition-colors">
           Clear
         </button>
       )}
@@ -50,4 +57,4 @@ const CartControlHeader = ({
   );
 };
 
-export default CartControlHeader;
+export default memo(CartControlHeader);

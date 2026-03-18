@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { Heart, ShoppingBag, PlusSquare } from "lucide-react"; // Imported PlusSquare for the install icon
-import usePWADownload from "../../../../hook/usePWADownload";
 import PromotionalNavbar from "./PromotionalNavbar";
 import NavbarDropdown from "../dropdown/NavbarDropdwown";
 import AppInstallOverlay from "../../../../downloadApp/AppInstallOverlay"; // Make sure the path is correct
@@ -23,7 +22,6 @@ const BadgeCount = ({ count }) => {
 const MobileNavbar = ({ cartCount = 0, wishlistCount = 0, promoData }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const { triggerInstall, deferredPrompt } = usePWADownload();
   const [showInstallPopup, setShowInstallPopup] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();

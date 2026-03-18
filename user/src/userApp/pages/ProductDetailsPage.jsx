@@ -54,7 +54,7 @@ const ProductDetailsPage = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
 
-  const { getProductBySlug, getProductsByCategory } = useProducts();
+  const { getProductBySlug, getProductsByCategoryLimited } = useProducts();
   const [relatedProducts, setRelatedProducts] = useState([]);
   const { addToCart, cart } = useCart();
 
@@ -80,11 +80,19 @@ const ProductDetailsPage = () => {
   useEffect(() => {
     let cancelled = false;
 
+    const cachedProduct = getProductBySlug(slug, { fromCache: true }); // hypothetical
+    if (cachedProduct) {
+      setProduct(cachedProduct);
+      if (cachedProduct.sizes?.length) setSelectedSize(cachedProduct.sizes[0]);
+      setFetching(false);
+      return; // skip API call
+    }
+
     const fetchProduct = async () => {
       setFetching(true);
       setFetchError(false);
       try {
-        const data = await getProductBySlug(slug);
+        const data = await getProductBySlug(slug); // API call only if not cached
         if (cancelled) return;
         if (data) {
           setProduct(data);
@@ -105,7 +113,7 @@ const ProductDetailsPage = () => {
     return () => (cancelled = true);
   }, [slug, getProductBySlug]);
 
-  // ── Fetch related products ──
+  // ── Fetch related products (limited to 5) ──
   useEffect(() => {
     if (!product?.categoryId) return;
 
@@ -113,9 +121,11 @@ const ProductDetailsPage = () => {
 
     const fetchRelated = async () => {
       try {
-        const data = await getProductsByCategory(product.categoryId);
+        // Use the limited fetch function
+        const data = await getProductsByCategoryLimited(product.categoryId, 5);
+
         if (!cancelled && data) {
-          // exclude current product
+          // Exclude the current product
           setRelatedProducts(data.filter((p) => p.id !== product.id));
         }
       } catch (err) {
@@ -125,8 +135,7 @@ const ProductDetailsPage = () => {
 
     fetchRelated();
     return () => (cancelled = true);
-  }, [product, getProductsByCategory]);
-
+  }, [product, getProductsByCategoryLimited]);
   // ─── Handlers ─────────────────────────────────────────────────────────────
   const notify = useCallback((type, message) => {
     setNotification({ type, message });

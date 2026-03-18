@@ -1,206 +1,258 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useAuth } from "../features/auth/context/UserContext";
 import { useCart } from "../features/cart/context/CartContext";
 import { useLocation, useNavigate, Navigate } from "react-router-dom";
-import { collection, getDocs, query, orderBy } from "firebase/firestore";
+import { useQueryClient } from "@tanstack/react-query";
+import { collection, query, orderBy, limit, getDocs } from "firebase/firestore";
 import { db } from "../../config/firebase";
+
 import { createOrder, makeOrderId } from "../services/orderService";
+import { calculatePricing } from "../services/pricingEngine";
 
 import AddressCard from "../components/cards/AddressCard";
-import CartSummary from "../features/cart/components/CartSummary";
-import PaymentConfirmationPopup from "../components/pop-up/PaymentConfirmationPopup";
 import AddressFormPopup from "../components/form/AddressFormPopup";
-import { Loader2, Plus, MapPin, AlertCircle, ShieldCheck } from "lucide-react";
+import CartSummary from "../features/cart/components/CartSummary";
+import PaymentSelector from "../components/cards/PaymentComponent"; // ✅ one import, correct name
+import ConfirmOrderModal from "../components/cards/ConfirmOrderModal";
+
+import { Plus, MapPin, AlertCircle, ShieldCheck } from "lucide-react";
+
+/* ────────────────────────────────
+   Constants
+──────────────────────────────── */
 
 const EMPTY_FORM = {
+  id: null,
   name: "",
   phone: "",
   addressLine1: "",
   city: "",
   state: "",
   pincode: "",
-  id: null,
+  tag: "HOME",
 };
+
+const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER ?? "";
+
+/* ────────────────────────────────
+   Error Banner
+──────────────────────────────── */
 
 const ErrorBanner = ({ message, onDismiss }) => {
   if (!message) return null;
   return (
-    <div className="flex items-center gap-3 bg-red-50 border border-red-100 rounded-sm px-4 py-3 mb-6 animate-in fade-in">
-      <AlertCircle size={18} className="text-[#f15757] shrink-0" />
-      <p className="text-[13px] text-red-700 font-medium flex-1">{message}</p>
+    <div className="flex items-center gap-3 bg-red-50 border border-red-100 rounded-lg px-4 py-3 mb-6">
+      <AlertCircle size={16} className="text-red-400 shrink-0" />
+      <p className="text-[13px] text-red-600 flex-1">{message}</p>
       <button
         onClick={onDismiss}
-        className="text-red-400 hover:text-red-600 text-[11px] font-bold uppercase tracking-widest transition-colors">
+        className="text-red-400 text-[11px] font-semibold uppercase tracking-wide">
         Dismiss
       </button>
     </div>
   );
 };
 
+/* ────────────────────────────────
+   Address Page
+──────────────────────────────── */
+
 const AddressPage = () => {
-  // Removed saveAddress from useAuth since we are handling it locally now
-  const { user, address: cachedAddress } = useAuth();
+  const { user } = useAuth();
   const { clear } = useCart();
   const location = useLocation();
   const navigate = useNavigate();
-  const { items, totalAmount } = location.state || {};
+  const queryClient = useQueryClient();
 
-  const orderIdRef = useRef(makeOrderId(user?.name));
+  const { source, items } = location.state || {};
 
+  // ── Normalize cart items into a stable shape ──
+  const normalizedItems = useMemo(() => {
+    if (!items?.length) return [];
+    return items.map((item) => ({
+      id: item.id,
+      name: item.name,
+      price: Number(item.price),
+      quantity: item.quantity || item.selectedQuantity || 1,
+      size: item.size || item.selectedSize || "",
+      image: item.banner || item.images?.[0] || "",
+    }));
+  }, [items]);
+
+  // ── Pricing ──
+  const pricing = useMemo(
+    () => calculatePricing(normalizedItems),
+    [normalizedItems],
+  );
+
+  // ── Order ID — generated once, synchronously ──
+  const orderIdRef = useRef(null);
+  if (!orderIdRef.current && user?.name) {
+    orderIdRef.current = makeOrderId(user.name);
+  }
+
+  // ── State ──
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [addresses, setAddresses] = useState([]);
   const [selectedAddressIndex, setSelectedAddressIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [placing, setPlacing] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [popupVisible, setPopupVisible] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState("cod");
   const [error, setError] = useState("");
   const [form, setForm] = useState(EMPTY_FORM);
+  const placingRef = useRef(false);
 
-  if (!items || items.length === 0)
-    return <Navigate to="/checkout/cart" replace />;
+  // ── Guard: nothing to checkout — placed AFTER all hooks ──
+  if (!normalizedItems.length) {
+    return <Navigate to="/" replace />;
+  }
 
-  /* ── Fetch Saved Addresses on Mount ── */
+  // ── Fetch saved addresses ──
   const fetchAddresses = useCallback(async () => {
-    if (!user?.uid) return;
+    if (!user?.uid) {
+      setLoading(false);
+      return;
+    }
     try {
       const q = query(
         collection(db, "users", user.uid, "addresses"),
         orderBy("createdAt", "desc"),
+        limit(10),
       );
-      const snapshot = await getDocs(q);
-      const loaded = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-
-      setAddresses(loaded);
-
-      if (loaded.length > 0 && selectedAddressIndex >= loaded.length) {
-        setSelectedAddressIndex(0);
-      }
-
-      if (loaded.length === 0) {
-        setEditing(true);
-      }
+      const snap = await getDocs(q);
+      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setAddresses(list);
+      if (!list.length) setEditing(true);
     } catch (err) {
-      console.error("[AddressPage] Load:", err);
-      setError("Failed to load addresses. Please refresh.");
+      console.error("Address load error:", err);
+      setError("Failed to load addresses.");
     } finally {
       setLoading(false);
     }
-  }, [user?.uid, selectedAddressIndex]);
+  }, [user?.uid]);
 
   useEffect(() => {
     fetchAddresses();
   }, [fetchAddresses]);
 
-  /* ── Save Address LOCALLY (For this order only) ── */
+  // ── Save address to local state ──
   const handleSaveAddress = () => {
-    setError("");
-
-    // Create a temporary address object
     const newAddress = {
-      // If it's a new address, generate a temp ID so React can track it in the list
       id: form.id || `temp-${Date.now()}`,
+      name: form.name,
+      phone: form.phone,
       line1: form.addressLine1,
-      addressLine1: form.addressLine1,
       city: form.city,
       state: form.state,
       pincode: form.pincode,
-      name: form.name,
-      phone: form.phone,
+      tag: form.tag,
     };
 
-    // Update the UI list immediately without writing to Firebase
-    setAddresses((prev) => {
-      if (form.id) {
-        // If editing an existing card, update it locally
-        return prev.map((a) => (a.id === form.id ? newAddress : a));
-      } else {
-        // If adding a new card, put it at the top of the list
-        return [newAddress, ...prev];
-      }
-    });
-
-    // Auto-select the newly added address
-    if (!form.id) {
-      setSelectedAddressIndex(0);
-    }
-
+    setAddresses((prev) =>
+      form.id
+        ? prev.map((a) => (a.id === form.id ? newAddress : a))
+        : [newAddress, ...prev],
+    );
     setEditing(false);
     setForm(EMPTY_FORM);
   };
 
-  /* ── Place order using Service ── */
+  // ── Place order ──
   const placeOrder = async () => {
-    if (addresses.length === 0) {
-      setError("Please add a delivery address first.");
+    if (placingRef.current) return;
+
+    if (!addresses.length) {
+      setError("Please add a delivery address.");
       return;
     }
-    if (placing) return;
+    if (!orderIdRef.current) {
+      setError("Order ID not ready. Please refresh.");
+      return;
+    }
 
+    placingRef.current = true;
     setPlacing(true);
-    setError("");
 
     try {
-      // This sends the locally selected address directly to the order document
+      const selectedAddress = addresses[selectedAddressIndex];
+
       await createOrder({
         orderId: orderIdRef.current,
         user,
-        selectedAddress: addresses[selectedAddressIndex],
-        items,
-        totalAmount,
+        selectedAddress,
+        paymentMethod,
+        items: normalizedItems,
+        pricing,
       });
 
-      await clear();
-      setPopupVisible(true);
+      if (source === "cart") await clear();
+      await queryClient.invalidateQueries(["orders"]);
+
+      if (paymentMethod === "whatsapp" && WHATSAPP_NUMBER) {
+        const msg = `Hello ${user.name}, your order ${orderIdRef.current} has been placed. Please complete payment.`;
+        window.open(
+          `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`,
+          "_blank",
+        );
+      }
+
+      navigate(`/order-success/${orderIdRef.current}`, { replace: true });
     } catch (err) {
-      console.error("[AddressPage] Order failed:", err);
+      console.error("Order placement error:", err);
       setError("Checkout failed. Please try again.");
     } finally {
+      placingRef.current = false;
       setPlacing(false);
     }
   };
 
-  if (loading)
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#f9f9f9] gap-4">
-        <Loader2 className="animate-spin text-[#007673]" size={32} />
-        <span className="text-[12px] uppercase tracking-widest text-gray-500 font-bold">
-          Loading Addresses...
-        </span>
-      </div>
-    );
+  const btnText = placing
+    ? "Processing..."
+    : editing
+      ? "Save address first"
+      : "Continue";
 
+  const disabled =
+    placing || editing || !addresses.length || !orderIdRef.current;
+
+  const confirmDescription =
+    paymentMethod === "whatsapp"
+      ? "Confirm order and pay via WhatsApp?"
+      : "Confirm order with Cash on Delivery?";
+
+  /* ── Render ── */
   return (
-    <div className="min-h-screen  font-sans text-gray-800 pb-24">
+    <div className="min-h-screen bg-white pb-24">
       <div className="max-w-7xl mx-auto px-4 py-8 flex flex-col lg:flex-row gap-8">
-        {/* ── LEFT: Address Selection ── */}
-        <div className="flex-1 min-w-0">
+        {/* ── LEFT — Address selection ── */}
+        <div className="flex-1">
           <ErrorBanner message={error} onDismiss={() => setError("")} />
 
-          {/* Header & Add Button */}
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-[16px] font-bold text-gray-900 uppercase tracking-wide">
+          <div className="flex justify-between items-center border border-gray-100 px-4 py-3 mb-5">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-700">
               Select Delivery Address
             </h2>
-            {addresses.length > 0 && (
+
+            {!editing && addresses.length > 0 && (
               <button
                 onClick={() => {
                   setForm(EMPTY_FORM);
                   setEditing(true);
                 }}
-                className="flex items-center gap-1.5 text-[12px] font-bold text-[#007673] uppercase tracking-wide hover:underline transition-all">
-                <Plus size={16} strokeWidth={2.5} /> Add New
+                className="flex items-center gap-1.5 text-[#f43397] text-sm font-medium hover:underline">
+                <Plus size={15} /> Add New
               </button>
             )}
           </div>
 
-          {/* Form Popup */}
           <AddressFormPopup
             isOpen={editing}
             form={form}
             setForm={setForm}
             onSave={handleSaveAddress}
             onCancel={
-              addresses.length > 0
+              addresses.length
                 ? () => {
                     setEditing(false);
                     setForm(EMPTY_FORM);
@@ -209,111 +261,99 @@ const AddressPage = () => {
             }
           />
 
-          {/* Address List Radio Cards */}
-          {addresses.length > 0 && (
-            <div className="space-y-4">
-              {addresses.map((addr, idx) => {
-                const isSelected = selectedAddressIndex === idx;
-                return (
-                  <div
-                    key={addr.id}
-                    onClick={() => setSelectedAddressIndex(idx)}
-                    className={`relative p-5 bg-white border rounded-sm cursor-pointer transition-all duration-200 flex items-start gap-4 ${
-                      isSelected
-                        ? "border-[#007673] shadow-[0_0_0_1px_#007673]"
-                        : "border-gray-200 hover:border-gray-300 hover:bg-gray-50/50"
-                    }`}>
-                    {/* Radio Button */}
-                    <div className="pt-1 shrink-0">
-                      <div
-                        className={`w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center transition-colors ${
-                          isSelected ? "border-[#007673]" : "border-gray-300"
-                        }`}>
-                        {isSelected && (
-                          <div className="w-[8px] h-[8px] rounded-full bg-[#007673]" />
-                        )}
-                      </div>
-                    </div>
+          {!editing &&
+            addresses.map((addr, idx) => {
+              const selected = selectedAddressIndex === idx;
+              return (
+                <label
+                  key={addr.id}
+                  className={`block  bg-white border  mb-3 cursor-pointer transition-colors ${
+                    selected
+                      ? "border-[#f43397] bg-[#fff0f5]"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}>
+                  <input
+                    type="radio"
+                    checked={selected}
+                    onChange={() => setSelectedAddressIndex(idx)}
+                    className="hidden"
+                  />
+                  <AddressCard
+                    address={{
+                      ...addr,
+                      addressLine1: addr.line1 || addr.addressLine1,
+                    }}
+                    onEdit={(e) => {
+                      e.preventDefault();
+                      setForm({
+                        ...addr,
+                        addressLine1: addr.line1 || addr.addressLine1,
+                        id: addr.id,
+                      });
+                      setEditing(true);
+                    }}
+                  />
+                </label>
+              );
+            })}
 
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <AddressCard
-                        address={{
-                          ...addr,
-                          addressLine1: addr.line1 || addr.addressLine1,
-                        }}
-                        onEdit={(e) => {
-                          e.stopPropagation();
-                          setForm({
-                            ...addr,
-                            addressLine1: addr.line1 || addr.addressLine1,
-                            id: addr.id,
-                          });
-                          setEditing(true);
-                        }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Empty State */}
-          {addresses.length === 0 && !editing && (
-            <div className="flex flex-col items-center justify-center gap-4 py-16 bg-white border border-gray-200 rounded-sm">
-              <div className="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center">
-                <MapPin size={24} strokeWidth={1.5} className="text-gray-400" />
-              </div>
-              <p className="text-[13px] text-gray-500 font-medium">
-                You haven't saved any addresses yet.
-              </p>
+          {!addresses.length && !editing && (
+            <div className="text-center py-16 bg-white border rounded-xl">
+              <MapPin size={28} className="mx-auto text-[#f43397]" />
+              <p className="mt-4 text-gray-500 text-sm">No saved addresses</p>
               <button
-                onClick={() => {
-                  setForm(EMPTY_FORM);
-                  setEditing(true);
-                }}
-                className="mt-2 bg-[#007673] text-white px-6 py-2.5 rounded-sm text-[12px] font-bold uppercase tracking-widest hover:bg-[#005f5c] transition-colors">
+                onClick={() => setEditing(true)}
+                className="mt-4 bg-[#f43397] text-white px-6 py-3 rounded-lg text-sm font-medium">
                 Add Address
               </button>
             </div>
           )}
         </div>
 
-        {/* ── RIGHT: Summary Sidebar ── */}
-        <div className="w-full lg:w-[400px] shrink-0">
-          <div className="sticky top-24">
-            <div className=" p-1 ">
-              <CartSummary
-                subtotal={totalAmount}
-                originalTotalPrice={totalAmount}
-                platformFee={0}
-                selectedItems={items}
-                onPlaceOrder={placeOrder}
-                placing={placing}
-                btnText={placing ? "Processing..." : "Confirm Order"}
-              />
-            </div>
+        {/* ── RIGHT — Order summary + payment + trust ── */}
+        <div className="w-full lg:w-[380px]">
+          <div className="sticky top-24 space-y-4">
+            {/* ✅ Payment selector — right sidebar only, never in header row */}
+            <PaymentSelector
+              availableMethods={["cod", "whatsapp"]}
+              defaultMethod={paymentMethod}
+              onSelectPayment={setPaymentMethod}
+            />
+            <CartSummary
+              subtotal={pricing.subtotal}
+              originalTotalPrice={pricing.originalTotalPrice}
+              deliveryFee={pricing.deliveryFee}
+              totalPayable={pricing.totalPayable}
+              selectedItems={normalizedItems}
+              onPlaceOrder={() => setConfirmModalOpen(true)}
+              placing={placing}
+              btnText={btnText}
+              disabled={disabled}
+              addressPage="true"
+            />
 
-            <div className="mt-6 flex flex-col gap-2 items-center text-center">
-              <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold flex items-center gap-1.5">
-                <ShieldCheck size={14} className="text-[#007673]" />
-                100% Secure Checkout
+            <div className="flex items-center justify-center gap-2 bg-white border border-gray-100 p-4 rounded-xl">
+              <ShieldCheck size={15} className="text-[#f43397]" />
+              <p className="text-xs font-semibold text-gray-500">
+                100% Secure Payments
               </p>
             </div>
           </div>
         </div>
       </div>
 
-      <PaymentConfirmationPopup
-        visible={popupVisible}
-        onClose={() => {
-          setPopupVisible(false);
-          navigate("/");
+      <ConfirmOrderModal
+        isOpen={confirmModalOpen}
+        onCancel={() => setConfirmModalOpen(false)}
+        onConfirm={() => {
+          setConfirmModalOpen(false);
+          placeOrder();
         }}
-        whatsappNumber="919999999999"
-        userId={user?.uid}
-        orderId={orderIdRef.current}
+        title="Confirm Your Order"
+        description={confirmDescription}
+        confirmText="Place Order"
+        cancelText="Go Back"
+        placing={placing}
       />
     </div>
   );
