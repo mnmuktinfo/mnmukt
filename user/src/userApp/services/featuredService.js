@@ -1,4 +1,4 @@
-import { db } from "../../config/firebase";
+import { db } from "../../config/firebaseDB";
 import { collection, getDocs } from "firebase/firestore";
 
 export const getFeaturedCollections = async () => {

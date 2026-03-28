@@ -1,4 +1,4 @@
-import { db } from "../../../../config/firebase";
+import { db } from "../../../../config/firebaseDB";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 // --- Function to Place Order in Firebase ---
