@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useMemo,
+} from "react";
 
 const CartContext = createContext();
 
@@ -37,7 +43,7 @@ export function TaruvedaCartProvider({ children }) {
     });
   };
 
-  // 🔄 Update quantity
+  // 🔄 Update quantity (delta-based, removes if qty <= 0)
   const updateCartQty = (productId, delta) => {
     setCart((prev) => {
       if (!prev[productId]) return prev;
@@ -65,17 +71,24 @@ export function TaruvedaCartProvider({ children }) {
     });
   };
 
+  // 🗑️ Clear entire cart
+  const clearCart = () => setCart({});
+
   // 🧾 Helpers
   const getCartItems = () => Object.values(cart);
 
-  const totalItems = Object.values(cart).reduce(
-    (sum, item) => sum + item.quantity,
-    0,
+  const totalItems = useMemo(
+    () => Object.values(cart).reduce((sum, item) => sum + item.quantity, 0),
+    [cart],
   );
 
-  const totalPrice = Object.values(cart).reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0,
+  const totalPrice = useMemo(
+    () =>
+      Object.values(cart).reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0,
+      ),
+    [cart],
   );
 
   return (
@@ -85,6 +98,7 @@ export function TaruvedaCartProvider({ children }) {
         addToCart,
         updateCartQty,
         removeFromCart,
+        clearCart,
         getCartItems,
         totalItems,
         totalPrice,

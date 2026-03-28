@@ -3,66 +3,168 @@
   <head>
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-
-    <!-- Mobile Responsive -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <!-- Primary SEO -->
-    <title>Mnmukt | Professional Business Solutions Platform</title>
-
+    <!-- ── Primary SEO ─────────────────────────────────────────── -->
+    <title>Mnmukt — Premium Ethnic Wear & Lifestyle Store</title>
     <meta
       name="description"
-      content="Mnmukt is a professional platform delivering innovative business solutions and digital excellence." />
+      content="Shop premium ethnic wear, kurta sets, salwar suits & organic lifestyle products at Mnmukt. Handcrafted with care, delivered with love." />
+    <meta
+      name="keywords"
+      content="ethnic wear, kurta sets, salwar suits, organic products, taruveda, mnmukt, indian fashion, women ethnic wear" />
+    <meta
+      name="robots"
+      content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <meta name="author" content="Mnmukt" />
+    <meta name="generator" content="Mnmukt Store" />
 
-    <meta name="robots" content="index, follow" />
-    <meta name="author" content="Mnmukt Team" />
-
-    <!-- Canonical URL -->
+    <!-- ── Canonical ───────────────────────────────────────────── -->
     <link rel="canonical" href="https://mnmukt.com/" />
 
-    <!-- Favicon -->
-    <link rel="icon" type="/image/png" href="/image/png" />
+    <!-- ── Favicon & App Icons ─────────────────────────────────── -->
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="/icons/favicon-32x32.png" />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="/icons/favicon-16x16.png" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/icons/apple-touch-icon.png" />
 
+    <!-- ── PWA / Manifest ──────────────────────────────────────── -->
     <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#232f3e" />
-    <link rel="apple-touch-icon" href="/image/png" />
+    <meta name="theme-color" content="#da127d" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Mnmukt" />
+    <meta name="application-name" content="Mnmukt" />
+    <meta name="msapplication-TileColor" content="#da127d" />
+    <meta name="msapplication-config" content="/browserconfig.xml" />
 
-    <!-- Open Graph -->
+    <!-- ── Open Graph (Facebook / WhatsApp / LinkedIn) ─────────── -->
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Mnmukt" />
+    <meta property="og:locale" content="en_IN" />
+    <meta property="og:url" content="https://mnmukt.com/" />
     <meta
       property="og:title"
-      content="Mnmukt | Professional Business Solutions" />
+      content="Mnmukt — Premium Ethnic Wear & Lifestyle Store" />
     <meta
       property="og:description"
-      content="Delivering high-quality services and innovative digital solutions." />
-    <meta property="og:url" content="https://mnmukt.com/" />
-    <meta property="og:image" content="https://mnmukt.com/appLogo.png" />
-    <meta property="og:site_name" content="Mnmukt" />
+      content="Shop premium ethnic wear, kurta sets, salwar suits & organic lifestyle products at Mnmukt. Handcrafted with care, delivered with love." />
+    <meta property="og:image" content="https://mnmukt.com/og-cover.png" />
+    <meta
+      property="og:image:secure_url"
+      content="https://mnmukt.com/og-cover.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Mnmukt — Premium Ethnic Wear & Lifestyle Store" />
 
-    <!-- Twitter -->
+    <!-- ── Twitter Card ────────────────────────────────────────── -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Mnmukt | Business Platform" />
+    <meta name="twitter:site" content="@mnmukt" />
+    <meta name="twitter:creator" content="@mnmukt" />
+    <meta
+      name="twitter:title"
+      content="Mnmukt — Premium Ethnic Wear & Lifestyle Store" />
     <meta
       name="twitter:description"
-      content="Professional business services and digital solutions." />
-    <meta name="twitter:image" content="https://mnmukt.com/appLogo.png" />
+      content="Shop premium ethnic wear, kurta sets, salwar suits & organic lifestyle products at Mnmukt." />
+    <meta name="twitter:image" content="https://mnmukt.com/og-cover.png" />
+    <meta name="twitter:image:alt" content="Mnmukt Store" />
 
-    <!-- Theme -->
-    <meta name="theme-color" content="#000000" />
+    <!-- ── Geo & Language ──────────────────────────────────────── -->
+    <meta name="geo.region" content="IN" />
+    <meta name="geo.placename" content="India" />
+    <link rel="alternate" hreflang="en-in" href="https://mnmukt.com/" />
+    <link rel="alternate" hreflang="x-default" href="https://mnmukt.com/" />
 
-    <!-- Fonts -->
+    <!-- ── Structured Data (JSON-LD) ───────────────────────────── -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "https://mnmukt.com/#website",
+            "url": "https://mnmukt.com/",
+            "name": "Mnmukt",
+            "description": "Premium Ethnic Wear & Lifestyle Store",
+            "publisher": { "@id": "https://mnmukt.com/#organization" },
+            "potentialAction": {
+              "@type": "SearchAction",
+              "target": {
+                "@type": "EntryPoint",
+                "urlTemplate": "https://mnmukt.com/search?q={search_term_string}"
+              },
+              "query-input": "required name=search_term_string"
+            },
+            "inLanguage": "en-IN"
+          },
+          {
+            "@type": "Organization",
+            "@id": "https://mnmukt.com/#organization",
+            "name": "Mnmukt",
+            "url": "https://mnmukt.com/",
+            "logo": {
+              "@type": "ImageObject",
+              "url": "https://mnmukt.com/appLogo.png",
+              "width": 200,
+              "height": 200
+            },
+            "sameAs": [
+              "https://www.instagram.com/mnmukt",
+              "https://www.facebook.com/mnmukt"
+            ],
+            "contactPoint": {
+              "@type": "ContactPoint",
+              "contactType": "customer support",
+              "availableLanguage": ["English", "Hindi"]
+            }
+          },
+          {
+            "@type": "Store",
+            "@id": "https://mnmukt.com/#store",
+            "name": "Mnmukt",
+            "url": "https://mnmukt.com/",
+            "image": "https://mnmukt.com/og-cover.png",
+            "description": "Premium ethnic wear, kurta sets, salwar suits & organic lifestyle products.",
+            "priceRange": "₹₹",
+            "currenciesAccepted": "INR",
+            "paymentAccepted": "Cash, Credit Card, UPI",
+            "areaServed": "IN"
+          }
+        ]
+      }
+    </script>
+
+    <!-- ── Performance: DNS Prefetch ───────────────────────────── -->
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+    <link rel="dns-prefetch" href="https://firestore.googleapis.com" />
+
+    <!-- ── Fonts ────────────────────────────────────────────────── -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Poppins:wght@300;400;500;600;700&display=swap"
       rel="stylesheet" />
   </head>
 
   <body>
     <div id="root"></div>
-
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

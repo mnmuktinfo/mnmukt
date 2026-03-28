@@ -9,6 +9,7 @@ import NotFoundPage from "./userApp/pages/NotFoundPage";
 import ErrorBoundary from "./shared/components/ErrorBoundary";
 import AboutUsPage from "./userApp/pages/AboutUsPage";
 import OrderConfirmationPage from "./userApp/components/pop-up/OrderConfirmationPage";
+import EmailVerificationHelp from "./userApp/features/auth/pages/EmailHelpPage";
 
 /* ─── Lazy: Auth ────────────────────────────────────────────────────────── */
 const AuthRoutes = lazy(() => import("./userApp/routes/AuthRoutes"));
@@ -27,7 +28,6 @@ const ContactUsPage = lazy(() => import("./userApp/pages/ContactUsPage"));
 const WishlistPage = lazy(
   () => import("./userApp/features/wishList/pages/WishlistPage"),
 );
-const SettingsPage = lazy(() => import("./userApp/pages/SettingsPage"));
 const NotificationPreferencesPage = lazy(
   () => import("./userApp/pages/NotificationPreferences"),
 );
@@ -89,6 +89,19 @@ const AppRoutes = () => (
       }
     />
 
+    <Route
+      path="taruveda-organic-shampoo-oil/*"
+      element={
+        <Suspense fallback={<FullScreenLoader />}>
+          <TaruvedaRoutes />
+        </Suspense>
+      }
+    />
+
+    <Route
+      path="/help/email-verification"
+      element={<EmailVerificationHelp />}
+    />
     {/* ── B. PUBLIC STOREFRONT (Navbar + Footer visible) ── */}
     <Route element={<UserLayout />}>
       <Route
@@ -147,14 +160,7 @@ const AppRoutes = () => (
             </Suspense>
           }
         />
-        <Route
-          path="settings"
-          element={
-            <Suspense fallback={<InlineLoader />}>
-              <SettingsPage />
-            </Suspense>
-          }
-        />
+
         <Route
           path="notifications"
           element={
@@ -181,14 +187,6 @@ const AppRoutes = () => (
         element={
           <Suspense fallback={<FullScreenLoader />}>
             <CheckoutRoutes />
-          </Suspense>
-        }
-      />
-      <Route
-        path="taruveda-organic-shampoo-oil/*"
-        element={
-          <Suspense fallback={<FullScreenLoader />}>
-            <TaruvedaRoutes />
           </Suspense>
         }
       />

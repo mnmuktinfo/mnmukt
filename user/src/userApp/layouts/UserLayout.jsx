@@ -4,6 +4,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import UserNavbar from "../features/account/components/bars/UserNavbar";
 import BottomNavbar from "../features/account/components/bars/BottomHomeNavbar";
 import Footer from "../components/footer/Footer";
+import UnverifiedEmailPopup from "../features/auth/pages/UnverifiedEmailPopup";
 
 const UserLayout = () => {
   const location = useLocation();
@@ -36,6 +37,7 @@ const UserLayout = () => {
           <Outlet />
         </div>
       </main>
+      <UnverifiedEmailPopup />
 
       {/* FOOTER */}
       <Footer />

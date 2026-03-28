@@ -1,12 +1,14 @@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import ProductCard from "../cards/ProductCard";
+import TaruVedaProductCard from "../../features/taruveda/components/TaruVedaProductCard";
 
 const ProductSection = ({
   title,
   subtitle,
   products = [],
   loading = false,
+  type = "",
 }) => {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const navigate = useNavigate();
@@ -49,10 +51,17 @@ const ProductSection = ({
                   <div
                     key={product.id || product.sku || product.name}
                     className="w-full group animate-in fade-in zoom-in-95 duration-700">
-                    <ProductCard
-                      product={product}
-                      onMoveToCart={() => setSelectedProduct(product)}
-                    />
+                    {type === "taruveda" ? (
+                      <TaruVedaProductCard
+                        product={product}
+                        onMoveToCart={() => setSelectedProduct(product)}
+                      />
+                    ) : (
+                      <ProductCard
+                        product={product}
+                        onMoveToCart={() => setSelectedProduct(product)}
+                      />
+                    )}
                   </div>
                 ))}
           </div>

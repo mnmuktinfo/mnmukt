@@ -6,7 +6,7 @@ import {
   limit,
   getDocs
 } from "firebase/firestore";
-import { db } from "../../../../config/firebase";
+import { db } from "../../../../config/firebaseDB";
 
 // ── In-memory cache ──
 const memoryCache = new Map();

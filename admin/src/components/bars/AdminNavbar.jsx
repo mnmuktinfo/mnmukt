@@ -12,6 +12,7 @@ import {
   FaExternalLinkAlt,
   FaLeaf,
 } from "react-icons/fa";
+import { useAdminAuth } from "../../context/AdminAuthContext"; // <-- Use your context
 
 export default function AdminNavbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -19,13 +20,14 @@ export default function AdminNavbar() {
   const location = useLocation();
   const navigate = useNavigate();
 
+  const { logout, admin } = useAdminAuth(); // ✅ Get logout function and admin info
+
   const navLinks = useMemo(
     () => [
       { title: "Dashboard", path: "/" },
       { title: "Inventory", path: "/products" },
       { title: "Categories", path: "/categories" },
-      { title: "COllection", path: "/collection/list" },
-
+      { title: "Collection", path: "/collection/list" },
       { title: "Shipments", path: "/orders" },
       { title: "Users", path: "/customers" },
       { title: "Testimonials", path: "/testimonials" },
@@ -34,19 +36,23 @@ export default function AdminNavbar() {
     [],
   );
 
-  const handleLogout = () => {
-    localStorage.clear();
-    navigate("/login");
+  const handleLogout = async () => {
+    try {
+      await logout(); // ✅ Use context logout
+      navigate("/auth"); // redirect to login
+    } catch (err) {
+      console.error("Logout failed:", err);
+    }
   };
 
   const isActive = (path) => location.pathname === path;
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-100 flex flex-col font-sans">
-      {/* 1. PRIMARY HUD (Blue Header - Seller Hub Style) */}
+      {/* PRIMARY HUD */}
       <div className="bg-[#2874F0] text-white shadow-md z-[105]">
         <div className="max-w-[1800px] mx-auto px-4 h-14 flex items-center justify-between gap-6">
-          {/* Brand/Logo Section */}
+          {/* Brand Section */}
           <div className="flex items-center gap-4 shrink-0">
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -69,7 +75,7 @@ export default function AdminNavbar() {
             </Link>
           </div>
 
-          {/* CENTER SECTION: System Status */}
+          {/* Center System Status */}
           <div className="hidden md:flex items-center gap-8 px-8 h-full border-x border-white/20">
             <div className="flex items-center gap-2">
               <FaCircle className="text-[#FFE500] text-[8px] animate-pulse" />
@@ -89,7 +95,7 @@ export default function AdminNavbar() {
             </button>
           </div>
 
-          {/* Right Side Identity HUD */}
+          {/* Profile HUD */}
           <div className="flex items-center gap-2 md:gap-4 shrink-0 relative">
             <button className="relative p-2 text-blue-100 hover:text-white transition-colors active:scale-90">
               <FaBell size={18} />
@@ -104,7 +110,7 @@ export default function AdminNavbar() {
                 className="flex items-center gap-3 p-1 rounded transition-colors hover:bg-white/10">
                 <div className="hidden sm:block text-right">
                   <p className="text-[10px] text-blue-200 font-bold uppercase leading-none">
-                    Admin
+                    {admin?.email ?? "Admin"}
                   </p>
                   <p className="text-xs font-bold text-white flex items-center gap-1 mt-1">
                     Manage Account{" "}
@@ -119,7 +125,6 @@ export default function AdminNavbar() {
                 </div>
               </button>
 
-              {/* Profile Dropdown */}
               {isProfileOpen && (
                 <div className="absolute right-0 top-12 mt-2 w-56 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-gray-200 rounded-sm py-2 z-[110] animate-in fade-in slide-in-from-top-2 text-gray-800">
                   <div className="px-4 py-3 border-b border-gray-100 mb-1">
@@ -127,7 +132,7 @@ export default function AdminNavbar() {
                       Authorized Session
                     </p>
                     <p className="text-sm font-bold text-gray-900 truncate mt-0.5">
-                      admin@taruveda.com
+                      {admin?.email ?? "admin@taruveda.com"}
                     </p>
                   </div>
                   <Link
@@ -148,7 +153,7 @@ export default function AdminNavbar() {
         </div>
       </div>
 
-      {/* 2. SECONDARY NAVIGATION BAR (Desktop Tabs) */}
+      {/* Secondary Nav */}
       <div className="bg-white border-b border-gray-200 hidden lg:block shadow-sm">
         <div className="max-w-[1800px] mx-auto px-4 flex items-center gap-6">
           {navLinks.map((link) => (
@@ -161,7 +166,6 @@ export default function AdminNavbar() {
                   : "text-gray-500 hover:text-gray-900"
               }`}>
               {link.title}
-              {/* Active Tab Indicator */}
               {isActive(link.path) && (
                 <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-[#2874F0] rounded-t-sm" />
               )}
@@ -170,7 +174,7 @@ export default function AdminNavbar() {
         </div>
       </div>
 
-      {/* 3. MOBILE DRAWER */}
+      {/* Mobile Drawer */}
       {isMenuOpen && (
         <div className="lg:hidden fixed inset-0 z-[120] bg-black/60 backdrop-blur-sm">
           <div className="w-72 h-full bg-[#f1f3f6] animate-in slide-in-from-left duration-300 shadow-2xl flex flex-col">

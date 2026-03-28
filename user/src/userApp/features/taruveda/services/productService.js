@@ -14,7 +14,7 @@ import {
   deleteDoc,
   serverTimestamp,
 } from "firebase/firestore";
-import { db } from "../../../../config/firebase";
+import { db } from "../../../../config/firebaseDB";
 
 // const PRODUCTS_COLLECTION = "products";
 const TARUVEDA_COLLECTION = "taruvedaProducts";

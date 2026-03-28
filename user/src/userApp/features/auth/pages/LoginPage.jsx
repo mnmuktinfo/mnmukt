@@ -1,220 +1,269 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import {
-  loginUser,
-  googleSignup,
-  facebookLogin,
-} from "../services/authService";
+import { useAuth } from "../context/UserContext";
 
-const LoginPage = () => {
+export default function LoginPage() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ email: "", password: "" });
+  const { loginUser, googleLogin, facebookLogin } = useAuth(); // ✅ googleLogin
+
+  const [form, setForm] = useState({ identifier: "", password: "" });
+  const [loginMethod, setLoginMethod] = useState("password");
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState("");
-
-  const [emailLoading, setEmailLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState(false);
-
-  const anyLoading = emailLoading || socialLoading;
+  const [error, setError] = useState("");
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
     setError("");
   };
 
-  /* ── Email login ── */
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setEmailLoading(true);
-    setError("");
-    try {
-      await loginUser(form.email, form.password);
-      navigate("/");
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setEmailLoading(false);
+    if (!form.identifier) return setError("Please enter your email address.");
+
+    if (loginMethod === "password") {
+      if (!form.password) return setError("Please enter your password.");
+
+      // ✅ Firebase only accepts email for password login
+      if (!form.identifier.includes("@"))
+        return setError("Please enter a valid email address.");
+
+      setLoading(true);
+      setError("");
+      try {
+        const result = await loginUser(form.identifier, form.password); // ✅ returns {emailVerified}
+        if (!result?.emailVerified) {
+          navigate("/help/email-verification");
+        } else {
+          navigate("/");
+        }
+      } catch (err) {
+        setError(err?.message || "Invalid credentials. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      // OTP placeholder
+      alert("OTP sent to " + form.identifier);
     }
   };
 
-  /* ── Google login ── */
-  const handleGoogleLogin = async () => {
+  const handleGoogle = async () => {
     setSocialLoading(true);
-    setError("");
+    setError(""); // ✅ was missing
     try {
-      await googleSignup();
+      await googleLogin(); // ✅ was: googleSignup
       navigate("/");
     } catch (err) {
-      setError(err.message);
+      setError(err?.message || "Google login failed. Please try again.");
     } finally {
       setSocialLoading(false);
     }
   };
 
-  /* ── Facebook login ── */
-  const handleFacebookLogin = async () => {
+  const handleFacebook = async () => {
     setSocialLoading(true);
     setError("");
     try {
       await facebookLogin();
       navigate("/");
     } catch (err) {
-      setError(err.message);
+      setError(err?.message || "Facebook login failed. Please try again.");
     } finally {
       setSocialLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center p-4 font-sans selection:bg-[#da127d] selection:text-white">
-      <div className="w-full max-w-[440px] bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 p-8 md:p-10">
-        {/* ── Premium Header ── */}
-        <div className="text-center mb-8">
-          <h2
-            className="text-3xl text-gray-900 tracking-wide mb-2"
-            style={{ fontFamily: "'Playfair Display', serif" }}>
-            Welcome Back
-          </h2>
-          <p className="text-[12px] font-medium text-gray-500 uppercase tracking-widest">
-            Sign in to your account
-          </p>
-        </div>
+    <div className="min-h-screen bg-white flex flex-col items-center justify-start pt-12 sm:pt-20 px-6 font-sans">
+      <div className="w-full max-w-[360px] flex flex-col items-center relative">
+        <h2 className="text-[22px] font-semibold text-gray-900 mb-2 tracking-wide text-center">
+          Welcome Back
+        </h2>
+        <p className="text-[13px] text-gray-500 text-center leading-[1.6] mb-8 px-2">
+          {loginMethod === "password"
+            ? "Enter your email and password to sign in to your account."
+            : "Enter your registered mobile number to receive an OTP."}
+        </p>
 
-        {/* ── Error Notification ── */}
+        {/* ── Error ── */}
         {error && (
-          <div className="bg-[#F9F5F6] text-[#da127d] text-[13px] font-medium p-3.5 rounded-sm mb-6 text-center border border-[#da127d]/20 animate-in fade-in slide-in-from-top-2">
+          <div className="w-full text-[#df0059] text-[13px] text-center font-medium bg-[#df0059]/5 py-2.5 rounded-[4px] border border-[#df0059]/20 mb-5">
             {error}
           </div>
         )}
 
-        {/* ── Email Form ── */}
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
+        <form onSubmit={handleSubmit} className="w-full space-y-4">
+          {/* Identifier */}
+          <div className="relative group">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#df0059] transition-colors pointer-events-none">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+            </div>
             <input
-              type="email"
-              name="email"
+              type={loginMethod === "otp" ? "tel" : "email"}
+              name="identifier"
               required
-              value={form.email}
+              value={form.identifier}
               onChange={handleChange}
-              placeholder="Email Address"
-              className="w-full bg-gray-50 border border-gray-200 rounded-sm px-4 py-3.5 text-[14px] text-gray-900 outline-none focus:bg-white focus:border-[#da127d] focus:ring-1 focus:ring-[#da127d] transition-all placeholder:text-gray-400"
+              placeholder={
+                loginMethod === "password" ? "Email address" : "Mobile number"
+              }
+              className="w-full h-[52px] bg-white border border-gray-300 rounded-[4px] pl-12 pr-4 text-[14px] text-gray-800 outline-none focus:border-[#df0059] focus:ring-1 focus:ring-[#df0059] transition-all placeholder:text-gray-400 shadow-sm"
             />
           </div>
 
-          <div className="relative">
-            <input
-              type={showPassword ? "text" : "password"}
-              name="password"
-              required
-              value={form.password}
-              onChange={handleChange}
-              placeholder="Password"
-              className="w-full bg-gray-50 border border-gray-200 rounded-sm px-4 py-3.5 pr-14 text-[14px] text-gray-900 outline-none focus:bg-white focus:border-[#da127d] focus:ring-1 focus:ring-[#da127d] transition-all placeholder:text-gray-400"
-            />
+          {/* Password */}
+          {loginMethod === "password" && (
+            <div className="relative group">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#df0059] transition-colors pointer-events-none">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+              </div>
+              <input
+                type={showPassword ? "text" : "password"}
+                name="password"
+                required
+                value={form.password}
+                onChange={handleChange}
+                placeholder="Password"
+                className="w-full h-[52px] bg-white border border-gray-300 rounded-[4px] pl-12 pr-16 text-[14px] text-gray-800 outline-none focus:border-[#df0059] focus:ring-1 focus:ring-[#df0059] transition-all placeholder:text-gray-400 shadow-sm"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400 hover:text-[#df0059] tracking-wide transition-colors p-1">
+                {showPassword ? "HIDE" : "SHOW"}
+              </button>
+            </div>
+          )}
+
+          {/* Links Row */}
+          <div className="flex items-center justify-between px-1 pt-1 pb-2">
             <button
               type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400 hover:text-[#da127d] transition-colors">
-              {showPassword ? "Hide" : "Show"}
+              onClick={() => {
+                setLoginMethod(loginMethod === "password" ? "otp" : "password");
+                setError("");
+                setForm({ identifier: "", password: "" });
+              }}
+              className="text-[12px] font-semibold text-gray-500 hover:text-[#df0059] transition-colors">
+              {loginMethod === "password"
+                ? "Login with OTP"
+                : "Login with Password"}
             </button>
-          </div>
-
-          <div className="flex justify-end pt-1">
-            <Link
-              to="/auth/forgot-password"
-              className="text-[12px] font-medium text-gray-500 hover:text-[#da127d] transition-colors">
-              Forgot Password?
-            </Link>
+            {loginMethod === "password" && (
+              <Link
+                to="/auth/forgot-password"
+                className="text-[12px] font-semibold text-[#df0059] hover:underline">
+                Forgot Password?
+              </Link>
+            )}
           </div>
 
           <button
             type="submit"
-            disabled={anyLoading}
-            className="w-full bg-[#da127d] hover:bg-[#b80f6a] text-white text-[13px] font-bold uppercase tracking-[0.2em] py-4 rounded-sm transition-all duration-300 shadow-md hover:shadow-lg mt-2 disabled:opacity-70 disabled:cursor-not-allowed">
-            {emailLoading ? "Authenticating..." : "Sign In"}
+            disabled={loading}
+            className="w-full h-[52px] bg-[#df0059] hover:bg-[#c2004d] active:scale-[0.98] text-white text-[13px] font-medium tracking-wider uppercase rounded-[4px] transition-all disabled:opacity-70 flex items-center justify-center shadow-md shadow-[#df0059]/20">
+            {loading ? (
+              <svg
+                className="animate-spin h-5 w-5 text-white"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24">
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                  className="opacity-25"
+                />
+                <path
+                  fill="currentColor"
+                  className="opacity-75"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
+              </svg>
+            ) : loginMethod === "password" ? (
+              "Log In"
+            ) : (
+              "Send OTP"
+            )}
           </button>
         </form>
 
-        {/* ── Divider ── */}
-        <div className="flex items-center my-8">
-          <div className="flex-1 h-[1px] bg-gray-100" />
-          <span className="px-4 text-[11px] font-bold text-gray-300 uppercase tracking-widest">
-            Or continue with
-          </span>
-          <div className="flex-1 h-[1px] bg-gray-100" />
-        </div>
-
-        {/* ── Social Login Buttons ── */}
-        <div className="flex justify-center gap-8 mb-8">
-          {/* Facebook */}
-          <div className="flex flex-col items-center gap-3 cursor-pointer group">
-            <button
-              type="button"
-              onClick={handleFacebookLogin}
-              disabled={anyLoading}
-              className="w-[56px] h-[56px] rounded-full bg-[#1877F2] flex items-center justify-center shadow-sm group-hover:shadow-md transition-all duration-300 group-hover:-translate-y-1 disabled:opacity-50">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="white">
-                <path d="M13.397 20.997v-8.196h2.765l.411-3.209h-3.176V7.548c0-.926.258-1.56 1.587-1.56h1.684V3.127A22.336 22.336 0 0 0 14.201 3c-2.444 0-4.122 1.492-4.122 4.231v2.355H7.332v3.209h2.753v8.202h3.312z" />
-              </svg>
-            </button>
-            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest group-hover:text-gray-900 transition-colors">
-              {socialLoading ? "Wait..." : "Facebook"}
+        {/* Social */}
+        <div className="w-full mt-8">
+          <div className="relative flex items-center justify-center mb-6">
+            <div className="absolute border-t border-gray-200 w-full"></div>
+            <span className="bg-white px-3 text-[11px] font-semibold uppercase tracking-widest text-gray-400 relative">
+              Or continue with
             </span>
           </div>
 
-          {/* Google */}
-          <div className="flex flex-col items-center gap-3 cursor-pointer group">
+          <div className="grid grid-cols-2 gap-3 mb-8">
             <button
               type="button"
-              onClick={handleGoogleLogin}
-              disabled={anyLoading}
-              className="w-[56px] h-[56px] rounded-full bg-white border border-gray-100 flex items-center justify-center shadow-sm group-hover:shadow-md transition-all duration-300 group-hover:-translate-y-1 disabled:opacity-50">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="22"
-                height="22"
-                viewBox="0 0 48 48">
-                <path
-                  fill="#FFC107"
-                  d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"
-                />
-                <path
-                  fill="#FF3D00"
-                  d="m6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691z"
-                />
-                <path
-                  fill="#4CAF50"
-                  d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"
-                />
-                <path
-                  fill="#1976D2"
-                  d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571c.001-.001.002-.001.003-.002l6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"
-                />
-              </svg>
+              onClick={handleGoogle}
+              disabled={socialLoading}
+              className="w-full h-[48px] border border-gray-300 rounded-[4px] flex items-center justify-center gap-2 hover:bg-gray-50 transition-colors active:scale-[0.98] disabled:opacity-50">
+              <img
+                src="https://www.svgrepo.com/show/475656/google-color.svg"
+                alt="Google"
+                className="w-4 h-4"
+              />
+              <span className="text-[13px] font-medium text-gray-700">
+                Google
+              </span>
             </button>
-            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest group-hover:text-gray-900 transition-colors">
-              {socialLoading ? "Wait..." : "Google"}
-            </span>
+            <button
+              type="button"
+              onClick={handleFacebook}
+              disabled={socialLoading}
+              className="w-full h-[48px] border border-gray-300 rounded-[4px] flex items-center justify-center gap-2 hover:bg-gray-50 transition-colors active:scale-[0.98] disabled:opacity-50">
+              <img
+                src="https://www.svgrepo.com/show/475647/facebook-color.svg"
+                alt="Facebook"
+                className="w-4 h-4"
+              />
+              <span className="text-[13px] font-medium text-gray-700">
+                Facebook
+              </span>
+            </button>
           </div>
-        </div>
 
-        {/* ── Footer ── */}
-        <p className="text-center text-[13px] text-gray-500">
-          New to our store?{" "}
-          <Link
-            to="/auth/signup"
-            className="text-[#da127d] font-semibold hover:text-[#b80f6a] transition-colors">
-            Create an Account
-          </Link>
-        </p>
+          <p className="text-[13px] text-gray-500 font-medium text-center">
+            Don't have an account?{" "}
+            <Link
+              to="/auth/signup"
+              className="text-[#df0059] font-semibold hover:underline">
+              Sign Up
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );
-};
-
-export default LoginPage;
+}

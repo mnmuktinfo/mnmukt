@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { db } from "../config/firebase";
+import { db } from "../config/firebaseauth";
 import {
   collection,
   query,
@@ -44,14 +44,14 @@ export default function AdminMessages() {
       if (!loadMore) setLoading(true);
 
       let q = query(
-        collection(db, "contactMessages"),
+        collection(db, "inquiries"),
         orderBy("createdAt", "desc"),
         limit(PAGE_SIZE),
       );
 
       if (loadMore && lastDoc) {
         q = query(
-          collection(db, "contactMessages"),
+          collection(db, "inquiries"),
           orderBy("createdAt", "desc"),
           startAfter(lastDoc),
           limit(PAGE_SIZE),
@@ -107,7 +107,7 @@ export default function AdminMessages() {
         prev.map((m) => (m.id === msg.id ? { ...m, read: true } : m)),
       );
       try {
-        await updateDoc(doc(db, "contactMessages", msg.id), { read: true });
+        await updateDoc(doc(db, "inquiries", msg.id), { read: true });
       } catch (error) {
         console.error("Failed to mark as read", error);
       }
@@ -119,7 +119,7 @@ export default function AdminMessages() {
     if (!selectedMessage) return;
     setActionLoading(true);
     try {
-      await updateDoc(doc(db, "contactMessages", selectedMessage.id), {
+      await updateDoc(doc(db, "inquiries", selectedMessage.id), {
         status: "archived",
       });
       setMessages((prev) =>

@@ -1,5 +1,6 @@
 import React, { Suspense, lazy } from "react";
 import { Routes, Route } from "react-router-dom";
+import { ProtectedRoute } from "./routes/ProtectedRoute";
 
 /* ---------------- LAZY ROUTES ---------------- */
 // Lazy loading splits your code into smaller chunks, speeding up initial load
@@ -7,7 +8,7 @@ const AdminInquiryRoutes = lazy(() => import("./routes/AdminInquiryRoutes"));
 const AdminLayoutRoutes = lazy(() => import("./routes/AdminLayoutRoutes"));
 const TaruvedaRoutes = lazy(() => import("./routes/TaruvedaRoutes"));
 const AdminSignupPage = lazy(() => import("./pages/AdminSignUpPage"));
-const AdminLoginPage = lazy(() => import("./pages/AdminLoginPage"));
+const AdminAuthPage = lazy(() => import("./pages/AdminAuthPage"));
 
 /* ---------------- ULTRA-FAST SYSTEM LOADER ---------------- */
 // Removed external icon libraries here. Using pure CSS/Tailwind for instant rendering.
@@ -52,16 +53,35 @@ const App = () => {
       <main>
         <Suspense fallback={<InitializingSystem />}>
           <Routes>
-            {/* AUTH ROUTES */}
-            <Route path="/login" element={<AdminLoginPage />} />
+            {/* PUBLIC AUTH ROUTES */}
+            <Route path="/auth" element={<AdminAuthPage />} />
             <Route path="/signup" element={<AdminSignupPage />} />
 
-            {/* FEATURE MODULES */}
-            <Route path="/customers/*" element={<AdminInquiryRoutes />} />
-            <Route path="/taruveda/*" element={<TaruvedaRoutes />} />
-
-            {/* MAIN ADMIN PANEL */}
-            <Route path="/*" element={<AdminLayoutRoutes />} />
+            {/* PROTECTED ADMIN ROUTES */}
+            <Route
+              path="/customers/*"
+              element={
+                <ProtectedRoute>
+                  <AdminInquiryRoutes />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/taruveda/*"
+              element={
+                <ProtectedRoute>
+                  <TaruvedaRoutes />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/*"
+              element={
+                <ProtectedRoute>
+                  <AdminLayoutRoutes />
+                </ProtectedRoute>
+              }
+            />
           </Routes>
         </Suspense>
       </main>

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { orderService } from "../services/orderService";
+import { orderService } from "../features/orders/services/orderService";
 import { formatDate } from "../features/orders/utils/orders";
 import {
   ChevronLeft,

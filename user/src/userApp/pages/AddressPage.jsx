@@ -1,18 +1,19 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useAuth } from "../features/auth/context/UserContext";
 import { useCart } from "../features/cart/context/CartContext";
 import { useLocation, useNavigate, Navigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { collection, query, orderBy, limit, getDocs } from "firebase/firestore";
-import { db } from "../../config/firebase";
 
-import { createOrder, makeOrderId } from "../services/orderService";
+import {
+  createOrder,
+  makeOrderId,
+} from "../features/orders/services/orderService";
 import { calculatePricing } from "../services/pricingEngine";
 
 import AddressCard from "../components/cards/AddressCard";
 import AddressFormPopup from "../components/form/AddressFormPopup";
 import CartSummary from "../features/cart/components/CartSummary";
-import PaymentSelector from "../components/cards/PaymentComponent"; // ✅ one import, correct name
+import PaymentSelector from "../components/cards/PaymentComponent";
 import ConfirmOrderModal from "../components/cards/ConfirmOrderModal";
 
 import { Plus, MapPin, AlertCircle, ShieldCheck } from "lucide-react";
@@ -58,15 +59,21 @@ const ErrorBanner = ({ message, onDismiss }) => {
 ──────────────────────────────── */
 
 const AddressPage = () => {
-  const { user } = useAuth();
+  const { user, address, saveAddress } = useAuth();
   const { clear } = useCart();
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-
   const { source, items } = location.state || {};
 
-  // ── Normalize cart items into a stable shape ──
+  // ── Seed saved addresses from context ──
+  const [addresses, setAddresses] = useState(() =>
+    address
+      ? [{ ...address, addressLine1: address.line1 || address.addressLine1 }]
+      : [],
+  );
+
+  // ── Normalize cart items ──
   const normalizedItems = useMemo(() => {
     if (!items?.length) return [];
     return items.map((item) => ({
@@ -79,89 +86,83 @@ const AddressPage = () => {
     }));
   }, [items]);
 
-  // ── Pricing ──
   const pricing = useMemo(
     () => calculatePricing(normalizedItems),
     [normalizedItems],
   );
 
-  // ── Order ID — generated once, synchronously ──
   const orderIdRef = useRef(null);
   if (!orderIdRef.current && user?.name) {
     orderIdRef.current = makeOrderId(user.name);
   }
 
-  // ── State ──
-  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
-  const [addresses, setAddresses] = useState([]);
+  // ── UI state ──
   const [selectedAddressIndex, setSelectedAddressIndex] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [popupOpen, setPopupOpen] = useState(false);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [placing, setPlacing] = useState(false);
-  const [editing, setEditing] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [error, setError] = useState("");
-  const [form, setForm] = useState(EMPTY_FORM);
   const placingRef = useRef(false);
 
-  // ── Guard: nothing to checkout — placed AFTER all hooks ──
-  if (!normalizedItems.length) {
-    return <Navigate to="/" replace />;
-  }
+  if (!normalizedItems.length) return <Navigate to="/" replace />;
 
-  // ── Fetch saved addresses ──
-  const fetchAddresses = useCallback(async () => {
-    if (!user?.uid) {
-      setLoading(false);
-      return;
-    }
-    try {
-      const q = query(
-        collection(db, "users", user.uid, "addresses"),
-        orderBy("createdAt", "desc"),
-        limit(10),
-      );
-      const snap = await getDocs(q);
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      setAddresses(list);
-      if (!list.length) setEditing(true);
-    } catch (err) {
-      console.error("Address load error:", err);
-      setError("Failed to load addresses.");
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.uid]);
-
-  useEffect(() => {
-    fetchAddresses();
-  }, [fetchAddresses]);
-
-  // ── Save address to local state ──
-  const handleSaveAddress = () => {
-    const newAddress = {
-      id: form.id || `temp-${Date.now()}`,
-      name: form.name,
-      phone: form.phone,
-      line1: form.addressLine1,
-      city: form.city,
-      state: form.state,
-      pincode: form.pincode,
-      tag: form.tag,
-    };
-
-    setAddresses((prev) =>
-      form.id
-        ? prev.map((a) => (a.id === form.id ? newAddress : a))
-        : [newAddress, ...prev],
-    );
-    setEditing(false);
+  /* ── Open popup for new address ── */
+  const handleAddNew = () => {
     setForm(EMPTY_FORM);
+    setPopupOpen(true);
   };
 
-  // ── Place order ──
+  /* ── Open popup for editing ── */
+  const handleEdit = (e, addr) => {
+    e.preventDefault();
+    setForm({
+      ...addr,
+      addressLine1: addr.line1 || addr.addressLine1,
+      id: addr.id,
+    });
+    setPopupOpen(true);
+  };
+
+  /* ── Save address from popup ── */
+  const handleSaveAddress = async () => {
+    try {
+      const saved = await saveAddress({
+        ...form,
+        line1: form.addressLine1,
+      });
+
+      const normalized = {
+        ...saved,
+        addressLine1: saved.line1 || saved.addressLine1,
+      };
+
+      if (form.id) {
+        // Editing existing — replace in list
+        setAddresses((prev) =>
+          prev.map((a) => (a.id === form.id ? normalized : a)),
+        );
+      } else {
+        // New — append and auto-select it
+        setAddresses((prev) => {
+          const updated = [...prev, normalized];
+          setSelectedAddressIndex(updated.length - 1);
+          return updated;
+        });
+      }
+
+      setForm(EMPTY_FORM);
+      setPopupOpen(false);
+    } catch (err) {
+      console.error("Failed to save address:", err);
+      setError("Failed to save address. Please try again.");
+    }
+  };
+
+  /* ── Place order ── */
   const placeOrder = async () => {
     if (placingRef.current) return;
-
     if (!addresses.length) {
       setError("Please add a delivery address.");
       return;
@@ -190,7 +191,7 @@ const AddressPage = () => {
       await queryClient.invalidateQueries(["orders"]);
 
       if (paymentMethod === "whatsapp" && WHATSAPP_NUMBER) {
-        const msg = `Hello ${user.name}, your order ${orderIdRef.current} has been placed. Please complete payment.`;
+        const msg = `Hello ${user.name}, your order ${orderIdRef.current} has been placed.`;
         window.open(
           `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`,
           "_blank",
@@ -207,102 +208,66 @@ const AddressPage = () => {
     }
   };
 
-  const btnText = placing
-    ? "Processing..."
-    : editing
-      ? "Save address first"
-      : "Continue";
-
-  const disabled =
-    placing || editing || !addresses.length || !orderIdRef.current;
+  const btnText = placing ? "Processing..." : "Continue";
+  const disabled = placing || !addresses.length || !orderIdRef.current;
 
   const confirmDescription =
     paymentMethod === "whatsapp"
       ? "Confirm order and pay via WhatsApp?"
       : "Confirm order with Cash on Delivery?";
 
-  /* ── Render ── */
   return (
     <div className="min-h-screen bg-white pb-24">
       <div className="max-w-7xl mx-auto px-4 py-8 flex flex-col lg:flex-row gap-8">
-        {/* ── LEFT — Address selection ── */}
+        {/* ── LEFT — Address section ── */}
         <div className="flex-1">
           <ErrorBanner message={error} onDismiss={() => setError("")} />
 
-          <div className="flex justify-between items-center border border-gray-100 px-4 py-3 mb-5">
+          {/* Section header */}
+          <div className="flex justify-between items-center border border-gray-100 px-4 py-3 mb-4">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-700">
               Select Delivery Address
             </h2>
-
-            {!editing && addresses.length > 0 && (
-              <button
-                onClick={() => {
-                  setForm(EMPTY_FORM);
-                  setEditing(true);
-                }}
-                className="flex items-center gap-1.5 text-[#f43397] text-sm font-medium hover:underline">
-                <Plus size={15} /> Add New
-              </button>
-            )}
+            <button
+              onClick={handleAddNew}
+              className="flex items-center gap-1.5 text-[#f43397] text-sm font-medium hover:underline">
+              <Plus size={15} /> Add New
+            </button>
           </div>
 
-          <AddressFormPopup
-            isOpen={editing}
-            form={form}
-            setForm={setForm}
-            onSave={handleSaveAddress}
-            onCancel={
-              addresses.length
-                ? () => {
-                    setEditing(false);
-                    setForm(EMPTY_FORM);
-                  }
-                : null
-            }
-          />
-
-          {!editing &&
-            addresses.map((addr, idx) => {
-              const selected = selectedAddressIndex === idx;
-              return (
-                <label
-                  key={addr.id}
-                  className={`block  bg-white border  mb-3 cursor-pointer transition-colors ${
-                    selected
-                      ? "border-[#f43397] bg-[#fff0f5]"
-                      : "border-gray-200 hover:border-gray-300"
-                  }`}>
-                  <input
-                    type="radio"
-                    checked={selected}
-                    onChange={() => setSelectedAddressIndex(idx)}
-                    className="hidden"
-                  />
-                  <AddressCard
-                    address={{
-                      ...addr,
-                      addressLine1: addr.line1 || addr.addressLine1,
-                    }}
-                    onEdit={(e) => {
-                      e.preventDefault();
-                      setForm({
-                        ...addr,
-                        addressLine1: addr.line1 || addr.addressLine1,
-                        id: addr.id,
-                      });
-                      setEditing(true);
-                    }}
-                  />
-                </label>
-              );
-            })}
-
-          {!addresses.length && !editing && (
+          {/* Saved address cards */}
+          {addresses.length > 0 ? (
+            <div className="space-y-3">
+              {addresses.map((addr, idx) => {
+                const selected = selectedAddressIndex === idx;
+                return (
+                  <label
+                    key={addr.id || idx}
+                    className={`block bg-white border cursor-pointer transition-colors ${
+                      selected
+                        ? "border-[#f43397] bg-[#fff0f5]"
+                        : "border-gray-200 hover:border-gray-300"
+                    }`}>
+                    <input
+                      type="radio"
+                      checked={selected}
+                      onChange={() => setSelectedAddressIndex(idx)}
+                      className="hidden"
+                    />
+                    <AddressCard
+                      address={addr}
+                      onEdit={(e) => handleEdit(e, addr)}
+                    />
+                  </label>
+                );
+              })}
+            </div>
+          ) : (
             <div className="text-center py-16 bg-white border rounded-xl">
               <MapPin size={28} className="mx-auto text-[#f43397]" />
               <p className="mt-4 text-gray-500 text-sm">No saved addresses</p>
               <button
-                onClick={() => setEditing(true)}
+                onClick={handleAddNew}
                 className="mt-4 bg-[#f43397] text-white px-6 py-3 rounded-lg text-sm font-medium">
                 Add Address
               </button>
@@ -310,10 +275,9 @@ const AddressPage = () => {
           )}
         </div>
 
-        {/* ── RIGHT — Order summary + payment + trust ── */}
+        {/* ── RIGHT — Summary + payment ── */}
         <div className="w-full lg:w-[380px]">
           <div className="sticky top-24 space-y-4">
-            {/* ✅ Payment selector — right sidebar only, never in header row */}
             <PaymentSelector
               availableMethods={["cod", "whatsapp"]}
               defaultMethod={paymentMethod}
@@ -331,7 +295,6 @@ const AddressPage = () => {
               disabled={disabled}
               addressPage="true"
             />
-
             <div className="flex items-center justify-center gap-2 bg-white border border-gray-100 p-4 rounded-xl">
               <ShieldCheck size={15} className="text-[#f43397]" />
               <p className="text-xs font-semibold text-gray-500">
@@ -342,6 +305,19 @@ const AddressPage = () => {
         </div>
       </div>
 
+      {/* ── Address Form Popup ── */}
+      <AddressFormPopup
+        isOpen={popupOpen}
+        form={form}
+        setForm={setForm}
+        onSave={handleSaveAddress}
+        onCancel={() => {
+          setPopupOpen(false);
+          setForm(EMPTY_FORM);
+        }}
+      />
+
+      {/* ── Confirm Order Modal ── */}
       <ConfirmOrderModal
         isOpen={confirmModalOpen}
         onCancel={() => setConfirmModalOpen(false)}

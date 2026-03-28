@@ -9,7 +9,7 @@ import {
   limit,
   startAfter,
 } from "firebase/firestore";
-import { db } from "../../../../config/firebase";
+import { db } from "../../../../config/firebaseAuth";
 
 const COL = "products";
 const PAGE_SIZE = 20;

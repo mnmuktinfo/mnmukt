@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { db } from "../../config/firebase";
+import { db } from "../../config/firebaseAuth";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import {
   ArrowRight,
@@ -31,9 +31,8 @@ const ContactUsPage = () => {
     e.preventDefault();
     setStatus("loading");
     try {
-      await addDoc(collection(db, "contactMessages"), {
+      await addDoc(collection(db, "inquiries"), {
         ...formData,
-        brand: "MNMUKT",
         createdAt: serverTimestamp(),
       });
       setStatus("success");

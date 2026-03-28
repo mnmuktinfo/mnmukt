@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ChevronRight, CreditCard, MapPin, Package } from "lucide-react";
-import { orderService } from "../../services/orderService";
+import { orderService } from "../../features/orders/services/orderService";
 
 const WHATSAPP_NUMBER = "8392856993";
 const STATUS_STEPS = ["placed", "confirmed", "packed", "shipped", "delivered"];

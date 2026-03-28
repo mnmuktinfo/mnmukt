@@ -1,12 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { IMAGES } from "../../assets/images";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-const HeroSection = () => {
-  // Pull both sets of images directly
-  const desktopSlides = IMAGES.hero?.desktopSlides || [];
-  const mobileSlides = IMAGES.hero?.mobileSlides || [];
-
+const HeroSection = ({ desktopSlides, mobileSlides }) => {
   // Determine the total number of slides
   const length = Math.max(desktopSlides.length, mobileSlides.length);
   const [index, setIndex] = useState(0);

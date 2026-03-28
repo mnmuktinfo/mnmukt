@@ -3,6 +3,7 @@ import { Helmet } from "react-helmet-async";
 
 import { useHomepageProducts } from "../../userApp/features/homepage/hooks/useHomepageProducts";
 import { productSections } from "../../userApp/features/homepage/config/productCollection";
+import { IMAGES } from "../../assets/images";
 
 import {
   HeroSkeleton,
@@ -21,7 +22,9 @@ const LuxuryEthnicHero = React.lazy(
 );
 
 const VideoSection = React.lazy(() => import("../homepage/VideoSection"));
-const PriceCategories = React.lazy(() => import("../homepage/PriceCategories"));
+const CategoriesHeader = React.lazy(
+  () => import("../homepage/CategoriesHeader"),
+);
 const ExploreOurPicks = React.lazy(() => import("../homepage/ExploreOurPicks"));
 
 const CategoryScroller = React.lazy(
@@ -129,6 +132,10 @@ const HomePage = () => {
     return isMobile ? items.slice(0, 4) : items;
   };
 
+  // Pull both sets of images directly
+  const desktopSlides = IMAGES?.hero?.desktopSlides ?? [];
+  const mobileSlides = IMAGES?.hero?.mobileSlides ?? [];
+
   return (
     <main className="w-full min-h-screen bg-white font-sans text-gray-900 overflow-x-hidden selection:bg-[#da127d] selection:text-white">
       <Helmet>
@@ -142,7 +149,10 @@ const HomePage = () => {
       {/* ---------- HERO ---------- */}
 
       <Suspense fallback={<HeroSkeleton />}>
-        <HeroSection />
+        <HeroSection
+          desktopSlides={desktopSlides}
+          mobileSlides={mobileSlides}
+        />
       </Suspense>
 
       {/* ---------- CATEGORIES ---------- */}
@@ -172,7 +182,7 @@ const HomePage = () => {
       {!isMobile && (
         <ViewportLoader>
           <Suspense fallback={<HeroSkeleton />}>
-            <PriceCategories />
+            <CategoriesHeader />
           </Suspense>
         </ViewportLoader>
       )}
