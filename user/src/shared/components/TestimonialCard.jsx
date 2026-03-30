@@ -1,36 +1,27 @@
-import { COLORS } from "../../style/theme";
-
 const TestimonialCard = ({ name, img, message }) => {
   return (
-    <div
-      className="relative pt-20 pb-12 px-10 rounded-xl text-center shadow-sm"
-      style={{ background: "#F9F3EC" }}>
+    <div className="relative h-full flex flex-col justify-between pt-16 pb-8 px-6 md:px-8 rounded-xl text-center bg-[#f9f9f9] border border-gray-100 transition-all duration-300 hover:shadow-md">
       {/* Floating Image */}
-      <div className="absolute -top-16 left-1/2 -translate-x-1/2">
+      <div className="absolute -top-12 left-1/2 -translate-x-1/2">
         <img
           src={img}
           alt={name}
-          className="w-32 h-32 rounded-full object-cover shadow-lg border-4 border-white"
+          className="w-20 h-20 md:w-24 md:h-24 rounded-full object-cover border-4 border-white shadow-sm"
         />
       </div>
 
-      <h3
-        className="mt-10 text-xl font-semibold"
-        style={{
-          color: COLORS.primaryAlt,
-          fontFamily: "Playfair Display, serif",
-        }}>
-        {name}
-      </h3>
+      {/* Content */}
+      <div className="mt-10 flex flex-col flex-grow justify-between">
+        {/* Name */}
+        <h3 className="text-[15px] md:text-[16px] font-medium text-gray-900">
+          {name}
+        </h3>
 
-      <p
-        className="mt-4 text-sm leading-relaxed"
-        style={{
-          color: COLORS.textAlt,
-          fontFamily: "Inter, sans-serif",
-        }}>
-        {message}
-      </p>
+        {/* Message */}
+        <p className="mt-3 text-[13px] md:text-[14px] text-gray-600 leading-relaxed line-clamp-4 min-h-[72px]">
+          {message}
+        </p>
+      </div>
     </div>
   );
 };

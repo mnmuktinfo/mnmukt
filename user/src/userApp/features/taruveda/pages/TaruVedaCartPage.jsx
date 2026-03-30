@@ -1,142 +1,284 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
-  Trash2,
-  Minus,
-  Plus,
-  ShoppingBag,
-  ShieldCheck,
-  Check,
-  Leaf,
-} from "lucide-react";
+  TrashIcon,
+  MinusIcon,
+  PlusIcon,
+  ShoppingBagIcon,
+  ShieldCheckIcon,
+  CheckIcon,
+  TruckIcon,
+  TagIcon,
+  ArrowLeftIcon,
+  SparklesIcon,
+} from "@heroicons/react/24/outline";
+import { CheckIcon as CheckSolid } from "@heroicons/react/24/solid";
 import { useCart } from "../../../context/TaruvedaCartContext";
 import { useAuth } from "../../auth/context/UserContext";
 import LoginPopup from "../../../components/pop-up/LoginPoup";
 
 const BASE_URL = "/taruveda-organic-shampoo-oil";
 
-/* ─── Skeleton ──────────────────────────────────────────────────── */
-const CartSkeleton = () => (
-  <div className="min-h-screen bg-[#FAF9F6] flex items-center justify-center">
-    <div className="flex flex-col items-center gap-4 animate-pulse">
-      <Leaf className="w-8 h-8 text-[#2C3E30]" />
-      <span className="tracking-widest uppercase text-xs font-bold text-[#2C3E30]">
-        Loading...
-      </span>
-    </div>
-  </div>
+/* ─────────────────────────────────────────────────────────
+   DESIGN TOKENS — white + deep botanical green
+───────────────────────────────────────────────────────── */
+const G = {
+  deep: "#1a3a2a", // dominant — headings, CTAs
+  mid: "#2d6648", // hover state
+  sage: "#4a8c6a", // accents, icons
+  light: "#e8f3ec", // tinted backgrounds
+  pale: "#f2f8f4", // subtle tint on cards
+  white: "#ffffff",
+  gray50: "#f9fafb",
+  gray100: "#f3f4f6",
+  gray200: "#e5e7eb",
+  gray400: "#9ca3af",
+  gray600: "#4b5563",
+  gray800: "#1f2937",
+  border: "#d1e8da", // green-tinted border
+};
+
+/* ─────────────────────────────────────────────────────────
+   LEAF ICON
+───────────────────────────────────────────────────────── */
+const LeafIcon = ({ size = 16, color = G.sage, style = {} }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill={color}
+    style={style}
+    aria-hidden>
+    <path d="M17 8C8 10 5.9 16.17 3.82 21.34L5.71 22l1-2.3A4.49 4.49 0 008 20C19 20 22 3 22 3c-1 2-8 1.25-8 1.25S16 7 17 8z" />
+  </svg>
 );
 
-/* ─── Empty Cart ────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────
+   EMPTY CART
+───────────────────────────────────────────────────────── */
 const EmptyCart = ({ onBack }) => (
-  <div className="min-h-screen bg-[#FAF9F6] text-gray-800 flex flex-col items-center justify-center font-sans">
-    <ShoppingBag className="w-16 h-16 text-gray-200 mb-6 stroke-[1]" />
+  <div className="min-h-screen bg-white flex flex-col items-center justify-center px-6 text-center">
+    <style>{`@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=DM+Sans:wght@400;500;700&display=swap');`}</style>
+
+    {/* Icon ring */}
+    <div className="relative w-28 h-28 mb-8">
+      <div
+        className="absolute inset-0 rounded-full border-2 border-dashed"
+        style={{ borderColor: G.border }}
+      />
+      <div
+        className="absolute inset-3 rounded-full flex items-center justify-center"
+        style={{ background: G.light }}>
+        <ShoppingBagIcon
+          className="w-10 h-10"
+          style={{ color: G.sage }}
+          strokeWidth={1.2}
+        />
+      </div>
+      <div className="absolute -top-1 -right-1">
+        <LeafIcon size={20} />
+      </div>
+    </div>
+
+    <p
+      className="text-[10px] font-bold uppercase tracking-[0.3em] mb-3"
+      style={{ color: G.sage }}>
+      Your bag is empty
+    </p>
     <h2
-      className="text-3xl sm:text-4xl text-gray-900 font-light mb-4"
-      style={{ fontFamily: "'Playfair Display', serif" }}>
-      Your Bag is Empty
+      className="text-[36px] font-light leading-none mb-3"
+      style={{
+        fontFamily: "'Cormorant Garamond', serif",
+        color: G.deep,
+      }}>
+      Nothing here yet
     </h2>
-    <p className="text-gray-500 mb-8 text-sm">
-      Looks like you haven't added anything yet.
+    <p
+      className="text-[13px] leading-relaxed mb-10 max-w-xs"
+      style={{ color: G.gray400 }}>
+      Discover our pure organic essentials — crafted with nature's finest
+      ingredients.
     </p>
     <button
       onClick={onBack}
-      className="bg-[#2C3E30] text-white px-10 py-4 text-sm font-semibold tracking-widest uppercase hover:bg-[#1a251d] transition-colors rounded-none">
-      Start Shopping
+      className="inline-flex items-center gap-2.5 px-8 py-3.5 text-[11px] font-bold uppercase tracking-[0.2em] text-white transition-all duration-200 hover:opacity-90"
+      style={{ background: G.deep }}>
+      <ArrowLeftIcon className="w-4 h-4" />
+      Explore Products
     </button>
   </div>
 );
 
-/* ─── Checkbox ──────────────────────────────────────────────────── */
-const Checkbox = ({ checked, onChange, className = "" }) => (
-  <label
-    className={`flex items-center cursor-pointer shrink-0 ${className}`}
-    onClick={onChange}>
-    <div
-      className={`w-5 h-5 border flex items-center justify-center transition-colors rounded-none ${
-        checked
-          ? "bg-[#2C3E30] border-[#2C3E30]"
-          : "border-gray-300 bg-white hover:border-[#2C3E30]"
-      }`}>
-      {checked && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
-    </div>
-  </label>
+/* ─────────────────────────────────────────────────────────
+   CHECKBOX
+───────────────────────────────────────────────────────── */
+const Checkbox = ({ checked, onChange }) => (
+  <button
+    type="button"
+    onClick={onChange}
+    aria-checked={checked}
+    role="checkbox"
+    className="w-5 h-5 border-2 flex items-center justify-center shrink-0 transition-all duration-150 focus:outline-none"
+    style={{
+      background: checked ? G.deep : G.white,
+      borderColor: checked ? G.deep : G.gray200,
+    }}>
+    {checked && <CheckSolid className="w-3 h-3 text-white" />}
+  </button>
 );
 
-/* ─── Cart Item Card ────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────
+   CART ITEM CARD
+───────────────────────────────────────────────────────── */
 const CartItemCard = ({
   item,
   isSelected,
   onSelect,
   onRemove,
   onQtyChange,
-}) => (
-  <div
-    className={`p-5 transition-colors flex gap-5 md:gap-6 ${
-      isSelected ? "bg-white" : "bg-gray-50/30"
-    }`}>
-    {/* Checkbox */}
-    <Checkbox checked={isSelected} onChange={onSelect} className="mt-6 h-fit" />
+}) => {
+  const savings =
+    item.mrp && item.mrp > item.price
+      ? (item.mrp - item.price) * item.quantity
+      : 0;
 
-    {/* Image */}
-    <div className="w-24 h-32 md:w-32 md:h-40 shrink-0 bg-gray-50 border border-gray-100 flex items-center justify-center">
-      <img
-        src={item.image}
-        alt={item.name}
-        className="w-[85%] h-[85%] object-contain mix-blend-multiply"
-      />
-    </div>
-
-    {/* Details */}
-    <div className="flex-1 flex flex-col justify-between py-1">
-      <div className="flex justify-between items-start gap-4">
-        <div>
-          <h3 className="text-base md:text-lg font-medium text-gray-900 leading-snug">
-            {item.name}
-          </h3>
-          <p className="text-xs text-gray-400 mt-0.5 lowercase">
-            {item.category || "general wellness"}
-          </p>
-          <p className="text-sm text-[#8CC63F] font-semibold mt-1">
-            ₹{item.price}{" "}
-            <span className="text-gray-400 text-xs font-normal">/ each</span>
-          </p>
-        </div>
-        <button
-          onClick={onRemove}
-          className="text-gray-300 hover:text-red-500 transition-colors p-1 shrink-0"
-          aria-label="Remove item">
-          <Trash2 className="w-4 h-4 md:w-5 md:h-5" />
-        </button>
+  return (
+    <div
+      className="flex gap-4 sm:gap-5 px-5 py-5 sm:px-6 transition-colors duration-200"
+      style={{ background: isSelected ? G.white : G.gray50 }}>
+      {/* Checkbox */}
+      <div className="mt-1 shrink-0">
+        <Checkbox checked={isSelected} onChange={onSelect} />
       </div>
 
-      <div className="flex items-end justify-between mt-4">
-        {/* Qty Controls */}
-        <div className="flex items-center border border-gray-200 h-9 w-fit rounded-none">
+      {/* Product image */}
+      <div
+        className="w-[88px] h-[112px] sm:w-[100px] sm:h-[128px] shrink-0 overflow-hidden flex items-center justify-center"
+        style={{ background: G.light, border: `1px solid ${G.border}` }}>
+        {item.image ? (
+          <img
+            src={item.image}
+            alt={item.name}
+            className="w-[85%] h-[85%] object-contain mix-blend-multiply"
+            loading="lazy"
+          />
+        ) : (
+          <SparklesIcon
+            className="w-8 h-8"
+            style={{ color: G.sage }}
+            strokeWidth={1.2}
+          />
+        )}
+      </div>
+
+      {/* Info */}
+      <div className="flex-1 flex flex-col justify-between min-w-0 py-0.5">
+        {/* Top */}
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            {item.category && (
+              <p
+                className="text-[9px] font-bold uppercase tracking-[0.22em] mb-1"
+                style={{ color: G.sage }}>
+                {item.category}
+              </p>
+            )}
+            <h3
+              className="text-[14px] font-medium leading-snug"
+              style={{ color: G.deep, fontFamily: "'DM Sans', sans-serif" }}>
+              {item.name}
+            </h3>
+            <div className="flex items-baseline gap-2 mt-1.5">
+              <span className="text-[15px] font-bold" style={{ color: G.deep }}>
+                ₹{item.price}
+              </span>
+              {item.mrp && item.mrp > item.price && (
+                <span
+                  className="text-[12px] line-through"
+                  style={{ color: G.gray400 }}>
+                  ₹{item.mrp}
+                </span>
+              )}
+            </div>
+            {savings > 0 && (
+              <span
+                className="inline-flex items-center gap-1 mt-1.5 text-[9px] font-bold uppercase tracking-widest px-2 py-0.5"
+                style={{
+                  background: G.light,
+                  color: G.sage,
+                  border: `1px solid ${G.border}`,
+                }}>
+                <TagIcon className="w-2.5 h-2.5" />
+                Save ₹{savings}
+              </span>
+            )}
+          </div>
+
+          {/* Remove */}
           <button
-            onClick={() => onQtyChange(-1)}
-            className="w-9 h-full flex items-center justify-center hover:bg-gray-100 transition-colors text-gray-600">
-            <Minus className="w-3.5 h-3.5" />
+            onClick={onRemove}
+            aria-label="Remove item"
+            className="p-1 shrink-0 transition-colors duration-150 hover:text-red-400"
+            style={{ color: G.gray400 }}>
+            <TrashIcon className="w-4 h-4" strokeWidth={1.5} />
           </button>
-          <span className="w-9 text-center text-sm font-semibold text-gray-900 border-x border-gray-200 h-full flex items-center justify-center">
-            {item.quantity}
+        </div>
+
+        {/* Bottom: qty + line total */}
+        <div className="flex items-center justify-between mt-4">
+          {/* Qty stepper */}
+          <div
+            className="flex items-center h-8"
+            style={{ border: `1px solid ${G.border}` }}>
+            <button
+              onClick={() => onQtyChange(-1)}
+              disabled={item.quantity <= 1}
+              className="w-8 h-full flex items-center justify-center transition-colors duration-150 disabled:opacity-30"
+              style={{ color: G.deep }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = G.light)}
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.background = "transparent")
+              }>
+              <MinusIcon className="w-3.5 h-3.5" strokeWidth={2.5} />
+            </button>
+            <span
+              className="w-9 text-center text-[13px] font-bold h-full flex items-center justify-center"
+              style={{
+                color: G.deep,
+                borderLeft: `1px solid ${G.border}`,
+                borderRight: `1px solid ${G.border}`,
+              }}>
+              {item.quantity}
+            </span>
+            <button
+              onClick={() => onQtyChange(1)}
+              className="w-8 h-full flex items-center justify-center transition-colors duration-150"
+              style={{ color: G.deep }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = G.light)}
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.background = "transparent")
+              }>
+              <PlusIcon className="w-3.5 h-3.5" strokeWidth={2.5} />
+            </button>
+          </div>
+
+          <span
+            className="text-[18px] font-light"
+            style={{
+              fontFamily: "'Cormorant Garamond', serif",
+              color: G.deep,
+            }}>
+            ₹{item.price * item.quantity}
           </span>
-          <button
-            onClick={() => onQtyChange(1)}
-            className="w-9 h-full flex items-center justify-center hover:bg-gray-100 transition-colors text-gray-600">
-            <Plus className="w-3.5 h-3.5" />
-          </button>
         </div>
-
-        <p className="font-semibold text-gray-900 text-lg">
-          ₹{item.price * item.quantity}
-        </p>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
-/* ─── Cart Control Header ───────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────
+   CART CONTROL HEADER
+───────────────────────────────────────────────────────── */
 const CartControlHeader = ({
   allSelected,
   onSelectAll,
@@ -144,101 +286,209 @@ const CartControlHeader = ({
   selectedCount,
   totalCount,
 }) => (
-  <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-    <label
-      className="flex items-center gap-3 cursor-pointer group"
-      onClick={onSelectAll}>
-      <div
-        className={`w-5 h-5 border flex items-center justify-center transition-colors rounded-none ${
-          allSelected
-            ? "bg-[#2C3E30] border-[#2C3E30]"
-            : "border-gray-300 bg-white group-hover:border-[#2C3E30]"
-        }`}>
-        {allSelected && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
-      </div>
-      <span className="text-sm font-semibold text-gray-900 select-none tracking-wide uppercase">
-        {allSelected ? "Deselect All" : "Select All"}
+  <div
+    className="flex items-center justify-between px-5 sm:px-6 py-3.5"
+    style={{ borderBottom: `1px solid ${G.border}`, background: G.pale }}>
+    <button
+      type="button"
+      onClick={onSelectAll}
+      className="flex items-center gap-2.5 focus:outline-none">
+      <Checkbox checked={allSelected} onChange={onSelectAll} />
+      <span
+        className="text-[10px] font-bold uppercase tracking-[0.18em]"
+        style={{ color: G.gray600 }}>
+        {allSelected ? "Deselect all" : "Select all"}
       </span>
-    </label>
-
+    </button>
     <div className="flex items-center gap-4">
-      <span className="text-xs font-medium text-gray-400 uppercase tracking-widest">
-        {selectedCount} / {totalCount} Selected
+      <span
+        className="text-[10px] font-medium hidden sm:block"
+        style={{ color: G.gray400 }}>
+        {selectedCount} / {totalCount} selected
       </span>
       {totalCount > 0 && (
         <button
           onClick={onClearCart}
-          className="text-xs text-gray-400 hover:text-red-500 uppercase tracking-wider transition-colors font-medium">
-          Clear
+          className="text-[10px] font-bold uppercase tracking-widest transition-colors duration-150 hover:text-red-400"
+          style={{ color: G.gray400 }}>
+          Clear all
         </button>
       )}
     </div>
   </div>
 );
 
-/* ─── Order Summary ─────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────
+   ORDER SUMMARY
+───────────────────────────────────────────────────────── */
 const OrderSummary = ({ pricing, selectedItems, onCheckout }) => (
-  <div className="bg-white p-8 border border-gray-200 rounded-none">
-    <h2
-      className="text-2xl text-gray-900 font-light mb-6 border-b border-gray-100 pb-4"
-      style={{ fontFamily: "'Playfair Display', serif" }}>
-      Order Summary
-    </h2>
+  <div
+    className="overflow-hidden"
+    style={{ border: `1px solid ${G.border}`, background: G.white }}>
+    {/* Green header */}
+    <div
+      className="px-6 py-5 flex items-center gap-2.5"
+      style={{ background: G.deep }}>
+      <LeafIcon size={16} color="rgba(255,255,255,0.7)" />
+      <h2
+        className="text-[16px] font-light text-white"
+        style={{
+          fontFamily: "'Cormorant Garamond', serif",
+          letterSpacing: "0.02em",
+        }}>
+        Order Summary
+      </h2>
+    </div>
 
-    <div className="space-y-4 mb-8 text-sm text-gray-500">
-      <div className="flex justify-between items-center">
-        <span>Subtotal ({selectedItems.length} items)</span>
-        <span className="text-gray-900 font-medium">₹{pricing.subtotal}</span>
+    {/* Line items */}
+    <div
+      className="px-6 py-5 space-y-3.5 text-[13px]"
+      style={{ borderBottom: `1px solid ${G.border}` }}>
+      <div className="flex justify-between">
+        <span style={{ color: G.gray600 }}>
+          Subtotal ({selectedItems.length}{" "}
+          {selectedItems.length === 1 ? "item" : "items"})
+        </span>
+        <span className="font-bold" style={{ color: G.deep }}>
+          ₹{pricing.subtotal}
+        </span>
       </div>
+
       {pricing.originalTotalPrice > pricing.subtotal && (
-        <div className="flex justify-between items-center text-[#8CC63F]">
-          <span>You Save</span>
-          <span className="font-medium">
-            ₹{pricing.originalTotalPrice - pricing.subtotal}
+        <div className="flex justify-between">
+          <span className="flex items-center gap-1.5" style={{ color: G.sage }}>
+            <TagIcon className="w-3.5 h-3.5" /> Discount
+          </span>
+          <span className="font-bold" style={{ color: G.sage }}>
+            −₹{pricing.originalTotalPrice - pricing.subtotal}
           </span>
         </div>
       )}
-      <div className="flex justify-between items-center">
-        <span>Shipping Fee</span>
-        <span className="text-gray-900 font-medium">
-          {pricing.platformFee === 0 ? (
-            <span className="text-[#8CC63F]">Free</span>
-          ) : (
-            `₹${pricing.platformFee}`
-          )}
+
+      <div className="flex justify-between">
+        <span
+          className="flex items-center gap-1.5"
+          style={{ color: G.gray600 }}>
+          <TruckIcon className="w-3.5 h-3.5" strokeWidth={1.5} /> Shipping
         </span>
+        {pricing.platformFee === 0 && pricing.subtotal > 0 ? (
+          <span className="font-bold" style={{ color: G.sage }}>
+            Free
+          </span>
+        ) : (
+          <span className="font-bold" style={{ color: G.deep }}>
+            ₹{pricing.platformFee}
+          </span>
+        )}
       </div>
+
+      {/* Free shipping unlocked */}
       {pricing.platformFee === 0 && pricing.subtotal > 0 && (
-        <p className="text-[10px] text-[#8CC63F] uppercase tracking-wider">
-          🎉 You unlocked free shipping!
+        <div
+          className="flex items-center gap-2 px-3 py-2.5 rounded-sm"
+          style={{ background: G.light, border: `1px solid ${G.border}` }}>
+          <CheckIcon
+            className="w-3.5 h-3.5 shrink-0"
+            style={{ color: G.sage }}
+            strokeWidth={2.5}
+          />
+          <p
+            className="text-[10px] font-bold uppercase tracking-widest"
+            style={{ color: G.sage }}>
+            Free shipping unlocked!
+          </p>
+        </div>
+      )}
+
+      {pricing.platformFee > 0 && pricing.subtotal > 0 && (
+        <p className="text-[11px] leading-relaxed" style={{ color: G.gray400 }}>
+          Add ₹{999 - pricing.subtotal} more to unlock free shipping.
         </p>
       )}
     </div>
 
-    <div className="flex justify-between items-end border-t border-gray-100 pt-6 mb-8">
-      <span className="font-medium text-gray-900 text-sm uppercase tracking-wider">
+    {/* Total */}
+    <div
+      className="px-6 py-4 flex items-center justify-between"
+      style={{ borderBottom: `1px solid ${G.border}` }}>
+      <span
+        className="text-[11px] font-bold uppercase tracking-[0.16em]"
+        style={{ color: G.gray400 }}>
         Total Payable
       </span>
       <span
-        className="text-3xl text-gray-900 font-light"
-        style={{ fontFamily: "'Playfair Display', serif" }}>
+        className="text-[32px] font-light leading-none"
+        style={{ fontFamily: "'Cormorant Garamond', serif", color: G.deep }}>
         ₹{pricing.totalPayable}
       </span>
     </div>
 
-    <button
-      onClick={onCheckout}
-      disabled={selectedItems.length === 0}
-      className="w-full bg-[#2C3E30] text-white py-4 text-sm font-semibold tracking-widest uppercase hover:bg-[#1a251d] transition-colors rounded-none disabled:opacity-40 disabled:cursor-not-allowed">
-      Proceed to Checkout
-    </button>
-    <p className="text-center text-xs text-gray-400 flex items-center justify-center gap-1.5 mt-5 uppercase tracking-wider">
-      <ShieldCheck className="w-4 h-4 stroke-[1.5]" /> Secure Checkout
-    </p>
+    {/* CTA */}
+    <div className="px-6 py-5 space-y-3">
+      <button
+        onClick={onCheckout}
+        disabled={selectedItems.length === 0}
+        className="w-full py-4 text-[11px] font-bold uppercase tracking-[0.22em] text-white transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+        style={{ background: selectedItems.length > 0 ? G.deep : G.gray400 }}
+        onMouseEnter={(e) => {
+          if (selectedItems.length > 0)
+            e.currentTarget.style.background = G.mid;
+        }}
+        onMouseLeave={(e) => {
+          if (selectedItems.length > 0)
+            e.currentTarget.style.background = G.deep;
+        }}>
+        Proceed to Checkout
+      </button>
+      <p
+        className="flex items-center justify-center gap-2 text-[10px] uppercase tracking-wider"
+        style={{ color: G.gray400 }}>
+        <ShieldCheckIcon className="w-3.5 h-3.5" strokeWidth={1.5} />
+        100% Secure &amp; Encrypted
+      </p>
+    </div>
   </div>
 );
 
-/* ─── Main Page ─────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────
+   TRUST BADGES
+───────────────────────────────────────────────────────── */
+const TrustRow = () => (
+  <div className="mt-4 grid grid-cols-3 gap-3">
+    {[
+      { icon: ShieldCheckIcon, label: "Secure Pay" },
+      { icon: TruckIcon, label: "Free ₹999+" },
+      { icon: SparklesIcon, label: "100% Organic" },
+    ].map(({ icon: Icon, label }) => (
+      <div
+        key={label}
+        className="flex flex-col items-center gap-2 py-3.5"
+        style={{ background: G.pale, border: `1px solid ${G.border}` }}>
+        <Icon className="w-4 h-4" style={{ color: G.sage }} strokeWidth={1.5} />
+        <span
+          className="text-[9px] font-bold uppercase tracking-widest text-center"
+          style={{ color: G.gray600 }}>
+          {label}
+        </span>
+      </div>
+    ))}
+  </div>
+);
+
+/* ─────────────────────────────────────────────────────────
+   SECTION DIVIDER
+───────────────────────────────────────────────────────── */
+const Divider = () => (
+  <div className="flex items-center gap-3 mx-6">
+    <div className="flex-1 h-px" style={{ background: G.border }} />
+    <LeafIcon size={12} color={G.border} />
+    <div className="flex-1 h-px" style={{ background: G.border }} />
+  </div>
+);
+
+/* ─────────────────────────────────────────────────────────
+   MAIN PAGE
+───────────────────────────────────────────────────────── */
 export default function TaruVedaCartPage() {
   const navigate = useNavigate();
   const {
@@ -252,21 +502,17 @@ export default function TaruVedaCartPage() {
   const { isLoggedIn } = useAuth();
 
   const [isLoginOpen, setIsLoginOpen] = useState(false);
-
   const cartItems = getCartItems();
-
-  /* ── Auto-select (runs once when items first appear) ── */
   const hasAutoSelected = useRef(false);
   const [selected, setSelected] = useState([]);
 
   useEffect(() => {
     if (cartItems.length > 0 && !hasAutoSelected.current) {
-      setSelected(cartItems.map((item) => item.id));
+      setSelected(cartItems.map((i) => i.id));
       hasAutoSelected.current = true;
     }
-  }, [cartItems.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cartItems.length]);
 
-  /* ── Selection Handlers ── */
   const allSelected =
     selected.length === cartItems.length && cartItems.length > 0;
 
@@ -276,34 +522,31 @@ export default function TaruVedaCartPage() {
     );
 
   const handleSelectAll = () =>
-    setSelected(allSelected ? [] : cartItems.map((item) => item.id));
+    setSelected(allSelected ? [] : cartItems.map((i) => i.id));
 
   const selectedItems = useMemo(
     () => cartItems.filter((item) => selected.includes(item.id)),
     [cartItems, selected],
   );
 
-  /* ── Pricing ── */
   const pricing = useMemo(() => {
-    let subtotal = 0;
-    let originalTotalPrice = 0;
-
+    let subtotal = 0,
+      originalTotalPrice = 0;
     selectedItems.forEach((item) => {
       const qty = item.quantity || 1;
-      const price = item.price || 0;
-      const mrp = item.mrp || item.originalPrice || price;
-
-      subtotal += price * qty;
-      originalTotalPrice += mrp * qty;
+      subtotal += (item.price || 0) * qty;
+      originalTotalPrice +=
+        (item.mrp || item.originalPrice || item.price || 0) * qty;
     });
-
     const platformFee = subtotal > 0 && subtotal < 999 ? 50 : 0;
-    const totalPayable = subtotal + platformFee;
-
-    return { subtotal, originalTotalPrice, platformFee, totalPayable };
+    return {
+      subtotal,
+      originalTotalPrice,
+      platformFee,
+      totalPayable: subtotal + platformFee,
+    };
   }, [selectedItems]);
 
-  /* ── Handlers ── */
   const handleRemove = (item) => {
     removeFromCart(item.id);
     setSelected((prev) => prev.filter((id) => id !== item.id));
@@ -316,16 +559,11 @@ export default function TaruVedaCartPage() {
   };
 
   const handleCheckout = () => {
-    if (selectedItems.length === 0) {
-      alert("Please select at least one item to checkout.");
-      return;
-    }
-
+    if (selectedItems.length === 0) return;
     if (!isLoggedIn) {
       setIsLoginOpen(true);
       return;
     }
-
     navigate(`${BASE_URL}/checkout`, {
       state: {
         items: selectedItems,
@@ -336,101 +574,176 @@ export default function TaruVedaCartPage() {
     });
   };
 
-  /* ── Guards ── */
   if (!cartItems.length) return <EmptyCart onBack={() => navigate(BASE_URL)} />;
 
-  /* ── UI ── */
   return (
-    <div className="min-h-screen bg-[#FAF9F6] text-gray-800 font-sans mt-5 pb-32 lg:pb-16 pt-6">
-      {/* Breadcrumbs */}
-      <div className="hidden md:flex text-gray-500 text-sm gap-2 mb-8 px-4 md:px-8 max-w-7xl mx-auto">
-        <button
-          onClick={() => navigate(BASE_URL)}
-          className="hover:text-gray-900 transition-colors">
-          TaruVeda
-        </button>
-        <span className="text-gray-300">/</span>
-        <span className="text-gray-900">Your Bag</span>
-      </div>
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=DM+Sans:wght@400;500;600;700&display=swap');
+        * { font-family: 'DM Sans', sans-serif; }
+        @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+      `}</style>
 
-      {/* Header */}
-      <header className="hidden md:flex flex-col items-center text-center mb-12 px-4">
-        <span className="text-[10px] sm:text-xs uppercase tracking-[0.2em] font-semibold mb-3 text-green-700">
-          Organic Edit
-        </span>
-        <h1
-          className="text-3xl sm:text-4xl md:text-5xl text-gray-900 font-light mb-3"
-          style={{ fontFamily: "'Playfair Display', serif" }}>
-          Your Bag
-        </h1>
-        <p className="text-sm text-gray-400 tracking-wide">
-          {totalItems} {totalItems > 1 ? "items" : "item"} saved
-        </p>
-      </header>
+      <div
+        className="min-h-screen pb-28 lg:pb-12"
+        style={{ background: G.gray50 }}>
+        {/* ── Top bar ── */}
+        <div
+          className="sticky top-0 z-20 border-b"
+          style={{ background: G.white, borderColor: G.border }}>
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+            <button
+              onClick={() => navigate(BASE_URL)}
+              className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest transition-colors duration-150"
+              style={{ color: G.gray400 }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = G.deep)}
+              onMouseLeave={(e) => (e.currentTarget.style.color = G.gray400)}>
+              <ArrowLeftIcon className="w-4 h-4" />
+              <span className="hidden sm:inline">Continue Shopping</span>
+            </button>
 
-      <div className="max-w-7xl mx-auto px-4 flex flex-col lg:flex-row gap-10">
-        {/* ─── LEFT: ITEMS ───────────────────────────────── */}
-        <div className="flex-1">
-          <div className="bg-white border border-gray-200 shadow-sm rounded-none">
-            <CartControlHeader
-              allSelected={allSelected}
-              onSelectAll={handleSelectAll}
-              onClearCart={handleClearCart}
-              selectedCount={selected.length}
-              totalCount={cartItems.length}
-            />
+            <div className="flex items-center gap-2">
+              <LeafIcon size={15} color={G.sage} />
+              <span
+                className="text-[13px] font-bold tracking-wide"
+                style={{ color: G.deep }}>
+                TaruVeda
+              </span>
+            </div>
 
-            <div className="divide-y divide-gray-100">
-              {cartItems.map((item) => (
-                <CartItemCard
-                  key={item.id}
-                  item={item}
-                  isSelected={selected.includes(item.id)}
-                  onSelect={() => handleSelectItem(item.id)}
-                  onRemove={() => handleRemove(item)}
-                  onQtyChange={(delta) => updateCartQty(item.id, delta)}
-                />
-              ))}
+            <div
+              className="flex items-center gap-1.5 text-[11px] font-medium"
+              style={{ color: G.gray400 }}>
+              <ShoppingBagIcon className="w-4 h-4" strokeWidth={1.5} />
+              <span>{totalItems}</span>
             </div>
           </div>
         </div>
 
-        {/* ─── RIGHT: SUMMARY (Desktop) ──────────────────── */}
-        <div className="hidden lg:block w-[400px] shrink-0">
-          <div className="sticky top-24">
-            <OrderSummary
-              pricing={pricing}
-              selectedItems={selectedItems}
-              onCheckout={handleCheckout}
-            />
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-8 lg:pt-10">
+          {/* ── Page title ── */}
+          <div className="mb-8" style={{ animation: "fadeUp 0.4s ease both" }}>
+            <p
+              className="text-[10px] font-bold uppercase tracking-[0.3em] mb-1.5"
+              style={{ color: G.sage }}>
+              Your Bag
+            </p>
+            <h1
+              className="text-[36px] sm:text-[44px] font-light leading-none"
+              style={{
+                fontFamily: "'Cormorant Garamond', serif",
+                color: G.deep,
+              }}>
+              {totalItems} {totalItems === 1 ? "Item" : "Items"}
+            </h1>
+          </div>
+
+          {/* ── Two-column layout ── */}
+          <div className="flex flex-col lg:flex-row gap-6 xl:gap-8 items-start">
+            {/* LEFT — Items list */}
+            <div
+              className="flex-1 min-w-0"
+              style={{ animation: "fadeUp 0.45s ease 0.05s both" }}>
+              <div
+                className="overflow-hidden"
+                style={{
+                  background: G.white,
+                  border: `1px solid ${G.border}`,
+                }}>
+                <CartControlHeader
+                  allSelected={allSelected}
+                  onSelectAll={handleSelectAll}
+                  onClearCart={handleClearCart}
+                  selectedCount={selected.length}
+                  totalCount={cartItems.length}
+                />
+
+                {cartItems.map((item, i) => (
+                  <React.Fragment key={item.id}>
+                    <CartItemCard
+                      item={item}
+                      isSelected={selected.includes(item.id)}
+                      onSelect={() => handleSelectItem(item.id)}
+                      onRemove={() => handleRemove(item)}
+                      onQtyChange={(delta) => updateCartQty(item.id, delta)}
+                    />
+                    {i < cartItems.length - 1 && <Divider />}
+                  </React.Fragment>
+                ))}
+              </div>
+
+              {/* Organic promise strip */}
+              <div
+                className="mt-4 px-5 py-4 flex items-center gap-3"
+                style={{
+                  background: G.light,
+                  border: `1px solid ${G.border}`,
+                }}>
+                <LeafIcon size={16} color={G.sage} />
+                <p
+                  className="text-[11px] leading-relaxed"
+                  style={{ color: G.mid }}>
+                  <strong>100% natural & cruelty-free.</strong> Every TaruVeda
+                  product is free from sulfates, parabens, and artificial
+                  fragrances.
+                </p>
+              </div>
+            </div>
+
+            {/* RIGHT — Summary sticky */}
+            <div
+              className="hidden lg:block w-[360px] xl:w-[400px] shrink-0"
+              style={{ animation: "fadeUp 0.45s ease 0.1s both" }}>
+              <div className="sticky top-20">
+                <OrderSummary
+                  pricing={pricing}
+                  selectedItems={selectedItems}
+                  onCheckout={handleCheckout}
+                />
+                <TrustRow />
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* ─── MOBILE BOTTOM BAR ─────────────────────────── */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-30">
-        <div className="max-w-2xl mx-auto flex justify-between items-center gap-4">
-          <div className="flex flex-col">
-            <span className="text-gray-400 text-[10px] uppercase tracking-widest">
-              Total
+      {/* ── Mobile sticky checkout bar ── */}
+      <div
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-30 px-4 py-3"
+        style={{
+          background: G.white,
+          borderTop: `1px solid ${G.border}`,
+          boxShadow: "0 -4px 24px rgba(26,58,42,0.08)",
+          paddingBottom: "calc(12px + env(safe-area-inset-bottom))",
+        }}>
+        <div className="flex items-center gap-3 max-w-lg mx-auto">
+          <div className="flex flex-col min-w-0">
+            <span
+              className="text-[9px] font-bold uppercase tracking-[0.2em]"
+              style={{ color: G.gray400 }}>
+              {selectedItems.length} item{selectedItems.length !== 1 ? "s" : ""}
             </span>
             <span
-              className="text-2xl text-gray-900 font-light"
-              style={{ fontFamily: "'Playfair Display', serif" }}>
+              className="text-[26px] font-light leading-tight"
+              style={{
+                fontFamily: "'Cormorant Garamond', serif",
+                color: G.deep,
+              }}>
               ₹{pricing.totalPayable}
             </span>
           </div>
+
           <button
             onClick={handleCheckout}
             disabled={selectedItems.length === 0}
-            className="flex-1 max-w-[200px] bg-[#2C3E30] text-white py-3.5 text-sm font-semibold tracking-widest uppercase hover:bg-[#1a251d] transition-colors rounded-none disabled:opacity-40 disabled:cursor-not-allowed">
-            Checkout
+            className="flex-1 py-4 text-[11px] font-bold uppercase tracking-[0.2em] text-white transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ background: G.deep }}>
+            Checkout →
           </button>
         </div>
       </div>
 
-      {/* Login Popup */}
       <LoginPopup isOpen={isLoginOpen} onClose={() => setIsLoginOpen(false)} />
-    </div>
+    </>
   );
 }

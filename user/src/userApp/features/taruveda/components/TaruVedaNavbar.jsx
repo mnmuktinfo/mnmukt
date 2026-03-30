@@ -1,143 +1,373 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
-import {
-  Search,
-  User,
-  ShoppingBag,
-  ChevronDown,
-  Menu,
-  X,
-  Droplets,
-  Wheat,
-  Sprout,
-  Gift,
-} from "lucide-react";
 
-// Adjust these import paths to match your project structure
+/* ── Heroicons ── */
+import {
+  MagnifyingGlassIcon,
+  UserIcon,
+  ShoppingBagIcon,
+  ChevronDownIcon,
+  Bars3Icon,
+  XMarkIcon,
+  GiftIcon,
+  SparklesIcon,
+  BeakerIcon,
+  SunIcon,
+} from "@heroicons/react/24/outline";
+
 import { useAuth } from "../../auth/context/UserContext";
 import { useCart } from "../../../context/TaruvedaCartContext";
 
+/* ════════════════════════════════════════════
+   CONSTANTS
+════════════════════════════════════════════ */
+const BASE = "/taruveda-organic-shampoo-oil";
+
+const NAV_LINKS = [
+  { label: "Hair Care", href: `${BASE}/hair-care`, icon: BeakerIcon },
+  { label: "Skin Care", href: `${BASE}/skin-care`, icon: SunIcon },
+  { label: "Body Care", href: `${BASE}/body-care`, icon: SparklesIcon },
+  { label: "Value Combos", href: `${BASE}/combos`, icon: GiftIcon },
+];
+
+const DROPDOWN_ITEMS = [
+  { label: "Organic Oils", href: `${BASE}/category/organic-oils` },
+  { label: "Herbal Shampoos", href: `${BASE}/category/herbal-shampoos` },
+  { label: "Face Serums", href: `${BASE}/category/face-serums` },
+  { label: "Body Scrubs", href: `${BASE}/category/body-scrubs` },
+];
+
+/* ════════════════════════════════════════════
+   SMALL REUSABLES
+════════════════════════════════════════════ */
+
+/** Botanical leaf SVG accent — pure CSS, no image dep */
+const LeafAccent = ({ className = "" }) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    className={className}
+    aria-hidden="true">
+    <path d="M17 8C8 10 5.9 16.17 3.82 21.34L5.71 22l1-2.3A4.49 4.49 0 0 0 8 20C19 20 22 3 22 3c-1 2-8 1.25-8 1.25S16 7 17 8z" />
+  </svg>
+);
+
+/** Single desktop nav link with animated underline */
+const NavLink = ({ href, label, icon: Icon }) => (
+  <Link
+    to={href}
+    className="group relative flex items-center gap-1.5 py-4 text-[11px] font-bold uppercase tracking-[0.18em] text-[#2a3d22] hover:text-[#429828] transition-colors duration-300">
+    <Icon className="w-3.5 h-3.5 text-[#7aad5a] group-hover:scale-110 transition-transform duration-300" />
+    {label}
+    {/* animated underline */}
+    <span className="absolute bottom-2.5 left-0 w-0 h-px bg-[#429828] group-hover:w-full transition-all duration-500 ease-out" />
+  </Link>
+);
+
+/** Icon button wrapper */
+const IconBtn = ({ className = "", children, ...props }) => (
+  <button
+    className={`relative flex items-center justify-center rounded-full transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#429828] ${className}`}
+    {...props}>
+    {children}
+  </button>
+);
+
+/* ════════════════════════════════════════════
+   SEARCH BAR
+════════════════════════════════════════════ */
+const SearchBar = ({
+  placeholder = "Search organic essentials…",
+  inputClass = "",
+}) => (
+  <div className="relative group w-full">
+    <input
+      type="text"
+      placeholder={placeholder}
+      className={`w-full bg-[#f5f0e8]/60 border border-[#c8b89a]/40 rounded-full py-2.5 pl-5 pr-11
+        text-[13px] text-[#2a3d22] placeholder:text-[#8a7a62]/70
+        focus:outline-none focus:border-[#429828]/60 focus:bg-[#f5f0e8]
+        transition-all duration-300 ${inputClass}`}
+    />
+    <button
+      className="absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center
+      rounded-full text-[#8a7a62] hover:bg-[#429828] hover:text-white transition-all duration-300">
+      <MagnifyingGlassIcon className="w-4 h-4" strokeWidth={2} />
+    </button>
+  </div>
+);
+
+/* ════════════════════════════════════════════
+   MOBILE DRAWER
+════════════════════════════════════════════ */
+const MobileDrawer = ({ open, onClose, user, totalItems }) => {
+  // Prevent body scroll when open
+  useEffect(() => {
+    document.body.style.overflow = open ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [open]);
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        onClick={onClose}
+        className={`fixed inset-0 z-[100] bg-[#0d1f12]/50 backdrop-blur-sm transition-opacity duration-400 lg:hidden
+          ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
+      />
+
+      {/* Drawer panel */}
+      <aside
+        className={`fixed top-0 left-0 h-full w-[82%] max-w-[340px] z-[110] bg-[#f5f0e8] flex flex-col
+          shadow-2xl transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] lg:hidden
+          ${open ? "translate-x-0" : "-translate-x-full"}`}>
+        {/* Drawer header */}
+        <div className="flex items-center justify-between px-6 py-5 border-b border-[#d6c9b0]/60 bg-[#0d1f12]">
+          <div>
+            <span
+              className="text-xl font-bold tracking-tight text-[#f5f0e8]"
+              style={{ fontFamily: "'Playfair Display', serif" }}>
+              TARUVEDA
+            </span>
+            <span className="block text-[9px] tracking-[0.28em] text-[#7aad5a] font-bold uppercase mt-0.5">
+              Organic Farms
+            </span>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-[#f5f0e8]/10 text-[#f5f0e8] hover:bg-[#429828] transition-colors duration-300">
+            <XMarkIcon className="w-5 h-5" strokeWidth={2.5} />
+          </button>
+        </div>
+
+        {/* Search */}
+        <div className="px-5 py-4 border-b border-[#d6c9b0]/60">
+          <SearchBar placeholder="Search products…" inputClass="bg-white/80" />
+        </div>
+
+        {/* Nav links */}
+        <nav className="flex-1 overflow-y-auto py-2">
+          {NAV_LINKS.map(({ label, href, icon: Icon }) => (
+            <Link
+              key={label}
+              to={href}
+              onClick={onClose}
+              className="flex items-center gap-4 px-6 py-4 border-b border-[#d6c9b0]/40
+                text-[13px] font-bold text-[#2a3d22] hover:bg-[#e8dfc8] hover:text-[#429828] transition-colors duration-200">
+              <Icon className="w-5 h-5 text-[#7aad5a] shrink-0" />
+              {label}
+            </Link>
+          ))}
+
+          {/* Dropdown items flat in mobile */}
+          <div className="px-6 pt-5 pb-2">
+            <p className="text-[9px] font-black uppercase tracking-[0.25em] text-[#8a7a62] mb-3">
+              Shop by Category
+            </p>
+            {DROPDOWN_ITEMS.map(({ label, href }) => (
+              <Link
+                key={label}
+                to={href}
+                onClick={onClose}
+                className="block py-2.5 text-[13px] text-[#4a5c3a] hover:text-[#429828] font-medium transition-colors duration-200">
+                — {label}
+              </Link>
+            ))}
+          </div>
+
+          {/* Collective badge */}
+          <div className="px-6 py-4 border-t border-[#d6c9b0]/40 mt-2">
+            <Link
+              to={`${BASE}/collective`}
+              onClick={onClose}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#0d1f12] text-[#f5f0e8]
+                text-[11px] font-black uppercase tracking-widest hover:bg-[#429828] transition-colors duration-300">
+              <LeafAccent className="w-3.5 h-3.5 text-[#7aad5a]" />
+              Join the Collective
+            </Link>
+          </div>
+        </nav>
+
+        {/* Footer auth */}
+        <div className="px-6 py-5 bg-[#e8dfc8] border-t border-[#d6c9b0]/60">
+          {user ? (
+            <Link
+              to="/user/profile"
+              onClick={onClose}
+              className="flex items-center justify-center gap-2 w-full py-3 rounded-full bg-[#429828] text-white
+                text-[12px] font-black uppercase tracking-widest hover:bg-[#2d621b] transition-colors duration-300 shadow-md">
+              Hi, {user.name?.split(" ")[0] || "User"} 👋
+            </Link>
+          ) : (
+            <Link
+              to="/auth/login"
+              onClick={onClose}
+              className="flex items-center justify-center gap-2 w-full py-3 rounded-full border border-[#2a3d22]
+                text-[12px] font-black uppercase tracking-widest text-[#2a3d22] hover:bg-[#0d1f12] hover:text-white hover:border-transparent
+                transition-all duration-300">
+              <UserIcon className="w-4 h-4" />
+              Sign In
+            </Link>
+          )}
+        </div>
+      </aside>
+    </>
+  );
+};
+
+/* ════════════════════════════════════════════
+   MAIN HEADER
+════════════════════════════════════════════ */
 export default function TaruVedaHeader() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const [dropdownOpen, setDropdown] = useState(false);
+  const dropdownRef = useRef(null);
   const location = useLocation();
 
-  // Consume real contexts instead of mock state
   const { user } = useAuth();
   const { totalItems } = useCart();
 
-  // Close mobile menu on route change
+  /* Close mobile menu on route change */
   useEffect(() => {
-    setMobileMenuOpen(false);
+    setMobileOpen(false);
   }, [location.pathname]);
 
-  // Handle sticky header shadow on scroll
+  /* Sticky scroll shadow */
   useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 30);
+    const fn = () => setScrolled(window.scrollY > 20);
+    window.addEventListener("scroll", fn, { passive: true });
+    return () => window.removeEventListener("scroll", fn);
+  }, []);
+
+  /* Close dropdown on outside click */
+  useEffect(() => {
+    const fn = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target))
+        setDropdown(false);
     };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
+    document.addEventListener("mousedown", fn);
+    return () => document.removeEventListener("mousedown", fn);
   }, []);
 
   return (
     <>
-      {/* ─── 1. Announcement Bar ─────────────────────────── */}
-      <div className="w-full bg-[#112315] text-[#f4fbf2] text-[10px] sm:text-xs font-bold py-2.5 px-4 sm:px-8 flex flex-col sm:flex-row justify-between items-center gap-2 text-center uppercase tracking-widest z-50 relative">
-        <p className="opacity-90">
-          We're excited to announce that our International Store is now live!
+      {/* ── 1. Announcement bar ─────────────────────── */}
+      <div className="w-full bg-[#0d1f12] text-[#f5f0e8] py-2.5 px-4 flex items-center justify-center gap-6 relative overflow-hidden">
+        {/* subtle texture */}
+        <div
+          className="absolute inset-0 opacity-[0.04]"
+          style={{
+            backgroundImage:
+              "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")",
+          }}
+        />
+        <LeafAccent className="w-3 h-3 text-[#7aad5a] shrink-0" />
+        <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-center">
+          International Store Now Live — Global Shipping Available
         </p>
-        <p className="hidden md:block text-[#8CC63F]">
-          Shop with global shipping ✈️
-        </p>
+        <LeafAccent className="w-3 h-3 text-[#7aad5a] shrink-0 scale-x-[-1]" />
       </div>
 
-      {/* ─── Main Sticky Container ───────────────────────── */}
+      {/* ── 2. Main sticky header ───────────────────── */}
       <header
-        className={`sticky top-0 w-full z-40 transition-all duration-300 ${
-          isScrolled ? "bg-white/95 backdrop-blur-md shadow-sm" : "bg-white"
-        }`}>
-        {/* ─── 2. Top Bar (Search, Logo, Icons) ────────── */}
-        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
+        className={`sticky top-0 w-full z-40 transition-all duration-500
+          ${
+            scrolled
+              ? "bg-[#f5f0e8]/96 backdrop-blur-md shadow-[0_2px_24px_rgba(13,31,18,0.08)]"
+              : "bg-[#f5f0e8]"
+          }`}>
+        {/* Top row: hamburger | search — wordmark — icons */}
+        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10">
           <div
-            className={`flex items-center justify-between transition-all duration-300 ${isScrolled ? "py-3" : "py-5 sm:py-6"}`}>
-            {/* Left: Search Bar (Desktop) */}
-            <div className="hidden lg:flex flex-1">
-              <div className="relative w-full max-w-[320px] group">
-                <input
-                  type="text"
-                  placeholder="Search for organic essentials..."
-                  className="w-full bg-gray-50/50 border border-gray-200 rounded-full py-2.5 pl-5 pr-12 text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:border-[#429828] focus:ring-1 focus:ring-[#429828] focus:bg-white transition-all"
-                />
-                <button className="absolute right-1.5 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-full text-gray-400 hover:text-white hover:bg-[#429828] transition-all focus:outline-none">
-                  <Search size={18} strokeWidth={2} />
-                </button>
+            className={`flex items-center justify-between transition-all duration-400 ${scrolled ? "py-3" : "py-5 sm:py-6"}`}>
+            {/* Left */}
+            <div className="flex flex-1 items-center gap-3">
+              {/* Mobile hamburger */}
+              <IconBtn
+                onClick={() => setMobileOpen(true)}
+                className="lg:hidden w-10 h-10 text-[#2a3d22] hover:bg-[#e8dfc8]">
+                <Bars3Icon className="w-6 h-6" strokeWidth={2} />
+              </IconBtn>
+
+              {/* Desktop search */}
+              <div className="hidden lg:block w-[280px] xl:w-[340px]">
+                <SearchBar />
               </div>
             </div>
 
-            {/* Left: Mobile Hamburger */}
-            <div className="flex flex-1 lg:hidden">
-              <button
-                onClick={() => setMobileMenuOpen(true)}
-                className="p-2 -ml-2 text-gray-700 hover:text-[#429828] transition-colors focus:outline-none rounded-full hover:bg-gray-50">
-                <Menu size={24} strokeWidth={2} />
-              </button>
-            </div>
-
-            {/* Center: Logo */}
-            <div className="flex flex-1 justify-center flex-col items-center select-none">
+            {/* Center: wordmark */}
+            <div className="flex-1 flex justify-center">
               <Link
-                to="/taruveda-organic-shampoo-oil"
-                className="flex flex-col items-center group">
+                to={BASE}
+                className="group flex flex-col items-center select-none">
+                {/* Botanical top accent */}
+                <div className="flex items-center gap-1.5 mb-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
+                  <LeafAccent className="w-2.5 h-2.5 text-[#7aad5a]" />
+                  <div className="h-px w-6 bg-[#7aad5a]/60" />
+                  <LeafAccent className="w-2.5 h-2.5 text-[#7aad5a] scale-x-[-1]" />
+                </div>
                 <h1
-                  className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-[#112315] group-hover:text-[#2C3E30] transition-colors"
-                  style={{ fontFamily: "'Playfair Display', serif" }}>
+                  className="text-2xl sm:text-3xl lg:text-[2.1rem] font-bold tracking-[0.06em] text-[#0d1f12]
+                    group-hover:text-[#2d621b] transition-colors duration-500"
+                  style={{
+                    fontFamily: "'Playfair Display', serif",
+                    letterSpacing: "0.12em",
+                  }}>
                   TARUVEDA
                 </h1>
-                <span className="text-[9px] sm:text-[10px] tracking-[0.3em] text-[#429828] font-bold uppercase mt-1">
+                <span className="text-[8px] sm:text-[9px] tracking-[0.38em] text-[#7aad5a] font-black uppercase mt-0.5">
                   Organic Farms
                 </span>
               </Link>
             </div>
 
-            {/* Right: Action Icons */}
-            <div className="flex flex-1 justify-end items-center gap-3 sm:gap-5">
-              {/* User Profile / Login */}
+            {/* Right: action icons */}
+            <div className="flex flex-1 justify-end items-center gap-1 sm:gap-2">
+              {/* User */}
               {user ? (
                 <Link
                   to="/user/profile"
-                  className="hidden sm:flex items-center gap-2 text-gray-700 hover:text-[#429828] transition-all group">
-                  <div className="w-9 h-9 flex items-center justify-center rounded-full bg-[#f4fbf2] border border-[#429828]/20 group-hover:bg-[#429828] group-hover:text-white transition-colors text-[#429828] font-bold text-sm">
-                    {user?.name ? (
+                  className="hidden sm:flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-full
+                    hover:bg-[#e8dfc8] transition-all duration-300 group">
+                  <div
+                    className="w-8 h-8 rounded-full bg-[#0d1f12] text-[#f5f0e8] flex items-center justify-center
+                    text-[11px] font-black group-hover:bg-[#429828] transition-colors duration-300 shrink-0">
+                    {user.name ? (
                       user.name.charAt(0).toUpperCase()
                     ) : (
-                      <User size={18} />
+                      <UserIcon className="w-4 h-4" />
                     )}
                   </div>
-                  <span className="hidden lg:block text-xs font-bold uppercase tracking-widest truncate max-w-[80px]">
-                    {user?.name ? user.name.split(" ")[0] : "Profile"}
+                  <span className="hidden lg:block text-[11px] font-bold uppercase tracking-[0.12em] text-[#2a3d22] truncate max-w-[70px]">
+                    {user.name?.split(" ")[0] || "Profile"}
                   </span>
                 </Link>
               ) : (
                 <Link
                   to="/auth/login"
-                  className="hidden sm:flex w-10 h-10 items-center justify-center rounded-full text-gray-700 hover:text-[#429828] hover:bg-[#f4fbf2] transition-all focus:outline-none">
-                  <User size={22} strokeWidth={1.5} />
+                  className="hidden sm:flex w-10 h-10 items-center justify-center rounded-full
+                    text-[#2a3d22] hover:bg-[#e8dfc8] transition-all duration-300">
+                  <UserIcon className="w-[22px] h-[22px]" strokeWidth={1.5} />
                 </Link>
               )}
 
-              {/* Live Cart Count Redirecting to specific URL */}
+              {/* Cart */}
               <Link
-                to="/taruveda-organic-shampoo-oil/cart"
-                className="relative w-10 h-10 flex items-center justify-center rounded-full text-gray-700 hover:text-[#429828] hover:bg-[#f4fbf2] transition-all group">
-                <ShoppingBag
-                  size={22}
+                to={`${BASE}/cart`}
+                className="relative w-10 h-10 flex items-center justify-center rounded-full
+                  text-[#2a3d22] hover:bg-[#e8dfc8] transition-all duration-300 group">
+                <ShoppingBagIcon
+                  className="w-[22px] h-[22px] group-hover:scale-110 transition-transform duration-300"
                   strokeWidth={1.5}
-                  className="group-hover:scale-110 transition-transform"
                 />
                 {totalItems > 0 && (
-                  <span className="absolute top-0 right-0 text-white text-[10px] font-bold min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-[#429828] border-2 border-white shadow-sm">
-                    {totalItems}
+                  <span
+                    className="absolute -top-0.5 -right-0.5 w-[18px] h-[18px] bg-[#429828] text-white
+                    text-[9px] font-black flex items-center justify-center rounded-full border-2 border-[#f5f0e8] shadow-sm">
+                    {totalItems > 9 ? "9+" : totalItems}
                   </span>
                 )}
               </Link>
@@ -145,191 +375,86 @@ export default function TaruVedaHeader() {
           </div>
         </div>
 
-        {/* ─── 3. Bottom Category Navigation ───────────────── */}
+        {/* ── 3. Desktop bottom nav row ─────────────── */}
         <div
-          className={`hidden lg:block border-t border-gray-100 transition-all duration-300 ${isScrolled ? "h-0 overflow-hidden opacity-0 border-transparent" : "opacity-100"}`}>
-          <div className="max-w-[1440px] mx-auto px-8">
-            <ul className="flex items-center justify-center gap-10 py-4">
-              <li>
-                <Link
-                  to="/hair-care"
-                  className="flex items-center gap-2 text-xs font-bold text-gray-700 hover:text-[#429828] transition-colors uppercase tracking-widest group">
-                  <Droplets
-                    size={16}
-                    strokeWidth={2}
-                    className="text-[#8CC63F] group-hover:scale-110 transition-transform"
-                  />{" "}
-                  HAIR CARE
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="/skin-care"
-                  className="flex items-center gap-2 text-xs font-bold text-gray-700 hover:text-[#429828] transition-colors uppercase tracking-widest group">
-                  <Sprout
-                    size={16}
-                    strokeWidth={2}
-                    className="text-[#8CC63F] group-hover:scale-110 transition-transform"
-                  />{" "}
-                  SKIN CARE
-                </Link>
-              </li>
+          className={`hidden lg:block border-t border-[#c8b89a]/30 transition-all duration-400
+          ${scrolled ? "h-0 overflow-hidden opacity-0 border-transparent" : "opacity-100"}`}>
+          <div className="max-w-[1440px] mx-auto px-10">
+            <ul className="flex items-center justify-center gap-10">
+              {/* Static links */}
+              {NAV_LINKS.map((link) => (
+                <li key={link.label}>
+                  <NavLink {...link} />
+                </li>
+              ))}
 
-              <li className="group relative">
-                <button className="flex items-center gap-1.5 text-xs font-bold text-gray-700 hover:text-[#429828] transition-colors uppercase tracking-widest focus:outline-none py-2">
-                  SHOP BY CATEGORY{" "}
-                  <ChevronDown
-                    size={14}
+              {/* Shop by Category dropdown */}
+              <li ref={dropdownRef} className="relative">
+                <button
+                  onClick={() => setDropdown((v) => !v)}
+                  className="group flex items-center gap-1.5 py-4 text-[11px] font-bold uppercase
+                    tracking-[0.18em] text-[#2a3d22] hover:text-[#429828] transition-colors duration-300 focus:outline-none">
+                  Shop by Category
+                  <ChevronDownIcon
+                    className={`w-3.5 h-3.5 mt-px transition-transform duration-400 ${dropdownOpen ? "rotate-180 text-[#429828]" : ""}`}
                     strokeWidth={2.5}
-                    className="mt-0.5 group-hover:rotate-180 transition-transform duration-300"
                   />
                 </button>
-                <div className="absolute top-full left-1/2 -translate-x-1/2 pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                  <div className="bg-white border border-gray-100 shadow-xl rounded-xl py-3 w-56 flex flex-col">
-                    {[
-                      "Organic Oils",
-                      "Herbal Shampoos",
-                      "Face Serums",
-                      "Body Scrubs",
-                    ].map((item) => (
+
+                {/* Dropdown panel */}
+                <div
+                  className={`absolute top-full left-1/2 -translate-x-1/2 pt-2 z-50 transition-all duration-300
+                  ${dropdownOpen ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 -translate-y-2 pointer-events-none"}`}>
+                  <div
+                    className="bg-[#f5f0e8] border border-[#c8b89a]/50 shadow-[0_12px_40px_rgba(13,31,18,0.12)]
+                    rounded-2xl py-2 w-52 overflow-hidden">
+                    {/* decorative top strip */}
+                    <div className="h-1 bg-gradient-to-r from-[#7aad5a] via-[#429828] to-[#7aad5a] mb-2" />
+                    {DROPDOWN_ITEMS.map(({ label, href }) => (
                       <Link
-                        key={item}
-                        to={`/category/${item.toLowerCase().replace(" ", "-")}`}
-                        className="px-5 py-2.5 text-sm text-gray-600 hover:bg-[#f4fbf2] hover:text-[#429828] font-medium transition-colors">
-                        {item}
+                        key={label}
+                        to={href}
+                        onClick={() => setDropdown(false)}
+                        className="flex items-center gap-2.5 px-5 py-2.5 text-[12px] font-medium text-[#4a5c3a]
+                          hover:bg-[#e8dfc8] hover:text-[#2d621b] transition-colors duration-200 group">
+                        <LeafAccent className="w-3 h-3 text-[#7aad5a] opacity-0 group-hover:opacity-100 transition-opacity duration-200 shrink-0" />
+                        {label}
                       </Link>
                     ))}
                   </div>
                 </div>
               </li>
 
+              {/* Collective pill */}
               <li>
                 <Link
-                  to="/collective"
-                  className="flex items-center gap-2 group bg-[#fefcf8] border border-[#f4ebce] px-4 py-1.5 rounded-full hover:bg-[#f4ebce]/30 transition-colors">
-                  <span className="text-xs font-black uppercase tracking-widest text-[#C59B43]">
-                    JOIN
+                  to={`${BASE}/collective`}
+                  className="group inline-flex items-center gap-2 px-4 py-1.5 rounded-full
+                    bg-[#0d1f12] text-[#f5f0e8] border border-transparent
+                    hover:bg-[#429828] transition-all duration-400 shadow-sm">
+                  <LeafAccent className="w-3 h-3 text-[#7aad5a] group-hover:text-white transition-colors duration-300" />
+                  <span className="text-[10px] font-black uppercase tracking-widest">
+                    Join Collective
                   </span>
-                  <span className="text-[10px] font-bold text-white uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-[#112315] group-hover:bg-[#429828] transition-colors shadow-sm">
-                    COLLECTIVE
-                  </span>
-                </Link>
-              </li>
-
-              <li>
-                <Link
-                  to="/combos"
-                  className="flex items-center gap-2 text-xs font-bold text-gray-700 hover:text-[#429828] transition-colors uppercase tracking-widest group">
-                  <Gift
-                    size={16}
-                    strokeWidth={2}
-                    className="text-[#8CC63F] group-hover:scale-110 transition-transform"
-                  />{" "}
-                  VALUE COMBOS
                 </Link>
               </li>
             </ul>
           </div>
         </div>
+
+        {/* Botanical divider — visible only when not scrolled */}
+        {!scrolled && (
+          <div className="h-px bg-gradient-to-r from-transparent via-[#7aad5a]/30 to-transparent" />
+        )}
       </header>
 
-      {/* ─── 4. Mobile Menu Overlay & Drawer ───────────────────────── */}
-      <div
-        className={`fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] transition-opacity duration-300 lg:hidden ${
-          mobileMenuOpen
-            ? "opacity-100 pointer-events-auto"
-            : "opacity-0 pointer-events-none"
-        }`}
-        onClick={() => setMobileMenuOpen(false)}
+      {/* ── 4. Mobile drawer ────────────────────────── */}
+      <MobileDrawer
+        open={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+        user={user}
+        totalItems={totalItems}
       />
-
-      <div
-        className={`fixed top-0 left-0 h-full w-[85%] max-w-[340px] bg-white z-[110] shadow-2xl transform transition-transform duration-400 ease-[cubic-bezier(0.25,1,0.5,1)] lg:hidden flex flex-col ${
-          mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
-        }`}>
-        <div className="flex items-center justify-between p-5 border-b border-gray-100 bg-[#fefcf8]">
-          <div>
-            <h2
-              className="text-xl font-bold tracking-tight text-[#112315]"
-              style={{ fontFamily: "'Playfair Display', serif" }}>
-              TARUVEDA
-            </h2>
-            <span className="text-[9px] tracking-[0.2em] text-[#429828] font-bold uppercase block">
-              Organic Farms
-            </span>
-          </div>
-          <button
-            onClick={() => setMobileMenuOpen(false)}
-            className="w-10 h-10 flex items-center justify-center text-gray-500 hover:text-gray-900 bg-white border border-gray-200 rounded-full shadow-sm focus:outline-none transition-colors">
-            <X size={18} strokeWidth={2.5} />
-          </button>
-        </div>
-
-        <div className="p-5 border-b border-gray-100">
-          <div className="relative w-full">
-            <input
-              type="text"
-              placeholder="Search products..."
-              className="w-full bg-gray-50 border border-gray-200 rounded-full py-3 pl-5 pr-12 text-sm focus:outline-none focus:border-[#429828] focus:ring-1 focus:ring-[#429828] transition-all"
-            />
-            <button className="absolute right-1.5 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-full text-gray-400 hover:text-white hover:bg-[#429828] transition-colors">
-              <Search size={18} />
-            </button>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto py-2">
-          <ul className="flex flex-col">
-            <li>
-              <Link
-                to="/hair-care"
-                className="flex items-center gap-4 px-6 py-4 text-sm font-bold text-gray-800 border-b border-gray-50 hover:bg-[#f4fbf2] transition-colors">
-                <Droplets size={20} className="text-[#8CC63F]" /> Hair Care
-              </Link>
-            </li>
-            <li>
-              <Link
-                to="/skin-care"
-                className="flex items-center gap-4 px-6 py-4 text-sm font-bold text-gray-800 border-b border-gray-50 hover:bg-[#f4fbf2] transition-colors">
-                <Sprout size={20} className="text-[#8CC63F]" /> Skin Care
-              </Link>
-            </li>
-            <li>
-              <button className="w-full flex items-center justify-between px-6 py-4 text-sm font-bold text-gray-800 border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                Shop By Category{" "}
-                <ChevronDown size={18} className="text-gray-400" />
-              </button>
-            </li>
-            <li>
-              <Link
-                to="/collective"
-                className="flex items-center gap-3 px-6 py-5 text-sm font-bold bg-[#fefcf8] border-b border-gray-100">
-                <span className="text-[#C59B43] tracking-widest">JOIN</span>
-                <span className="text-[10px] font-bold text-white px-2.5 py-1 rounded-full bg-[#112315] tracking-widest shadow-sm">
-                  COLLECTIVE
-                </span>
-              </Link>
-            </li>
-          </ul>
-        </div>
-
-        {/* Mobile Footer Area linked with Auth */}
-        <div className="p-6 bg-gray-50 mt-auto border-t border-gray-100">
-          {user ? (
-            <Link
-              to="/profile"
-              className="w-full flex items-center justify-center gap-2 py-3 bg-[#429828] text-white rounded-full text-sm font-bold uppercase tracking-widest hover:bg-[#2C3E30] transition-all shadow-sm">
-              Hi, {user.name?.split(" ")[0] || "User"}
-            </Link>
-          ) : (
-            <Link
-              to="/login"
-              className="w-full flex items-center justify-center gap-2 py-3 bg-white border border-gray-200 rounded-full text-sm font-bold text-gray-700 hover:border-[#429828] hover:text-[#429828] transition-all shadow-sm">
-              <User size={18} /> Sign In
-            </Link>
-          )}
-        </div>
-      </div>
     </>
   );
 }

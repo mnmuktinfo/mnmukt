@@ -1,119 +1,108 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-
-// Image imports
-const img1 =
-  "https://res.cloudinary.com/mnmuk752221/image/upload/v1773426539/i4iv4ut711c1amvmydv2.jpg";
-const img2 = "https://babli.in/cdn/shop/files/Co-ord_setds.jpg?v=1762331043";
-const img3 =
-  "https://babli.in/cdn/shop/files/Dresses_40350409-bed3-470e-b5ca-451176e8ca0d.jpg?v=1763456296";
-const img4 =
-  "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600&h=800&fit=crop";
-const img5 =
-  "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=600&h=800&fit=crop";
-const img6 =
-  "https://images.unsplash.com/photo-1496747611176-843222e1e57c?w=600&h=1200&fit=crop";
 
 const ExploreOurPicks = () => {
   const navigate = useNavigate();
 
-  // Array precisely ordered for the CSS Grid flow
-  const products = [
-    {
-      id: 1,
-      img: img1,
-      label: "Festive Arrivals",
-      link: "/collections/all",
-      className: "col-span-2 md:col-span-1 row-span-2",
-    },
-    {
-      id: 2,
-      img: img2,
-      label: "Co-ord Sets",
-      link: "/collections/co-ord-set",
-      className: "col-span-1 row-span-1",
-    },
-    {
-      id: 3,
-      img: img3,
-      label: "Kurtas",
-      link: "/collections/kurtas",
-      className: "col-span-1 row-span-1",
-    },
-    {
-      id: 4,
-      img: img6,
-      label: "Dresses",
-      link: "/collections/dresses",
-      className: "col-span-2 md:col-span-1 row-span-2",
-    },
-    {
-      id: 5,
-      img: img4,
-      label: "Dupattas",
-      link: "/collections/dupattas",
-      className: "col-span-1 row-span-1",
-    },
-    {
-      id: 6,
-      img: img5,
-      label: "Jackets",
-      link: "/collections/jackets",
-      className: "col-span-1 row-span-1",
-    },
-  ];
+  const products = useMemo(
+    () => [
+      {
+        id: 1,
+        img: "https://babli.in/cdn/shop/files/Rang_Tie_dye.jpg?v=1762330104",
+        label: "Festive Arrivals",
+        link: "/collections/all",
+      },
+      {
+        id: 2,
+        img: "https://babli.in/cdn/shop/files/Co-ord_setds.jpg?v=1762331043",
+        label: "Co-ord Set",
+        link: "/collections/co-ord-set",
+      },
+      {
+        id: 3,
+        img: "https://babli.in/cdn/shop/files/Dresses_40350409-bed3-470e-b5ca-451176e8ca0d.jpg?v=1763456296",
+        label: "Basic Shirts",
+        link: "/collections/kurtas",
+      },
+      {
+        id: 4,
+        img: "https://images.unsplash.com/photo-1496747611176-843222e1e57c?w=600&h=1200&fit=crop",
+        label: "Dresses",
+        link: "/collections/dresses",
+      },
+      {
+        id: 5,
+        img: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600&h=800&fit=crop",
+        label: "Artsy",
+        link: "/collections/artsy",
+      },
+      {
+        id: 6,
+        img: "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=600&h=800&fit=crop",
+        label: "Jackets",
+        link: "/collections/jackets",
+      },
+      {
+        id: 7,
+        img: "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=600&h=800&fit=crop",
+        label: "Jackets",
+        link: "/collections/jackets",
+      },
+    ],
+    [],
+  );
+  const safeProducts = products.slice(0, 6);
+  const Card = ({ item }) => (
+    <div
+      onClick={() => navigate(item.link)}
+      className="relative w-full h-full cursor-pointer overflow-hidden  group bg-[#f8f8f8]">
+      <img
+        src={item.img}
+        alt={item.label}
+        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+      />
+
+      <div className="absolute inset-0 bg-black/5 group-hover:bg-black/0 transition" />
+
+      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-white text-[#111] text-[11px] px-4 py-1.5 rounded shadow-sm">
+        {item.label}
+      </div>
+    </div>
+  );
 
   return (
-    // Beautiful soft background gradient that feels warm and boutique
-    <section className="w-full bg-gradient-to-b from-[#FAFAFA] to-[#FFFBFB] py-16 md:py-24 font-sans border-t border-gray-100">
+    <section className="w-full bg-white py-10 md:py-14">
       <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-10">
-        {/* Elegant Typography Header */}
-        <div className="text-center mb-12 md:mb-16">
-          <span className="text-[#da127d] uppercase tracking-[0.2em] text-xs font-semibold mb-3 block">
-            Curated For You
-          </span>
-          <h2
-            className="text-3xl md:text-4xl lg:text-5xl text-gray-900 tracking-wide"
-            style={{ fontFamily: "'Playfair Display', serif" }}>
+        {/* HEADER */}
+        <div className="text-center mb-10">
+          <h2 className="text-[20px] md:text-[26px] font-medium text-[#1a1a1a]">
             Explore Our Picks
           </h2>
         </div>
 
-        {/* Responsive CSS Grid Container */}
-        <div className="grid grid-cols-2 md:grid-cols-4 auto-rows-[250px] sm:auto-rows-[300px] lg:auto-rows-[360px] gap-3 md:gap-5">
-          {products.map((product) => (
-            <div
-              key={product.id}
-              onClick={() => navigate(product.link)}
-              className={`relative w-full h-full cursor-pointer overflow-hidden rounded-xl md:rounded-2xl group shadow-sm hover:shadow-2xl transition-all duration-500 ${product.className}`}>
-              {/* Overlay to ensure text is always readable */}
-              <div className="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-colors duration-500 z-10"></div>
+        {/* PERFECT GRID */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 auto-rows-[220px] md:auto-rows-[300px]">
+          {/* LEFT BIG (1st) */}
+          <div className="row-span-2 h-full">
+            <Card item={safeProducts[0]} />
+          </div>
 
-              {/* Main Image with slow cinematic zoom */}
-              <img
-                src={product.img}
-                alt={product.label}
-                className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
-              />
+          {/* CENTER TOP */}
+          <Card item={safeProducts[1]} />
+          <Card item={safeProducts[2]} />
 
-              {/* Frosted Glass Label Badge */}
-              {product.label && (
-                <div
-                  className="absolute bottom-4 md:bottom-6 left-1/2 -translate-x-1/2 z-20 
-                                bg-white/85 backdrop-blur-md border border-white/30 
-                                text-gray-900 text-[11px] md:text-xs font-semibold uppercase tracking-wider 
-                                px-6 py-2.5 rounded-sm shadow-lg whitespace-nowrap 
-                                group-hover:bg-[#da127d] group-hover:text-white group-hover:border-[#da127d] 
-                                transition-all duration-300">
-                  {product.label}
-                </div>
-              )}
-            </div>
-          ))}
+          {/* RIGHT BIG (4th item) */}
+          <div className="row-span-2 h-full">
+            <Card item={safeProducts[3]} />
+          </div>
+
+          {/* CENTER BOTTOM */}
+          <Card item={safeProducts[4]} />
+          <Card item={safeProducts[5]} />
         </div>
       </div>
     </section>
   );
 };
 
-export default ExploreOurPicks;
+export default React.memo(ExploreOurPicks);

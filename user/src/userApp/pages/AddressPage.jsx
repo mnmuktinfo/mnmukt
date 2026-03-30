@@ -73,16 +73,39 @@ const AddressPage = () => {
       : [],
   );
 
-  // ── Normalize cart items ──
+  /*
+   * ── Normalize cart items ──
+   *
+   * FIX: Include ALL fields that orderService.createOrder() stores and
+   * that OrderCard renders:
+   *   - description  → shown under product name in OrderCard
+   *   - image        → shown as product thumbnail in OrderCard
+   *   - selectedSize → shown as size badge in OrderCard
+   *   - productId    → used for "View product" / "Buy again" navigation
+   *
+   * Source fields vary by where items come from (cart, product page, etc.)
+   * so we check multiple fallback keys for each field.
+   */
   const normalizedItems = useMemo(() => {
     if (!items?.length) return [];
     return items.map((item) => ({
-      id: item.id,
-      name: item.name,
-      price: Number(item.price),
+      // ── Identity ──
+      id: item.id || item.productId || "",
+      productId: item.id || item.productId || "", // ← needed for navigation in OrderCard
+
+      // ── Display ──
+      name: item.name ?? "",
+      description: item.description ?? item.shortDescription ?? "", // ← FIX: was missing
+      image:
+        item.image || item.banner || item.images?.[0] || item.thumbnail || "",
+
+      // ── Pricing & quantity ──
+      price: Number(item.price) || 0,
       quantity: item.quantity || item.selectedQuantity || 1,
+
+      // ── Variant ──
       size: item.size || item.selectedSize || "",
-      image: item.banner || item.images?.[0] || "",
+      selectedSize: item.size || item.selectedSize || "", // ← FIX: stored as selectedSize in orderService
     }));
   }, [items]);
 
@@ -183,15 +206,18 @@ const AddressPage = () => {
         user,
         selectedAddress,
         paymentMethod,
-        items: normalizedItems,
+        items: normalizedItems, // ← now carries description, productId, selectedSize
         pricing,
       });
 
       if (source === "cart") await clear();
-      await queryClient.invalidateQueries(["orders"]);
+
+      // Invalidate both the specific user orders key and any generic "orders" key
+      await queryClient.invalidateQueries({ queryKey: ["orders", user.uid] });
+      await queryClient.invalidateQueries({ queryKey: ["orders"] });
 
       if (paymentMethod === "whatsapp" && WHATSAPP_NUMBER) {
-        const msg = `Hello ${user.name}, your order ${orderIdRef.current} has been placed.`;
+        const msg = `Hello ${user.name}, your order ${orderIdRef.current} has been placed. Total: ₹${pricing.totalPayable}`;
         window.open(
           `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`,
           "_blank",

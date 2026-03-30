@@ -1,6 +1,6 @@
 [
   {
-    "message": "✨ Free Shipping Above 1000/- ✨",
+    "message": "✨ Free Shipping Above ₹1000/- ✨",
     "linkText": "Shop Now",
     "linkUrl": "/sale",
     "bgColor": "#FFF0F5",
@@ -14,5 +14,53 @@
     "bgColor": "#F8C8DC",
     "textColor": "#2D2342",
     "linkColor": "#D63384"
+  },
+  {
+    "message": "🌿 New Arrivals — Fresh Ethnic Styles Just Dropped!",
+    "linkText": "View New",
+    "linkUrl": "/collections/new",
+    "bgColor": "#F0FFF4",
+    "textColor": "#1A4731",
+    "linkColor": "#2E7D52"
+  },
+  {
+    "message": "💛 Kurta Sets Starting at ₹599 — Limited Time Only!",
+    "linkText": "Grab Now",
+    "linkUrl": "/collections/kurta-sets",
+    "bgColor": "#FFFBEA",
+    "textColor": "#3D2C00",
+    "linkColor": "#B7860B"
+  },
+  {
+    "message": "🎁 Use Code FIRST10 — Get 10% Off Your First Order",
+    "linkText": "Apply Now",
+    "linkUrl": "/collections",
+    "bgColor": "#EEF2FF",
+    "textColor": "#1E1B4B",
+    "linkColor": "#4F46E5"
+  },
+  {
+    "message": "🌸 Salwar Suits for Every Occasion — Explore the Range",
+    "linkText": "Shop Suits",
+    "linkUrl": "/collections/salwar-suits",
+    "bgColor": "#FFF5F7",
+    "textColor": "#2D2342",
+    "linkColor": "#D63384"
+  },
+  {
+    "message": "🌿 Taruveda Organic Shampoo Oil — Now Available!",
+    "linkText": "Try Now",
+    "linkUrl": "/taruveda-organic-shampoo-oil",
+    "bgColor": "#F0FAF4",
+    "textColor": "#1A3C2A",
+    "linkColor": "#2E7D52"
+  },
+  {
+    "message": "⭐ Loved by 10,000+ Customers Across India",
+    "linkText": "See Reviews",
+    "linkUrl": "/collections",
+    "bgColor": "#FFFAF0",
+    "textColor": "#3D2C00",
+    "linkColor": "#B7860B"
   }
 ]

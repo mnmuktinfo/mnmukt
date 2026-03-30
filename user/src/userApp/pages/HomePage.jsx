@@ -13,12 +13,14 @@ import {
   TestimonialsSkeleton,
 } from "../homepage/HomeSkeletons";
 
-/* ---------- Lazy Components ---------- */
+import RunningBrandTicker from "../homepage/RunningBrandTicker";
+import SocialFeed from "../homepage/SocialFeed";
+import ScrollToTopButton from "../../shared/components/ScrollToTopButton";
 
+/* ---------- Lazy Components ---------- */
 const HeroSection = React.lazy(() => import("../homepage/HeroSection"));
-const EthnicWearHero = React.lazy(() => import("../homepage/EthnicWearHero"));
-const LuxuryEthnicHero = React.lazy(
-  () => import("../homepage/LuxuryEthnicHero"),
+const CustomerSpotlight = React.lazy(
+  () => import("../homepage/CustomerSpotlight"),
 );
 
 const VideoSection = React.lazy(() => import("../homepage/VideoSection"));
@@ -26,91 +28,72 @@ const CategoriesHeader = React.lazy(
   () => import("../homepage/CategoriesHeader"),
 );
 const ExploreOurPicks = React.lazy(() => import("../homepage/ExploreOurPicks"));
-
 const CategoryScroller = React.lazy(
   () => import("../homepage/CategoryScroller"),
 );
 const CollectionGrid = React.lazy(() => import("../homepage/CollectionGrid"));
-
 const ProductSection = React.lazy(
   () => import("../components/section/ProductSection"),
 );
-
 const TestimonialsSection = React.lazy(
   () => import("../components/section/TestimonialsSection"),
 );
 
-const CollectionBanner = React.lazy(
-  () => import("../components/banner/CollectionBanner"),
-);
-
 /* ---------- Mobile Detection ---------- */
-
 const useIsMobile = () => {
-  const [mobile, setMobile] = useState(false);
+  const [mobile, setMobile] = useState(window.innerWidth < 768);
 
   useEffect(() => {
-    const check = () => setMobile(window.innerWidth < 768);
-    check();
-    window.addEventListener("resize", check);
-
-    return () => window.removeEventListener("resize", check);
+    const handleResize = () => setMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   return mobile;
 };
 
-/* ---------- Viewport Loader (Progressive Rendering) ---------- */
-
+/* ---------- Viewport Loader ---------- */
 const ViewportLoader = ({ children, rootMargin = "250px" }) => {
   const ref = useRef(null);
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
+    if (!ref.current) return;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
           setVisible(true);
-          observer.unobserve(el);
+          observer.unobserve(ref.current);
         }
       },
       { rootMargin },
     );
 
-    observer.observe(el);
-
+    observer.observe(ref.current);
     return () => observer.disconnect();
   }, []);
 
-  return <div ref={ref}>{visible ? children : null}</div>;
+  return (
+    <div ref={ref}>
+      {visible ? children : <div className="min-h-[200px]" />}
+    </div>
+  );
 };
 
-/* ---------- Feedback Banner ---------- */
-
-const FeedbackBanner = () => (
-  <div className="w-full bg-[#FAFAFA] py-8 md:py-12 border-y border-gray-100">
-    <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-10">
-      <img
-        src="https://objst0r.thesouledstore.com/mobile-cms-media-prod/feedback-images/430X55_V2_copy_1_vdJw80a_Bai9WOu.jpg"
-        alt="Feedback Banner"
-        loading="lazy"
-        decoding="async"
-        className="w-full h-auto object-cover rounded-md shadow-sm"
-      />
-    </div>
-  </div>
+/* ---------- Section Wrapper ---------- */
+const Section = ({ children, className = "" }) => (
+  <section className={`w-full ${className}`}>{children}</section>
 );
 
-/* ---------- Sections Config ---------- */
-
+/* ---------- Section Split ---------- */
 const featuredSection = productSections[0];
-const remainingSections = productSections.slice(1);
+const section1 = productSections[1];
+const section2 = productSections[2];
+const section3 = productSections[3];
+const section4 = productSections[4];
 
-/* ========================================================= */
-
+/* ============================================================ */
 const HomePage = () => {
   const isMobile = useIsMobile();
 
@@ -125,19 +108,38 @@ const HomePage = () => {
     collectionsLoading,
   } = useHomepageProducts(productSections);
 
-  /* Reduce products on mobile */
-
+  /* ---------- Product Getter ---------- */
   const getProducts = (key) => {
     const items = homeProducts[key] ?? [];
     return isMobile ? items.slice(0, 4) : items;
   };
 
-  // Pull both sets of images directly
   const desktopSlides = IMAGES?.hero?.desktopSlides ?? [];
   const mobileSlides = IMAGES?.hero?.mobileSlides ?? [];
 
+  /* ---------- Reusable Section ---------- */
+  const renderSection = (section) => {
+    if (!section) return null;
+
+    return (
+      <Section>
+        <Suspense fallback={<GridSectionSkeleton />}>
+          <ViewportLoader>
+            <ProductSection
+              title={section.title}
+              subtitle={section.subtitle}
+              products={getProducts(section.key)}
+              loading={loadingKeys.includes(section.key)}
+              buttonClass="border border-[#da127d] text-[#da127d] hover:bg-[#da127d] hover:text-white"
+            />
+          </ViewportLoader>
+        </Suspense>
+      </Section>
+    );
+  };
+
   return (
-    <main className="w-full min-h-screen bg-white font-sans text-gray-900 overflow-x-hidden selection:bg-[#da127d] selection:text-white">
+    <main className="w-full min-h-screen bg-white text-[#111] overflow-x-hidden selection:bg-pink-600 selection:text-white">
       <Helmet>
         <title>Mnmukt — Official Store | Premium Ethnic Wear</title>
         <meta
@@ -146,130 +148,133 @@ const HomePage = () => {
         />
       </Helmet>
 
-      {/* ---------- HERO ---------- */}
-
-      <Suspense fallback={<HeroSkeleton />}>
-        <HeroSection
-          desktopSlides={desktopSlides}
-          mobileSlides={mobileSlides}
-        />
-      </Suspense>
-
-      {/* ---------- CATEGORIES ---------- */}
-
-      <Suspense fallback={<CategoriesSkeleton />}>
-        <CategoryScroller categories={categories} loading={categoriesLoading} />
-      </Suspense>
-
-      {/* ---------- ETHNIC HERO ---------- */}
-
-      <ViewportLoader>
+      {/* HERO */}
+      <Section>
         <Suspense fallback={<HeroSkeleton />}>
-          <EthnicWearHero />
+          <HeroSection
+            desktopSlides={desktopSlides}
+            mobileSlides={mobileSlides}
+          />
         </Suspense>
-      </ViewportLoader>
+      </Section>
 
-      {/* ---------- DESKTOP ONLY VISUAL SECTIONS ---------- */}
-
-      {!isMobile && (
-        <ViewportLoader>
-          <Suspense fallback={<HeroSkeleton />}>
-            <VideoSection />
-          </Suspense>
-        </ViewportLoader>
-      )}
-
-      {!isMobile && (
-        <ViewportLoader>
-          <Suspense fallback={<HeroSkeleton />}>
+      {/* HEADER */}
+      <Section>
+        <Suspense fallback={<HeroSkeleton />}>
+          <ViewportLoader>
             <CategoriesHeader />
-          </Suspense>
-        </ViewportLoader>
-      )}
+          </ViewportLoader>
+        </Suspense>
+      </Section>
 
-      <ViewportLoader>
-        <FeedbackBanner />
-      </ViewportLoader>
-
-      {!isMobile && (
-        <ViewportLoader>
-          <Suspense fallback={<HeroSkeleton />}>
-            <ExploreOurPicks />
-          </Suspense>
-        </ViewportLoader>
-      )}
-
-      {!isMobile && (
-        <ViewportLoader>
-          <Suspense fallback={<HeroSkeleton />}>
-            <LuxuryEthnicHero />
-          </Suspense>
-        </ViewportLoader>
-      )}
-
-      {/* ---------- FEATURED PRODUCTS ---------- */}
-
+      {/* FEATURED */}
       {featuredSection && (
-        <ViewportLoader>
+        <Section>
           <Suspense fallback={<GridSectionSkeleton />}>
-            <ProductSection
-              title={featuredSection.title}
-              subtitle={featuredSection.subtitle}
-              products={getProducts(featuredSection.key)}
-              loading={loadingKeys.includes(featuredSection.key)}
-            />
+            <ViewportLoader>
+              <ProductSection
+                title={featuredSection.title}
+                subtitle={featuredSection.subtitle}
+                products={getProducts(featuredSection.key)}
+                loading={loadingKeys.includes(featuredSection.key)}
+                themeColor="#fdf0f5"
+              />
+            </ViewportLoader>
           </Suspense>
-        </ViewportLoader>
+        </Section>
       )}
 
-      {/* ---------- COLLECTION GRID ---------- */}
-
-      <ViewportLoader>
+      {/* COLLECTION GRID */}
+      <Section>
         <Suspense fallback={<CollectionGridSkeleton />}>
-          <CollectionGrid
-            title="Shop by Collection"
-            items={collectionItems}
-            loading={collectionsLoading}
+          <ViewportLoader>
+            <CollectionGrid
+              title="Shop by Collection"
+              subtitle="Discover curated collections crafted for you"
+              items={collectionItems}
+              loading={collectionsLoading}
+            />
+          </ViewportLoader>
+        </Suspense>
+      </Section>
+
+      {/* SECTION 1 */}
+      {renderSection(section1)}
+
+      {/* CATEGORY */}
+      <Section>
+        <Suspense fallback={<CategoriesSkeleton />}>
+          <CategoryScroller
+            categories={categories}
+            loading={categoriesLoading}
+            title="Shop By Category"
+            subtitle="Excellence that speaks for itself."
           />
         </Suspense>
-      </ViewportLoader>
+      </Section>
 
-      {/* ---------- COLLECTION BANNER ---------- */}
+      {/* SECTION 2 */}
+      {renderSection(section2)}
 
+      {/* VIDEO (desktop only) */}
       {!isMobile && (
-        <ViewportLoader>
-          <Suspense
-            fallback={<div className="h-[60vh] bg-gray-100 animate-pulse" />}>
-            <CollectionBanner />
+        <Section>
+          <Suspense fallback={<HeroSkeleton />}>
+            <ViewportLoader>
+              <VideoSection />
+            </ViewportLoader>
           </Suspense>
-        </ViewportLoader>
+        </Section>
       )}
 
-      {/* ---------- REMAINING PRODUCT SECTIONS ---------- */}
+      {/* SECTION 3 */}
+      {renderSection(section3)}
 
-      {remainingSections.map((section) => (
-        <ViewportLoader key={section.key}>
-          <Suspense fallback={<GridSectionSkeleton />}>
-            <ProductSection
-              title={section.title}
-              subtitle={section.subtitle}
-              products={getProducts(section.key)}
-              loading={loadingKeys.includes(section.key)}
-            />
+      {/* EXPLORE (desktop only) */}
+      {!isMobile && (
+        <Section>
+          <Suspense fallback={<HeroSkeleton />}>
+            <ViewportLoader>
+              <ExploreOurPicks />
+            </ViewportLoader>
           </Suspense>
-        </ViewportLoader>
-      ))}
+        </Section>
+      )}
 
-      {/* ---------- TESTIMONIALS ---------- */}
+      {/* SECTION 4 */}
+      {renderSection(section4)}
 
-      <ViewportLoader>
-        <Suspense fallback={<TestimonialsSkeleton />}>
-          <TestimonialsSection
-            testimonials={testimonials}
-            loading={testimonialsLoading}
-          />
+      {/* BRAND */}
+      <Section className="py-4">
+        <RunningBrandTicker />
+      </Section>
+
+      {/* CUSTOMER */}
+      <Section>
+        <Suspense fallback={<HeroSkeleton />}>
+          <ViewportLoader>
+            <CustomerSpotlight />
+          </ViewportLoader>
         </Suspense>
-      </ViewportLoader>
+      </Section>
+
+      {/* SOCIAL */}
+      <Section>
+        <SocialFeed />
+      </Section>
+
+      {/* TESTIMONIALS */}
+      <Section className="pb-16">
+        <Suspense fallback={<TestimonialsSkeleton />}>
+          <ViewportLoader>
+            <TestimonialsSection
+              testimonials={testimonials}
+              loading={testimonialsLoading}
+            />
+          </ViewportLoader>
+        </Suspense>
+      </Section>
+      <ScrollToTopButton />
     </main>
   );
 };

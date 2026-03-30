@@ -159,51 +159,50 @@ const ProductCard = ({ product }) => {
           </button>
 
           {/* Quick Add */}
-          <div className="absolute bottom-0 left-0 w-full lg:translate-y-full lg:group-hover:translate-y-0 transition-transform duration-500 ease-out z-10">
+          <div className="absolute bottom-3 right-3 z-10">
             <button
               onClick={handleAddToCart}
               disabled={cartSyncing || isAdded}
-              className={`w-full py-3.5 sm:py-4 text-[11px] sm:text-[12px] font-bold uppercase tracking-[0.2em] flex items-center justify-center gap-2 transition-colors duration-300 ${
+              className={`w-9 h-9 flex items-center justify-center rounded-full shadow-md transition-all duration-300 ${
                 isAdded
                   ? "bg-[#da127d] text-white"
-                  : "bg-white/95 backdrop-blur-md text-gray-900 hover:bg-[#da127d] hover:text-white"
+                  : "bg-white text-gray-900 hover:bg-[#da127d] hover:text-white"
               }`}>
               {isAdded ? (
-                <>
-                  <Check size={15} strokeWidth={2.5} /> Added
-                </>
+                <Check size={16} strokeWidth={2.5} />
               ) : (
-                <>
-                  <ShoppingBag size={15} strokeWidth={1.5} /> Quick Add
-                </>
+                <span className="text-lg font-bold">+</span>
               )}
             </button>
           </div>
         </div>
 
         {/* Product Info */}
-        <div className="pt-4 pb-2 flex flex-col items-center text-center px-1">
+        <div className="pt-4 pb-3 flex flex-col items-center text-center px-1">
+          {/* Product Name */}
           <h3 className="text-[12px] sm:text-[13px] font-semibold text-gray-900 uppercase tracking-widest truncate w-full transition-colors duration-300 group-hover:text-[#da127d]">
             {product.name}
           </h3>
 
+          {/* Category */}
           <p className="text-[11px] sm:text-[12px] text-gray-500 italic font-serif mt-1.5 truncate w-full">
             {product.category || "Premium Collection"}
           </p>
 
-          <div className="flex items-center justify-center gap-2.5 mt-2.5">
-            <span className="text-[13px] sm:text-[14px] font-medium text-gray-900">
-              ₹ {formatPrice(product.price)}
+          {/* Price Row */}
+          <div className="flex items-center justify-center gap-2 mt-2.5">
+            <span className="text-[14px] font-semibold text-gray-900">
+              ₹{formatPrice(product.price)}
             </span>
 
             {discount > 0 && (
               <>
-                <span className="text-[11px] sm:text-[12px] text-gray-400 line-through">
-                  ₹ {formatPrice(product.originalPrice)}
+                <span className="text-[12px] text-gray-400 line-through">
+                  ₹{formatPrice(product.originalPrice)}
                 </span>
 
-                <span className="text-[10px] sm:text-[11px] font-bold text-[#da127d] tracking-wider">
-                  ({discount}% OFF)
+                <span className="text-[11px] font-semibold text-[#da127d]">
+                  {discount}% OFF
                 </span>
               </>
             )}

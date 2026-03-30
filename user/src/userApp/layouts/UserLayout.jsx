@@ -5,44 +5,46 @@ import UserNavbar from "../features/account/components/bars/UserNavbar";
 import BottomNavbar from "../features/account/components/bars/BottomHomeNavbar";
 import Footer from "../components/footer/Footer";
 import UnverifiedEmailPopup from "../features/auth/pages/UnverifiedEmailPopup";
+import WhatsAppButton from "../../shared/components/WhatsAppButton";
 
 const UserLayout = () => {
   const location = useLocation();
   const isHome = location.pathname === "/";
 
-  // 1. FIXED: Changed 'smooth' to 'instant'.
-  // Smooth scrolling on route changes feels laggy in SPAs. Instant snapping is the standard.
+  // Scroll to top instantly on route change
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
   }, [location.pathname]);
 
   return (
     <div className="relative min-h-screen flex flex-col bg-white font-sans selection:bg-[#ff3f6c] selection:text-white">
-      {/* TOP NAVIGATION (Fixed & High Z-Index) */}
-      <div className="fixed top-0 left-0 right-0 z-[100]">
+      {/* ── TOP NAVBAR ── */}
+      <header className="fixed top-0 left-0 right-0 z-[101] bg-white w-full shadow-sm">
         <UserNavbar />
-      </div>
-
+      </header>
+      {/* ── MAIN CONTENT ── */}
       <main
         className={`
           flex-1 w-full flex flex-col
-          pb-20 md:pb-0 /* Padding for bottom mobile navbar */
+          pb-[env(safe-area-inset-bottom)] md:pb-0
           ${isHome ? "pt-[80px] md:pt-[100px]" : "pt-[60px] md:pt-[110px]"}
         `}>
-        {/* 2. FIXED: Added 'key={location.pathname}' */}
-        {/* Without the key, React won't re-render this div, meaning the fade-in animation would only play once. */}
         <div
           key={location.pathname}
           className="flex-1 w-full animate-in fade-in duration-500 fill-mode-both">
           <Outlet />
         </div>
       </main>
-      <UnverifiedEmailPopup />
-
-      {/* FOOTER */}
-      <Footer />
-
-      <div className="z-100">
+      {/* ── UNVERIFIED EMAIL POPUP ── */}
+      <div className="z-[102]">
+        <UnverifiedEmailPopup />
+      </div>
+      <WhatsAppButton /> {/* ── FOOTER ── */}
+      <div className="relative z-[100]">
+        <Footer className="md:pb-0 pb-[70px]" />
+      </div>
+      {/* ── BOTTOM MOBILE NAVBAR ── */}
+      <div className="fixed bottom-0 left-0 right-0 z-100 md:hidden  bg-white">
         <BottomNavbar />
       </div>
     </div>

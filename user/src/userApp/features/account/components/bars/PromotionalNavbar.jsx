@@ -1,48 +1,124 @@
-import React, { useEffect, useState, useRef } from "react";
-import { COLORS } from "../../../../../style/theme";
+import React from "react";
 
-const PromotionalSlider = ({ items = [], interval = 3000 }) => {
-  const [index, setIndex] = useState(0);
-  const timer = useRef(null);
+/* ─────────────────────────────────────────────────────────
+   DEFAULT PROMO ITEMS — edit freely
+───────────────────────────────────────────────────────── */
+const DEFAULT_ITEMS = [
+  { message: "FREE SHIPPING ABOVE ₹1000/-" },
+  { message: "Extra 5% OFF on prepaid orders" },
+  { message: "Buy 2 Get 10% off" },
+  { message: "Buy 3 Get 15% off" },
+];
 
-  const nextSlide = () => {
-    setIndex((prev) => (prev + 1) % items.length);
-  };
+/* ─────────────────────────────────────────────────────────
+   PROMO NAVBAR
+   - Pure CSS marquee, right → left
+   - 4 copies so the loop is seamless at any screen width
+   - No JS timers, no layout jank
+───────────────────────────────────────────────────────── */
+const PromotionalNavbar = ({ items = DEFAULT_ITEMS, speed = 35 }) => {
+  // 4 copies = gap-free loop even on very wide screens
+  const looped = [...items, ...items, ...items, ...items];
 
-  useEffect(() => {
-    if (items.length === 0) return;
-
-    timer.current = setInterval(() => nextSlide(), interval);
-    return () => clearInterval(timer.current);
-  }, [items, interval]);
-
-  if (!items || items.length === 0) return null;
-
-  const item = items[index];
+  // Duration scales with item count so speed feels constant regardless of how many items
+  const duration = `${items.length * speed}s`;
 
   return (
-    <div
-      className="w-full h-15 py-3 flex items-center justify-center text-center"
-      style={{
-        background: COLORS.light, // always white
-        color: item.textColor || COLORS.textAlt,
-        fontFamily: "Poppins, sans-serif",
-      }}>
-      {/* Message */}
-      <div className="flex items-center gap-2 text-sm font-medium">
-        <span>{item.message}</span>
+    <>
+      <style>{`
+        @keyframes tv-marquee {
+          0%   { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        .tv-track {
+          display: flex;
+          align-items: center;
+          width: max-content;
+          animation: tv-marquee ${duration} linear infinite;
+          will-change: transform;
+        }
+        .tv-track:hover {
+          animation-play-state: paused;
+        }
+        .tv-item {
+          display: flex;
+          align-items: center;
+          gap: 0;
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
+      `}</style>
 
-        {item.linkUrl && (
-          <a
-            href={item.linkUrl}
-            className="underline underline-offset-4"
-            style={{ color: item.linkColor || COLORS.primaryAlt }}>
-            {item.linkText || "Learn More"}
-          </a>
-        )}
+      {/* Outer strip */}
+      <div
+        style={{
+          background: "#e6007e",
+          height: "38px",
+          overflow: "hidden",
+          display: "flex",
+          alignItems: "center",
+          width: "100%",
+          userSelect: "none",
+          position: "relative",
+          zIndex: 50,
+        }}
+        aria-label="Promotional announcements"
+        role="marquee">
+        {/* Scrolling track */}
+        <div className="tv-track" style={{ animationDuration: duration }}>
+          {looped.map((item, i) => (
+            <div key={i} className="tv-item">
+              {/* Sparkle separator */}
+              <span
+                style={{
+                  color: "#ffffff",
+                  fontSize: "14px",
+                  lineHeight: 1,
+                  padding: "0 18px",
+                  opacity: 0.9,
+                  flexShrink: 0,
+                }}>
+                ✦
+              </span>
+
+              {/* Message */}
+              <span
+                style={{
+                  color: "#ffffff",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  fontFamily: "'DM Sans', sans-serif",
+                  lineHeight: 1,
+                }}>
+                {item.message}
+              </span>
+
+              {/* Optional link */}
+              {item.linkText && (
+                <a
+                  href={item.linkUrl ?? "#"}
+                  style={{
+                    color: "#ffffff",
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    fontFamily: "'DM Sans', sans-serif",
+                    marginLeft: "6px",
+                    textDecoration: "underline",
+                    textUnderlineOffset: "2px",
+                  }}>
+                  {item.linkText}
+                </a>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 
-export default PromotionalSlider;
+export default PromotionalNavbar;

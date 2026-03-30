@@ -4,6 +4,7 @@ import {
   useEffect,
   useReducer,
   useCallback,
+  useRef,
 } from "react";
 
 import { auth, db } from "../../../../config/firebaseAuth";
@@ -168,6 +169,11 @@ const detectProvider = (firebaseUser) => {
   return "email";
 };
 
+/* ─────────────────────────────────────────────────────────────
+   ensureUserDoc
+   FIX 1: Social provider — only writes to Firestore if name/avatar
+           actually changed. Previously wrote on every auth refresh.
+───────────────────────────────────────────────────────────── */
 const ensureUserDoc = async (firebaseUser, providerId = "email") => {
   const ref = doc(db, "users", firebaseUser.uid);
   const snap = await getDoc(ref);
@@ -183,23 +189,33 @@ const ensureUserDoc = async (firebaseUser, providerId = "email") => {
     }
 
     if (providerId !== "email") {
-      await updateDoc(ref, {
-        name: firebaseUser.displayName || data.name,
-        avatarUrl: firebaseUser.photoURL || data.avatarUrl || "",
-        emailVerified: firebaseUser.emailVerified,
-        updatedAt: serverTimestamp(),
-      });
-      return {
-        ...data,
-        name: firebaseUser.displayName || data.name,
-        avatarUrl: firebaseUser.photoURL || data.avatarUrl || "",
-        emailVerified: firebaseUser.emailVerified,
-      };
+      // FIX 1: Only updateDoc if something actually changed — prevents
+      //        an unnecessary write on every Firebase token refresh (hourly).
+      const newName = firebaseUser.displayName || data.name;
+      const newAvatar = firebaseUser.photoURL || data.avatarUrl || "";
+      const nameChanged = newName !== data.name;
+      const avatarChanged = newAvatar !== data.avatarUrl;
+
+      if (nameChanged || avatarChanged) {
+        await updateDoc(ref, {
+          name: newName,
+          avatarUrl: newAvatar,
+          emailVerified: firebaseUser.emailVerified,
+          updatedAt: serverTimestamp(),
+        });
+        return {
+          ...data,
+          name: newName,
+          avatarUrl: newAvatar,
+          emailVerified: firebaseUser.emailVerified,
+        };
+      }
     }
 
     return data;
   }
 
+  // New user doc (first-ever login via social provider)
   const newUser = {
     uid: firebaseUser.uid,
     email: firebaseUser.email ?? "",
@@ -240,6 +256,18 @@ export const AuthProvider = ({ children }) => {
     authLoading: !cached,
   });
 
+  /* ─────────────────────────────────────────────────────────
+     FIX 3: justSignedUp ref — when signupUser() runs, it writes
+     the Firestore doc itself. The onAuthStateChanged listener
+     fires immediately after and would call ensureUserDoc() again
+     (an extra getDoc read). This flag skips that redundant read.
+  ───────────────────────────────────────────────────────────── */
+  const justSignedUp = useRef(false);
+
+  /* ─────────────────────────────────────────────────────────
+     AUTH STATE LISTENER
+     Single effect, single listener — no duplicate calls.
+  ───────────────────────────────────────────────────────────── */
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
@@ -251,10 +279,27 @@ export const AuthProvider = ({ children }) => {
       try {
         await reload(firebaseUser);
         const providerId = detectProvider(firebaseUser);
-        const data = await ensureUserDoc(firebaseUser, providerId);
-        const userObj = buildUserObj(firebaseUser, data);
 
-        const address = await getDefaultAddress(firebaseUser.uid);
+        let firestoreData;
+
+        if (justSignedUp.current) {
+          // FIX 3: Doc was just written by signupUser() — skip the getDoc.
+          //        Build userObj directly from firebaseUser.
+          justSignedUp.current = false;
+          firestoreData = {};
+        } else {
+          firestoreData = await ensureUserDoc(firebaseUser, providerId);
+        }
+
+        const userObj = buildUserObj(firebaseUser, firestoreData);
+
+        // FIX 2: Use cached address if available — avoids a Firestore
+        //        read on every Firebase token refresh (fires every hour).
+        const localCache = readCache();
+        const address =
+          localCache?.address != null
+            ? localCache.address
+            : await getDefaultAddress(firebaseUser.uid);
 
         dispatch({
           type: "AUTH_SUCCESS",
@@ -317,6 +362,9 @@ export const AuthProvider = ({ children }) => {
           updatedAt: serverTimestamp(),
         });
 
+        // FIX 3: Tell the auth listener the doc is already written.
+        justSignedUp.current = true;
+
         dispatch({ type: "ACTION_END" });
       } catch (err) {
         handleError(dispatch, err);
@@ -329,6 +377,8 @@ export const AuthProvider = ({ children }) => {
     dispatch({ type: "ACTION_START" });
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      // AUTH_SUCCESS dispatched by the onAuthStateChanged listener.
+      // ACTION_END not needed — AUTH_SUCCESS resets actionLoading.
     } catch (err) {
       handleError(dispatch, err);
     }
@@ -340,6 +390,7 @@ export const AuthProvider = ({ children }) => {
       const result = await signInWithPopup(auth, provider);
       const providerId = detectProvider(result.user);
       await ensureUserDoc(result.user, providerId);
+      // AUTH_SUCCESS dispatched by the onAuthStateChanged listener.
     } catch (err) {
       handleError(dispatch, err);
     }
@@ -349,6 +400,7 @@ export const AuthProvider = ({ children }) => {
     () => startSocialLogin(new GoogleAuthProvider()),
     [startSocialLogin],
   );
+
   const facebookLogin = useCallback(() => {
     const provider = new FacebookAuthProvider();
     provider.addScope("email");
@@ -372,7 +424,10 @@ export const AuthProvider = ({ children }) => {
       if (!firebaseUser) return false;
 
       await reload(firebaseUser);
-      if (!firebaseUser.emailVerified) return false;
+      if (!firebaseUser.emailVerified) {
+        dispatch({ type: "ACTION_END" });
+        return false;
+      }
 
       await updateDoc(doc(db, "users", firebaseUser.uid), {
         emailVerified: true,
@@ -380,14 +435,14 @@ export const AuthProvider = ({ children }) => {
       });
 
       const userObj = { ...state.user, emailVerified: true };
+      // FIX 4: AUTH_SUCCESS already sets actionLoading: false.
+      //        No separate ACTION_END needed — removes one re-render.
       dispatch({ type: "AUTH_SUCCESS", user: userObj });
       writeCache({ user: userObj, address: state.address });
       return true;
     } catch (err) {
       handleError(dispatch, err);
       return false;
-    } finally {
-      dispatch({ type: "ACTION_END" });
     }
   }, [state.user, state.address]);
 
@@ -410,12 +465,11 @@ export const AuthProvider = ({ children }) => {
           ...updates,
           updatedAt: new Date().toISOString(),
         };
+        // FIX 4: AUTH_SUCCESS already sets actionLoading: false.
         dispatch({ type: "AUTH_SUCCESS", user: userObj });
         writeCache({ user: userObj, address: state.address });
       } catch (err) {
         handleError(dispatch, err);
-      } finally {
-        dispatch({ type: "ACTION_END" });
       }
     },
     [state.user, state.address],
@@ -440,8 +494,6 @@ export const AuthProvider = ({ children }) => {
         return newUser;
       } catch (err) {
         handleError(dispatch, err);
-      } finally {
-        dispatch({ type: "ACTION_END" });
       }
     },
     [state.user, state.address],
@@ -475,8 +527,6 @@ export const AuthProvider = ({ children }) => {
         return saved;
       } catch (err) {
         handleError(dispatch, err);
-      } finally {
-        dispatch({ type: "ACTION_END" });
       }
     },
     [state.user, state.address],
@@ -504,10 +554,9 @@ export const AuthProvider = ({ children }) => {
       const cred = EmailAuthProvider.credential(user.email, currentPassword);
       await reauthenticateWithCredential(user, cred);
       await updatePassword(user, newPassword);
+      dispatch({ type: "ACTION_END" });
     } catch (err) {
       handleError(dispatch, err);
-    } finally {
-      dispatch({ type: "ACTION_END" });
     }
   }, []);
 

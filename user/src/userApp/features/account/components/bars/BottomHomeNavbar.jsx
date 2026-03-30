@@ -1,7 +1,24 @@
 import React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Home, LayoutGrid, Leaf, Heart, User } from "lucide-react";
 import { useAuth } from "../../../auth/context/UserContext";
+
+import {
+  HomeIcon as HomeOutline,
+  Squares2X2Icon as ExploreOutline,
+  SparklesIcon as TaruvedaOutline,
+  HeartIcon as HeartOutline,
+  UserIcon as UserOutline,
+} from "@heroicons/react/24/outline";
+
+import {
+  HomeIcon as HomeSolid,
+  Squares2X2Icon as ExploreSolid,
+  SparklesIcon as TaruvedaSolid,
+  HeartIcon as HeartSolid,
+  UserIcon as UserSolid,
+} from "@heroicons/react/24/solid";
+
+const THEME_COLOR = "#da127d"; // ✅ YOUR SITE PINK (match everywhere)
 
 const BottomNavbar = ({ wishlistCount = 0 }) => {
   const { isLoggedIn } = useAuth();
@@ -20,70 +37,76 @@ const BottomNavbar = ({ wishlistCount = 0 }) => {
   };
 
   const navItems = [
-    { name: "Home", path: "/", icon: Home },
-    { name: "Explore", path: "/categories", icon: LayoutGrid },
-    { name: "Taruveda", path: "/taruveda-organic-shampoo-oil", icon: Leaf },
-    { name: "Saved", path: "/wishlist", icon: Heart, badge: wishlistCount },
-    { name: "Profile", path: "/user/profile", icon: User, protected: true },
+    { name: "Home", path: "/", IconOutline: HomeOutline, IconSolid: HomeSolid },
+    {
+      name: "Explore",
+      path: "/categories",
+      IconOutline: ExploreOutline,
+      IconSolid: ExploreSolid,
+    },
+    {
+      name: "Taruveda",
+      path: "/taruveda-organic-shampoo-oil",
+      IconOutline: TaruvedaOutline,
+      IconSolid: TaruvedaSolid,
+    },
+    {
+      name: "Saved",
+      path: "/wishlist",
+      IconOutline: HeartOutline,
+      IconSolid: HeartSolid,
+      badge: wishlistCount,
+    },
+    {
+      name: "Profile",
+      path: "/user/profile",
+      IconOutline: UserOutline,
+      IconSolid: UserSolid,
+      protected: true,
+    },
   ];
 
   return (
-    <nav className="fixed md:hidden bottom-0 left-0 w-full bg-white/90 backdrop-blur-xl border-t border-gray-100 z-30 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_30px_rgba(0,0,0,0.04)] font-sans transition-colors duration-300">
-      <ul className="flex justify-between items-center h-16 px-2">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 w-full bg-white border-t border-gray-200 pb-[env(safe-area-inset-bottom)]">
+      <ul className="flex justify-around items-center h-[60px] px-1">
         {navItems.map((item) => {
-          const Icon = item.icon;
           const isActive = location.pathname === item.path;
+          const Icon = isActive ? item.IconSolid : item.IconOutline;
 
           return (
-            <li key={item.name} className="flex-1 h-full relative">
+            <li key={item.name} className="flex-1 h-full">
               <button
-                type="button"
                 onClick={() =>
                   item.protected
                     ? handleProtected(item.path)
                     : navigate(item.path)
                 }
-                className="w-full h-full flex flex-col items-center justify-center gap-1 relative transition-transform active:scale-95 group">
-                {/* Premium Active Top Line */}
-                <div
-                  className={`absolute top-0 left-1/2 -translate-x-1/2 h-[2.5px] rounded-b-md bg-[#da127d] transition-all duration-300 ease-out ${
-                    isActive ? "w-8 opacity-100" : "w-0 opacity-0"
-                  }`}
-                />
-
-                {/* Icon Wrapper */}
-                <div className="relative mt-1">
+                className="w-full h-full flex flex-col items-center justify-center gap-1 transition-transform active:scale-95">
+                {/* ICON */}
+                <div className="relative flex items-center justify-center mt-1">
                   <Icon
-                    size={22}
-                    strokeWidth={isActive ? 2 : 1.5}
-                    className={`transition-all duration-300 ${
-                      isActive
-                        ? "text-[#da127d]"
-                        : "text-gray-400 group-hover:text-gray-700"
-                    }`}
+                    className="w-6 h-6 transition-colors duration-200"
                     style={{
-                      fill:
-                        isActive && item.name !== "Explore"
-                          ? "#da127d"
-                          : "transparent",
+                      color: isActive ? THEME_COLOR : "#4b5563",
                     }}
                   />
 
-                  {/* iOS-Style Notification Badge */}
+                  {/* BADGE */}
                   {item.badge > 0 && (
-                    <span className="absolute -top-1.5 -right-2 bg-[#da127d] text-white text-[9px] font-bold rounded-full min-w-4 h-4 px-1 flex items-center justify-center tracking-tighter border-2 border-white shadow-sm z-10">
+                    <span
+                      className="absolute -top-1.5 -right-2.5 text-white text-[9px] font-bold rounded-full min-w-[16px] h-[16px] px-1 flex items-center justify-center border-[1.5px] border-white shadow-sm"
+                      style={{ backgroundColor: THEME_COLOR }}>
                       {item.badge > 99 ? "99+" : item.badge}
                     </span>
                   )}
                 </div>
 
-                {/* Label */}
+                {/* LABEL */}
                 <span
-                  className={`text-[9px] font-semibold uppercase tracking-widest transition-colors duration-300 ${
-                    isActive
-                      ? "text-[#da127d]"
-                      : "text-gray-400 group-hover:text-gray-700"
-                  }`}>
+                  className="text-[11px] font-medium transition-colors duration-200"
+                  style={{
+                    color: isActive ? THEME_COLOR : "#6b7280",
+                  }}>
                   {item.name}
                 </span>
               </button>
@@ -95,4 +118,4 @@ const BottomNavbar = ({ wishlistCount = 0 }) => {
   );
 };
 
-export default BottomNavbar;
+export default React.memo(BottomNavbar);

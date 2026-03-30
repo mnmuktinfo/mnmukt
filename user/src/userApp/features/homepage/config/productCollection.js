@@ -2,7 +2,7 @@ export const productSections = [
   {
     key: "new",
     title: "New Arrivals",
-    subtitle: "Fresh styles added this week",
+    subtitle: "Trending right now and loved by many. Don’t miss out on our most wanted picks.",
   },
   {
     key: "summer",

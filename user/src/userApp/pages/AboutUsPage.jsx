@@ -1,200 +1,285 @@
-import React from "react";
-import { Link } from "react-router-dom";
-import { ArrowRight, Leaf, Sparkles, Heart } from "lucide-react";
+import { StarIcon } from "@heroicons/react/20/solid";
 
-const AboutUsPage = () => {
+const product = {
+  name: "Basic Tee 6-Pack",
+  price: "$192",
+  href: "#",
+  breadcrumbs: [
+    { id: 1, name: "Men", href: "#" },
+    { id: 2, name: "Clothing", href: "#" },
+  ],
+  images: [
+    {
+      src: "https://tailwindcss.com/plus-assets/img/ecommerce-images/product-page-02-secondary-product-shot.jpg",
+      alt: "Two each of gray, white, and black shirts laying flat.",
+    },
+    {
+      src: "https://tailwindcss.com/plus-assets/img/ecommerce-images/product-page-02-tertiary-product-shot-01.jpg",
+      alt: "Model wearing plain black basic tee.",
+    },
+    {
+      src: "https://tailwindcss.com/plus-assets/img/ecommerce-images/product-page-02-tertiary-product-shot-02.jpg",
+      alt: "Model wearing plain gray basic tee.",
+    },
+    {
+      src: "https://tailwindcss.com/plus-assets/img/ecommerce-images/product-page-02-featured-product-shot.jpg",
+      alt: "Model wearing plain white basic tee.",
+    },
+  ],
+  colors: [
+    {
+      id: "white",
+      name: "White",
+      classes: "bg-white checked:outline-gray-400",
+    },
+    {
+      id: "gray",
+      name: "Gray",
+      classes: "bg-gray-200 checked:outline-gray-400",
+    },
+    {
+      id: "black",
+      name: "Black",
+      classes: "bg-gray-900 checked:outline-gray-900",
+    },
+  ],
+  sizes: [
+    { name: "XXS", inStock: false },
+    { name: "XS", inStock: true },
+    { name: "S", inStock: true },
+    { name: "M", inStock: true },
+    { name: "L", inStock: true },
+    { name: "XL", inStock: true },
+    { name: "2XL", inStock: true },
+    { name: "3XL", inStock: true },
+  ],
+  description:
+    'The Basic Tee 6-Pack allows you to fully express your vibrant personality with three grayscale options. Feeling adventurous? Put on a heather gray tee. Want to be a trendsetter? Try our exclusive colorway: "Black". Need to add an extra pop of color to your outfit? Our white tee has you covered.',
+  highlights: [
+    "Hand cut and sewn locally",
+    "Dyed with our proprietary colors",
+    "Pre-washed & pre-shrunk",
+    "Ultra-soft 100% cotton",
+  ],
+  details:
+    'The 6-Pack includes two black, two white, and two heather gray Basic Tees. Sign up for our subscription service and be the first to get new, exciting colors, like our upcoming "Charcoal Gray" limited release.',
+};
+const reviews = { href: "#", average: 4, totalCount: 117 };
+
+function classNames(...classes) {
+  return classes.filter(Boolean).join(" ");
+}
+
+export default function Example() {
   return (
-    <div className="min-h-screen bg-white font-sans selection:bg-[#da127d] selection:text-white">
-      {/* ── 1. HERO SECTION ── */}
-      <section className="pt-24 pb-16 px-6 text-center max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-1000">
-        <span className="text-[#da127d] text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.4em] mb-6 block">
-          Our Story
-        </span>
-        <h1
-          className="text-4xl md:text-6xl lg:text-7xl text-gray-900 font-light leading-tight mb-8"
-          style={{ fontFamily: "'Playfair Display', serif" }}>
-          A Symphony of <br />
-          <span className="italic text-gray-500">Tradition & Elegance</span>
-        </h1>
-        <p className="text-[15px] md:text-[16px] text-gray-500 font-light leading-relaxed max-w-2xl mx-auto">
-          Mnmukt was born from a desire to revive the timeless poetry of Indian
-          textiles. We craft breathable, luxurious silhouettes that celebrate
-          the modern woman while staying deeply rooted in our heritage.
-        </p>
-      </section>
+    <div className="bg-white">
+      <div className="pt-6">
+        <nav aria-label="Breadcrumb">
+          <ol
+            role="list"
+            className="mx-auto flex max-w-2xl items-center space-x-2 px-4 sm:px-6 lg:max-w-7xl lg:px-8">
+            {product.breadcrumbs.map((breadcrumb) => (
+              <li key={breadcrumb.id}>
+                <div className="flex items-center">
+                  <a
+                    href={breadcrumb.href}
+                    className="mr-2 text-sm font-medium text-gray-900">
+                    {breadcrumb.name}
+                  </a>
+                  <svg
+                    fill="currentColor"
+                    width={16}
+                    height={20}
+                    viewBox="0 0 16 20"
+                    aria-hidden="true"
+                    className="h-5 w-4 text-gray-300">
+                    <path d="M5.697 4.34L8.98 16.532h1.327L7.025 4.341H5.697z" />
+                  </svg>
+                </div>
+              </li>
+            ))}
+            <li className="text-sm">
+              <a
+                href={product.href}
+                aria-current="page"
+                className="font-medium text-gray-500 hover:text-gray-600">
+                {product.name}
+              </a>
+            </li>
+          </ol>
+        </nav>
 
-      {/* ── 2. HERO IMAGE (FULL WIDTH) ── */}
-      <section className="w-full px-4 sm:px-6 md:px-12 pb-24">
-        <div className="w-full h-[60vh] md:h-[80vh] overflow-hidden rounded-sm">
+        {/* Image gallery */}
+        <div className="mx-auto mt-6 max-w-2xl sm:px-6 lg:grid lg:max-w-7xl lg:grid-cols-3 lg:gap-8 lg:px-8">
           <img
-            src="https://images.unsplash.com/photo-1610030469983-98e550d6193c?q=80&w=2000&auto=format&fit=crop"
-            alt="Mnmukt Craftsmanship"
-            className="w-full h-full object-cover hover:scale-105 transition-transform duration-[2s] ease-out"
+            alt={product.images[0].alt}
+            src={product.images[0].src}
+            className="row-span-2 aspect-3/4 size-full rounded-lg object-cover max-lg:hidden"
+          />
+          <img
+            alt={product.images[1].alt}
+            src={product.images[1].src}
+            className="col-start-2 aspect-3/2 size-full rounded-lg object-cover max-lg:hidden"
+          />
+          <img
+            alt={product.images[2].alt}
+            src={product.images[2].src}
+            className="col-start-2 row-start-2 aspect-3/2 size-full rounded-lg object-cover max-lg:hidden"
+          />
+          <img
+            alt={product.images[3].alt}
+            src={product.images[3].src}
+            className="row-span-2 aspect-4/5 size-full object-cover sm:rounded-lg lg:aspect-3/4"
           />
         </div>
-      </section>
 
-      {/* ── 3. THE PHILOSOPHY (SPLIT LAYOUT) ── */}
-      <section className="py-24 bg-[#FAFAFA]">
-        <div className="max-w-[1300px] mx-auto px-6 flex flex-col lg:flex-row items-center gap-16 lg:gap-24">
-          <div className="flex-1 space-y-8 order-2 lg:order-1">
-            <span className="text-gray-400 text-[11px] font-bold uppercase tracking-widest flex items-center gap-3">
-              <div className="w-8 h-[1px] bg-[#da127d]"></div> The Philosophy
-            </span>
-            <h2
-              className="text-3xl md:text-5xl text-gray-900 leading-tight"
-              style={{ fontFamily: "'Playfair Display', serif" }}>
-              Redefining <span className="italic">Luxury</span> <br /> Everyday.
-            </h2>
-            <p className="text-[15px] text-gray-600 font-light leading-relaxed">
-              We believe that true luxury lies in comfort. Inspired by the
-              softness of pure mulmul and the intricate artistry of hand-block
-              prints, our collections are designed to feel like a second skin.
-              Every thread we weave is a testament to slow fashion, ensuring
-              that what you wear is as kind to the earth as it is to you.
+        {/* Product info */}
+        <div className="mx-auto max-w-2xl px-4 pt-10 pb-16 sm:px-6 lg:grid lg:max-w-7xl lg:grid-cols-3 lg:grid-rows-[auto_auto_1fr] lg:gap-x-8 lg:px-8 lg:pt-16 lg:pb-24">
+          <div className="lg:col-span-2 lg:border-r lg:border-gray-200 lg:pr-8">
+            <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
+              {product.name}
+            </h1>
+          </div>
+
+          {/* Options */}
+          <div className="mt-4 lg:row-span-3 lg:mt-0">
+            <h2 className="sr-only">Product information</h2>
+            <p className="text-3xl tracking-tight text-gray-900">
+              {product.price}
             </p>
-            <div className="grid grid-cols-2 gap-8 pt-6">
-              <div>
-                <Leaf
-                  size={24}
-                  strokeWidth={1}
-                  className="text-[#da127d] mb-4"
-                />
-                <h4 className="text-[12px] font-bold uppercase tracking-widest text-gray-900 mb-2">
-                  Pure Fabrics
-                </h4>
-                <p className="text-[13px] text-gray-500 font-light">
-                  Sourced ethically, crafted beautifully.
-                </p>
+
+            {/* Reviews */}
+            <div className="mt-6">
+              <h3 className="sr-only">Reviews</h3>
+              <div className="flex items-center">
+                <div className="flex items-center">
+                  {[0, 1, 2, 3, 4].map((rating) => (
+                    <StarIcon
+                      key={rating}
+                      aria-hidden="true"
+                      className={classNames(
+                        reviews.average > rating
+                          ? "text-gray-900"
+                          : "text-gray-200",
+                        "size-5 shrink-0",
+                      )}
+                    />
+                  ))}
+                </div>
+                <p className="sr-only">{reviews.average} out of 5 stars</p>
+                <a
+                  href={reviews.href}
+                  className="ml-3 text-sm font-medium text-indigo-600 hover:text-indigo-500">
+                  {reviews.totalCount} reviews
+                </a>
               </div>
+            </div>
+
+            <form className="mt-10">
+              {/* Colors */}
               <div>
-                <Sparkles
-                  size={24}
-                  strokeWidth={1}
-                  className="text-[#da127d] mb-4"
-                />
-                <h4 className="text-[12px] font-bold uppercase tracking-widest text-gray-900 mb-2">
-                  Artisan Made
-                </h4>
-                <p className="text-[13px] text-gray-500 font-light">
-                  Supporting local craftsmen across India.
-                </p>
+                <h3 className="text-sm font-medium text-gray-900">Color</h3>
+
+                <fieldset aria-label="Choose a color" className="mt-4">
+                  <div className="flex items-center gap-x-3">
+                    {product.colors.map((color) => (
+                      <div
+                        key={color.id}
+                        className="flex rounded-full outline -outline-offset-1 outline-black/10">
+                        <input
+                          defaultValue={color.id}
+                          defaultChecked={color === product.colors[0]}
+                          name="color"
+                          type="radio"
+                          aria-label={color.name}
+                          className={classNames(
+                            color.classes,
+                            "size-8 appearance-none rounded-full forced-color-adjust-none checked:outline-2 checked:outline-offset-2 focus-visible:outline-3 focus-visible:outline-offset-3",
+                          )}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </fieldset>
+              </div>
+
+              {/* Sizes */}
+              <div className="mt-10">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-medium text-gray-900">Size</h3>
+                  <a
+                    href="#"
+                    className="text-sm font-medium text-indigo-600 hover:text-indigo-500">
+                    Size guide
+                  </a>
+                </div>
+
+                <fieldset aria-label="Choose a size" className="mt-4">
+                  <div className="grid grid-cols-4 gap-3">
+                    {product.sizes.map((size) => (
+                      <label
+                        key={size.id}
+                        aria-label={size.name}
+                        className="group relative flex items-center justify-center rounded-md border border-gray-300 bg-white p-3 has-checked:border-indigo-600 has-checked:bg-indigo-600 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-indigo-600 has-disabled:border-gray-400 has-disabled:bg-gray-200 has-disabled:opacity-25">
+                        <input
+                          defaultValue={size.id}
+                          defaultChecked={size === product.sizes[2]}
+                          name="size"
+                          type="radio"
+                          disabled={!size.inStock}
+                          className="absolute inset-0 appearance-none focus:outline-none disabled:cursor-not-allowed"
+                        />
+                        <span className="text-sm font-medium text-gray-900 uppercase group-has-checked:text-white">
+                          {size.name}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              </div>
+
+              <button
+                type="submit"
+                className="mt-10 flex w-full items-center justify-center rounded-md border border-transparent bg-indigo-600 px-8 py-3 text-base font-medium text-white hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:outline-hidden">
+                Add to bag
+              </button>
+            </form>
+          </div>
+
+          <div className="py-10 lg:col-span-2 lg:col-start-1 lg:border-r lg:border-gray-200 lg:pt-6 lg:pr-8 lg:pb-16">
+            {/* Description and details */}
+            <div>
+              <h3 className="sr-only">Description</h3>
+
+              <div className="space-y-6">
+                <p className="text-base text-gray-900">{product.description}</p>
+              </div>
+            </div>
+
+            <div className="mt-10">
+              <h3 className="text-sm font-medium text-gray-900">Highlights</h3>
+
+              <div className="mt-4">
+                <ul role="list" className="list-disc space-y-2 pl-4 text-sm">
+                  {product.highlights.map((highlight) => (
+                    <li key={highlight} className="text-gray-400">
+                      <span className="text-gray-600">{highlight}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            <div className="mt-10">
+              <h2 className="text-sm font-medium text-gray-900">Details</h2>
+
+              <div className="mt-4 space-y-6">
+                <p className="text-sm text-gray-600">{product.details}</p>
               </div>
             </div>
           </div>
-          <div className="flex-1 w-full order-1 lg:order-2 relative">
-            {/* Main Image */}
-            <img
-              src="https://images.unsplash.com/photo-1583391733958-d25e07fac04f?q=80&w=1000&auto=format&fit=crop"
-              alt="Indian Ethnic Wear"
-              className="w-full h-[500px] md:h-[700px] object-cover rounded-sm shadow-xl"
-            />
-            {/* Overlapping smaller image for editorial look */}
-            <img
-              src="https://images.unsplash.com/photo-1605763240000-7e93b172d754?q=80&w=600&auto=format&fit=crop"
-              alt="Fabric Detail"
-              className="hidden md:block absolute -bottom-12 -left-12 w-64 h-80 object-cover border-8 border-[#FAFAFA] shadow-lg"
-            />
-          </div>
         </div>
-      </section>
-
-      {/* ── 4. THE CRAFT (SPLIT LAYOUT - REVERSED) ── */}
-      <section className="py-24 md:py-32">
-        <div className="max-w-[1300px] mx-auto px-6 flex flex-col lg:flex-row items-center gap-16 lg:gap-24">
-          <div className="flex-1 w-full relative">
-            <img
-              src="https://images.unsplash.com/photo-1604085572504-a392ddf0d86a?q=80&w=1000&auto=format&fit=crop"
-              alt="Embroidery Detail"
-              className="w-full h-[500px] md:h-[650px] object-cover rounded-sm"
-            />
-          </div>
-          <div className="flex-1 space-y-8">
-            <span className="text-gray-400 text-[11px] font-bold uppercase tracking-widest flex items-center gap-3">
-              <div className="w-8 h-[1px] bg-[#da127d]"></div> The Craftsmanship
-            </span>
-            <h2
-              className="text-3xl md:text-5xl text-gray-900 leading-tight"
-              style={{ fontFamily: "'Playfair Display', serif" }}>
-              Woven with <span className="italic">Love.</span>
-            </h2>
-            <p className="text-[15px] text-gray-600 font-light leading-relaxed">
-              Behind every Mnmukt garment is an artisan whose hands have spent
-              decades mastering their craft. From the delicate threadwork of
-              intricate embroidery to the precision of hand-cut silhouettes, our
-              process is unhurried and deliberate.
-            </p>
-            <p className="text-[15px] text-gray-600 font-light leading-relaxed">
-              We don't just create clothes; we create heirlooms. Pieces designed
-              to be loved, lived in, and passed down through generations.
-            </p>
-            <div className="pt-6">
-              <Link
-                to="/collections"
-                className="inline-flex items-center gap-3 text-[11px] font-bold uppercase tracking-widest text-gray-900 hover:text-[#da127d] transition-colors pb-1 border-b border-gray-900 hover:border-[#da127d]">
-                Explore The Collection <ArrowRight size={14} />
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── 5. QUOTE / BRAND MANIFESTO ── */}
-      <section className="py-24 bg-[#1a1a1a] text-center px-6">
-        <div className="max-w-4xl mx-auto">
-          <Heart
-            size={32}
-            strokeWidth={1}
-            className="text-[#da127d] mx-auto mb-8"
-          />
-          <h3
-            className="text-3xl md:text-5xl text-white font-light leading-relaxed tracking-wide"
-            style={{ fontFamily: "'Playfair Display', serif" }}>
-            "To wear <span className="italic text-[#da127d]">Mnmukt</span> is to
-            embrace the art of being effortlessly beautiful, unapologetically
-            yourself, and forever rooted in grace."
-          </h3>
-        </div>
-      </section>
-
-      {/* ── 6. INSTAGRAM / IMAGE GRID ── */}
-      <section className="py-24 max-w-[1500px] mx-auto px-4 sm:px-6">
-        <div className="text-center mb-16">
-          <span className="text-[#da127d] text-[10px] font-bold uppercase tracking-widest mb-4 block">
-            Join The Journey
-          </span>
-          <h2
-            className="text-3xl md:text-4xl text-gray-900"
-            style={{ fontFamily: "'Playfair Display', serif" }}>
-            #WomenOfMnmukt
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <img
-            src="https://images.unsplash.com/photo-1610030469614-7476e828469e?q=80&w=600&auto=format&fit=crop"
-            alt="Gallery 1"
-            className="w-full h-[300px] md:h-[400px] object-cover hover:opacity-90 transition-opacity cursor-pointer"
-          />
-          <img
-            src="https://images.unsplash.com/photo-1595777457583-95e059d581b8?q=80&w=600&auto=format&fit=crop"
-            alt="Gallery 2"
-            className="w-full h-[300px] md:h-[400px] object-cover hover:opacity-90 transition-opacity cursor-pointer md:mt-12"
-          />
-          <img
-            src="https://images.unsplash.com/photo-1583391733975-408931165cb4?q=80&w=600&auto=format&fit=crop"
-            alt="Gallery 3"
-            className="w-full h-[300px] md:h-[400px] object-cover hover:opacity-90 transition-opacity cursor-pointer"
-          />
-          <img
-            src="https://images.unsplash.com/photo-1622396089766-3d2b2a1a8b13?q=80&w=600&auto=format&fit=crop"
-            alt="Gallery 4"
-            className="w-full h-[300px] md:h-[400px] object-cover hover:opacity-90 transition-opacity cursor-pointer md:mt-12"
-          />
-        </div>
-      </section>
+      </div>
     </div>
   );
-};
-
-export default AboutUsPage;
+}
