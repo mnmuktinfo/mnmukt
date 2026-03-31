@@ -1,7 +1,7 @@
 import { AdjustmentsHorizontalIcon } from "@heroicons/react/24/outline";
 import React from "react";
 import countActive from "../utils/countActive";
-import FilterBody from "./Filterbody";
+import FilterBody from "../FilterBody";
 const BRAND_PINK = "#da127d";
 
 const DesktopSidebar = ({ facets, filters, setSp }) => {

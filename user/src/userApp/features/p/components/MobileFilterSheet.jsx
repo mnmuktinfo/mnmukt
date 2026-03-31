@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import FilterBody from "./FilterBody";
+import FilterBody from "../FilterBody";
 import { BRAND_PINK } from "../constants/filters";
 import { XMarkIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
 
