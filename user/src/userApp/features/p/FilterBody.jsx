@@ -1,9 +1,9 @@
 import React, { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { CheckIcon } from "@heroicons/react/24/outline";
-import { Accordion } from "./Accordion";
-import { readFilters, toggleParam } from "../utils/filterUtils";
-import { BRAND_PINK, COLORS, PRICE_PRESETS, SIZES } from "../constants/filters";
+import { Accordion } from "./components/Accordion";
+import { readFilters, toggleParam } from "./utils/filterUtils";
+import { BRAND_PINK, COLORS, PRICE_PRESETS, SIZES } from "./constants/filters";
 
 const FilterBody = ({ facets }) => {
   const [sp, setSp] = useSearchParams();
