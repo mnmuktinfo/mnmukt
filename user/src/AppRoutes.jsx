@@ -7,7 +7,6 @@ import UserLayout from "./userApp/layouts/UserLayout";
 import LoadingScreen from "./userApp/components/loading/LoadingScreen";
 import NotFoundPage from "./userApp/pages/NotFoundPage";
 import ErrorBoundary from "./shared/components/ErrorBoundary";
-import QRMenuApp from "./userApp/pages/AboutUsPage";
 
 /* ─── Lazy: Auth ─────────────────────────────────────────────────────────── */
 const AuthRoutes = lazy(() => import("./userApp/routes/AuthRoutes"));
@@ -211,6 +210,16 @@ const AppRoutes = () => (
         }
       />
 
+      {/* About — ✅ Fixed: now lazy, was eagerly imported before */}
+      <Route
+        path="/about-us"
+        element={
+          <Suspense fallback={<InlineLoader />}>
+            <AboutUsPage />
+          </Suspense>
+        }
+      />
+
       {/* ── E. PROTECTED STOREFRONT (same Navbar/Footer) ──────────────── */}
       {/*
           ProtectedRoute sits inside UserLayout so the Navbar stays
@@ -259,16 +268,6 @@ const AppRoutes = () => (
         element={
           <Suspense fallback={<FullScreenLoader />}>
             <CheckoutRoutes />
-          </Suspense>
-        }
-      />
-
-      {/* About — ✅ Fixed: now lazy, was eagerly imported before */}
-      <Route
-        path="/about-us"
-        element={
-          <Suspense fallback={<InlineLoader />}>
-            <QRMenuApp />
           </Suspense>
         }
       />
