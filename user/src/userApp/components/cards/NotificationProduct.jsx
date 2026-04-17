@@ -1,116 +1,214 @@
-import React, { useEffect, useState } from "react";
-import { CheckCircle2, X, AlertCircle, ShoppingBag } from "lucide-react";
+import React, { useEffect, useState, useRef } from "react";
+import {
+  CheckCircle2,
+  X,
+  AlertCircle,
+  ShoppingBag,
+  Heart,
+  Tag,
+} from "lucide-react";
 
 /* ─────────────────────────────────────────────────────────────
-   NotificationProduct — Premium App Edition
-   Aesthetic: Floating pill, soft glass shadows, bottom-aligned
+   NotificationProduct — Premium Pink Theme (Sharp/No-Radius)
+   Features: Top-positioned, sharp edges, slide-down animation
 ───────────────────────────────────────────────────────────── */
 
 const STYLES = `
-  .toast-progress {
-    animation: toastDrain 3.5s linear forwards;
+ .toast-progress {
+    animation: toastDrain var(--duration) linear forwards;
+    animation-play-state: running;
+  }
+ .toast-paused .toast-progress {
+    animation-play-state: paused;
   }
   @keyframes toastDrain {
     from { width: 100%; }
-    to   { width: 0%; }
+    to { width: 0%; }
   }
 `;
 
+// Unified around a vibrant pink palette
 const CONFIG = {
   success: {
     icon: CheckCircle2,
-    accentText: "text-emerald-500",
-    accentBg: "bg-emerald-50",
-    progressBg: "bg-emerald-500",
+    accentText: "text-pink-600",
+    accentBg: "bg-pink-50",
+    progressBg: "bg-pink-500",
     label: "Success",
   },
   error: {
     icon: AlertCircle,
-    accentText: "text-[#ff3f6c]", // Myntra Pink
-    accentBg: "bg-pink-50",
-    progressBg: "bg-[#ff3f6c]",
-    label: "Attention",
+    accentText: "text-rose-600",
+    accentBg: "bg-rose-50",
+    progressBg: "bg-rose-500",
+    label: "Failed",
   },
-  info: {
+  cart: {
     icon: ShoppingBag,
-    accentText: "text-[#ff3f6c]", // Myntra Pink
-    accentBg: "bg-pink-50",
-    progressBg: "bg-[#ff3f6c]",
+    accentText: "text-[#e6007e]", // Punchy brand pink
+    accentBg: "bg-[#fdf2f8]", // Soft pink background
+    progressBg: "bg-gradient-to-r from-pink-400 to-[#e6007e]",
     label: "Added to Bag",
+  },
+  wishlist: {
+    icon: Heart,
+    accentText: "text-[#e6007e]",
+    accentBg: "bg-[#fdf2f8]",
+    progressBg: "bg-gradient-to-r from-pink-400 to-[#e6007e]",
+    label: "Saved to Wishlist",
+  },
+  promo: {
+    icon: Tag,
+    accentText: "text-fuchsia-600",
+    accentBg: "bg-fuchsia-50",
+    progressBg: "bg-fuchsia-500",
+    label: "Offer Applied",
   },
 };
 
-const NotificationProduct = ({ message, type = "success", onClose }) => {
+const NotificationProduct = ({
+  message = "Item processed successfully.",
+  type = "cart",
+  onClose,
+  duration = 3500,
+  product = null, // {img, name, price}
+  cta = null, // {label, onClick}
+  index = 0, // for stacking
+}) => {
   const [isShowing, setIsShowing] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const timerRef = useRef(null);
+  const startTimeRef = useRef(Date.now());
+  const remainingTimeRef = useRef(duration);
 
-  // Determine type based on message content if type isn't explicitly passed
-  const resolvedType = message.toLowerCase().includes("bag") ? "info" : type;
-  const config = CONFIG[resolvedType] || CONFIG.success;
+  const config = CONFIG[type] || CONFIG.cart;
   const Icon = config.icon;
 
-  useEffect(() => {
-    // Trigger entrance animation shortly after mount
-    requestAnimationFrame(() => setIsShowing(true));
-
-    // Auto-close timer
-    const timer = setTimeout(() => {
+  const startTimer = (time) => {
+    clearTimeout(timerRef.current);
+    startTimeRef.current = Date.now();
+    timerRef.current = setTimeout(() => {
       handleClose();
-    }, 3500);
+    }, time);
+  };
 
-    return () => clearTimeout(timer);
+  useEffect(() => {
+    requestAnimationFrame(() => setIsShowing(true));
+    startTimer(duration);
+
+    // Subtle haptic for mobile
+    if (navigator.vibrate && (type === "cart" || type === "wishlist")) {
+      navigator.vibrate(10);
+    }
+
+    return () => clearTimeout(timerRef.current);
   }, []);
 
   const handleClose = () => {
     setIsShowing(false);
-    // Wait for exit animation to finish before unmounting
-    setTimeout(onClose, 300);
+    setTimeout(onClose, 300); // Wait for transition before unmounting
+  };
+
+  const handleMouseEnter = () => {
+    if (isPaused) return;
+    setIsPaused(true);
+    clearTimeout(timerRef.current);
+    const elapsed = Date.now() - startTimeRef.current;
+    remainingTimeRef.current = remainingTimeRef.current - elapsed;
+  };
+
+  const handleMouseLeave = () => {
+    setIsPaused(false);
+    startTimer(remainingTimeRef.current);
   };
 
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: STYLES }} />
 
-      {/* Wrapper to position the toast */}
       <div
-        className="fixed z-[10000] bottom-6 left-4 right-4 md:left-1/2 md:right-auto md:-translate-x-1/2 md:min-w-[380px] flex justify-center pointer-events-none"
-        role="alert">
-        {/* Main Toast Container */}
+        // Changed to top-0 flush on mobile, top-6 right-6 on desktop
+        className="fixed z-[10000] top-0 left-0 right-0 md:top-6 md:left-auto md:right-6 md:w-[400px] flex justify-center pointer-events-none"
+        style={{
+          // Stack downwards instead of upwards since we are at the top
+          transform: `translateY(${index * 96}px)`,
+          transition: "transform 0.3s cubic-bezier(0.23,1,0.32,1)",
+        }}
+        role="alert"
+        aria-live="polite">
         <div
-          className={`pointer-events-auto w-full bg-white rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-gray-100 overflow-hidden flex flex-col transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+          // Removed all rounded corners, added sharp borders, changed animation to slide DOWN
+          className={`pointer-events-auto w-full bg-white/95 backdrop-blur-xl shadow-[0_12px_40px_-12px_rgba(230,0,126,0.20)] border-b md:border border-pink-100 overflow-hidden flex flex-col transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] rounded-none ${
+            isPaused ? "toast-paused" : ""
+          } ${
             isShowing
-              ? "translate-y-0 opacity-100 scale-100"
-              : "translate-y-8 opacity-0 scale-95"
+              ? "translate-y-0 opacity-100"
+              : "-translate-y-full md:-translate-y-8 opacity-0"
           }`}>
-          <div className="flex items-center p-3 sm:p-4">
-            {/* Icon Block */}
-            <div
-              className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${config.accentBg} ${config.accentText} mr-4`}>
-              <Icon size={20} strokeWidth={2.5} />
-            </div>
+          <div className="flex items-start p-4 md:p-5">
+            {/* Product Thumb or Icon (Sharp Edges) */}
+            {product?.img ? (
+              <img
+                src={product.img}
+                alt={product.name || "Product"}
+                // Removed rounded-lg
+                className="flex-shrink-0 w-14 h-16 object-cover border border-pink-50 mr-4 rounded-none shadow-sm"
+              />
+            ) : (
+              <div
+                // Removed rounded-full, made it a sharp square box
+                className={`flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-none ${config.accentBg} ${config.accentText} mr-4 border border-pink-50`}>
+                <Icon size={22} strokeWidth={2} />
+              </div>
+            )}
 
             {/* Text Content */}
-            <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-bold tracking-widest uppercase text-gray-400 mb-0.5">
+            <div className="flex-1 min-w-0 pt-0.5">
+              <p
+                className={`text-[11px] font-bold tracking-widest uppercase ${config.accentText} mb-1 opacity-90`}>
                 {config.label}
               </p>
-              <p className="text-[14px] font-semibold text-gray-900 truncate leading-tight">
+              <p className="text-[14px] font-medium text-gray-800 leading-snug line-clamp-2">
                 {message}
               </p>
+
+              {product?.price && (
+                <p className="text-[14px] font-bold text-gray-900 mt-1.5">
+                  ₹{product.price}
+                </p>
+              )}
+
+              {cta && (
+                <button
+                  onClick={() => {
+                    cta.onClick();
+                    handleClose();
+                  }}
+                  className={`mt-2.5 text-[12px] uppercase tracking-wider font-bold ${config.accentText} hover:text-pink-800 transition-colors inline-flex items-center gap-1 group`}>
+                  {cta.label}
+                  <span className="transform transition-transform group-hover:translate-x-1">
+                    →
+                  </span>
+                </button>
+              )}
             </div>
 
-            {/* Close Button */}
+            {/* Close Button (Sharp hover state) */}
             <button
               onClick={handleClose}
-              className="flex-shrink-0 ml-4 p-2 rounded-full text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition-colors active:scale-95"
+              className="flex-shrink-0 ml-3 p-2 text-pink-300 hover:text-pink-600 hover:bg-pink-50 transition-colors active:scale-95 rounded-none"
               aria-label="Close notification">
-              <X size={18} strokeWidth={2.5} />
+              <X size={18} strokeWidth={2} />
             </button>
           </div>
 
-          {/* Animated Progress Bar */}
-          <div className="w-full h-[3px] bg-gray-100">
+          {/* Progress Bar (Attached to bottom edge of the sharp container) */}
+          <div className="w-full h-[3px] bg-pink-50">
             <div
-              className={`h-full ${config.progressBg} toast-progress origin-left rounded-r-full`}
+              style={{ "--duration": `${remainingTimeRef.current}ms` }}
+              className={`h-full ${config.progressBg} toast-progress origin-left`}
             />
           </div>
         </div>

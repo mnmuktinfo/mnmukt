@@ -26,7 +26,7 @@ const CollectionGrid = ({ items = [], title, subtitle }) => {
           {items.map((item, idx) => (
             <Link
               key={idx}
-              to={`/collection/${slugify(item.name)}`}
+              to={`/collections/${slugify(item.name)}`}
               className="group block">
               {/* Image */}
               <div className="relative w-full aspect-[3/4] overflow-hidden bg-[#f5f5f5]">

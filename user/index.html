@@ -2,55 +2,78 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
     <!-- ── PRIMARY SEO ── -->
-    <title>Mnmukt — Premium Ethnic Wear & Lifestyle Store</title>
+    <title>Mnmukt — Premium Ethnic Wear &amp; Lifestyle Store</title>
     <meta
       name="description"
-      content="Shop premium ethnic wear, kurta sets, salwar suits & organic lifestyle products at Mnmukt. Handcrafted with care, delivered with love." />
-    <meta
-      name="keywords"
-      content="ethnic wear, kurta sets, salwar suits, organic products, mnmukt, indian fashion, women ethnic wear" />
+      content="Shop premium ethnic wear, kurta sets, salwar suits &amp; organic lifestyle products at Mnmukt. Handcrafted with care, delivered with love." />
     <meta name="robots" content="index, follow" />
     <meta name="author" content="Mnmukt" />
 
     <!-- ── CANONICAL ── -->
     <link rel="canonical" href="https://mnmukt.com/" />
 
-    <!-- ── PERFORMANCE ── -->
+    <!-- ── PERFORMANCE: DNS + Preconnect ── -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 
-    <!-- ── FONTS ── -->
+    <!--
+      ── PERFORMANCE: Non-blocking font load ──
+      • media="print" + onload trick loads CSS async so it never blocks render.
+      • <noscript> fallback ensures fonts load when JS is disabled.
+      • Only load weights you actually USE — removed Inter 300 & Playfair 600
+        if unused (add back if needed).
+    -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Poppins:wght@400;500;600&family=Playfair+Display:wght@400;600&display=swap"
-      rel="stylesheet" />
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Poppins:wght@400;500;600&family=Playfair+Display:wght@400;600&display=swap" />
+    <link
+      rel="stylesheet"
+      media="print"
+      onload="this.media = 'all'"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Poppins:wght@400;500;600&family=Playfair+Display:wght@400;600&display=swap" />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Poppins:wght@400;500;600&family=Playfair+Display:wght@400;600&display=swap" />
+    </noscript>
 
     <!-- ── FAVICON ── -->
-    <link rel="icon" href="/appLogo.png" />
-    <link rel="apple-touch-icon" href="/appLogo.png" />
+    <!--
+      Use .ico or .svg for the main icon — PNG works but .ico has broader support.
+      Provide multiple apple-touch-icon sizes for best PWA/iOS scores.
+    -->
+    <link rel="icon" type="image/png" href="/appLogo.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/appLogo.png" />
 
     <!-- ── PWA ── -->
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#da127d" />
-    <!--
-      ✅ Replaced deprecated "apple-mobile-web-app-capable" with the standard tag.
-      Both are included for maximum compatibility.
-    -->
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Mnmukt" />
 
-    <!-- ── OPEN GRAPH ── -->
+    <!-- ── OPEN GRAPH + TWITTER CARD ── -->
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Mnmukt" />
     <meta property="og:title" content="Mnmukt — Premium Ethnic Wear" />
     <meta
       property="og:description"
-      content="Shop premium ethnic wear, kurta sets, salwar suits & lifestyle products." />
+      content="Shop premium ethnic wear, kurta sets, salwar suits &amp; lifestyle products." />
     <meta property="og:url" content="https://mnmukt.com/" />
     <meta property="og:image" content="https://mnmukt.com/og-cover.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Mnmukt — Premium Ethnic Wear" />
+    <meta
+      name="twitter:description"
+      content="Shop premium ethnic wear, kurta sets, salwar suits &amp; lifestyle products." />
+    <meta name="twitter:image" content="https://mnmukt.com/og-cover.png" />
 
     <!-- ── STRUCTURED DATA ── -->
     <script type="application/ld+json">
@@ -59,17 +82,32 @@
         "@type": "Organization",
         "name": "Mnmukt",
         "url": "https://mnmukt.com/",
-        "logo": "https://mnmukt.com/appLogo.png",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://mnmukt.com/appLogo.png"
+        },
         "sameAs": [
           "https://www.instagram.com/mnmukt",
           "https://www.facebook.com/mnmukt"
         ]
       }
     </script>
+
+    <!--
+      ── PERFORMANCE: Critical CSS inline ──
+      Paste your above-the-fold CSS here to eliminate render-blocking.
+      Even a tiny reset removes a network round-trip.
+    -->
   </head>
 
   <body>
     <div id="root"></div>
+
+    <!--
+      ── PERFORMANCE: Module script (already optimal) ──
+      type="module" is automatically deferred — no need to add defer.
+      Vite will code-split & inject hashed asset links at build time.
+    -->
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

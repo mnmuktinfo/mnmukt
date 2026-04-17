@@ -1,467 +1,949 @@
-/**
- * Unified Product Service
- *
- * Features
- * • Firestore pagination
- * • TTL cache
- * • request deduplication
- * • slug ↔ id cross reference
- * • batch fetch
- * • collection queries
- * • client search
- */
+// /**
+//  * Unified Product Service
+//  *
+//  * Features
+//  * • Firestore pagination
+//  * • TTL cache
+//  * • request deduplication
+//  * • slug ↔ id cross reference
+//  * • batch fetch
+//  * • collection queries
+//  * • client search
+//  */
 
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  query,
-  where,
-  orderBy,
-  limit,
-  startAfter,
-} from "firebase/firestore";
+// // import {
+// //   collection,
+// //   doc,
+// //   getDoc,
+// //   getDocs,
+// //   query,
+// //   where,
+// //   orderBy,
+// //   limit,
+// //   startAfter,
+// // } from "firebase/firestore";
 
-import { db } from "../../../config/firebaseDB";
+// // import { db } from "../../../config/firebaseDB";
 
-const COL = "products";
-const PAGE_SIZE = 20;
-const TTL = 5 * 60 * 1000;
+// // const COL = "products";
+// // const PAGE_SIZE = 20;
+// // const TTL = 5 * 60 * 1000;
 
-/* ─────────────────────────────
-   CACHE LAYERS
-───────────────────────────── */
+// // /* ─────────────────────────────
+// //    CACHE LAYERS
+// // ───────────────────────────── */
 
-const cache = new Map();
-const inflight = new Map();
+// // const cache = new Map();
+// // const inflight = new Map();
 
-const slugToId = new Map();
-const idToSlug = new Map();
+// // const slugToId = new Map();
+// // const idToSlug = new Map();
 
-/* ─────────────────────────────
-   CACHE HELPERS
-───────────────────────────── */
+// // /* ─────────────────────────────
+// //    CACHE HELPERS
+// // ───────────────────────────── */
 
-const cacheGet = (key) => {
-  const entry = cache.get(key);
+// // const cacheGet = (key) => {
+// //   const entry = cache.get(key);
 
-  if (!entry) return null;
+// //   if (!entry) return null;
 
-  if (Date.now() - entry.ts > TTL) {
-    cache.delete(key);
-    return null;
-  }
+// //   if (Date.now() - entry.ts > TTL) {
+// //     cache.delete(key);
+// //     return null;
+// //   }
 
-  return entry.data;
-};
+// //   return entry.data;
+// // };
 
-const cacheSet = (key, data) => {
-  cache.set(key, { data, ts: Date.now() });
-};
+// // const cacheSet = (key, data) => {
+// //   cache.set(key, { data, ts: Date.now() });
+// // };
 
-/* ─────────────────────────────
-   REQUEST DEDUP
-───────────────────────────── */
+// // /* ─────────────────────────────
+// //    REQUEST DEDUP
+// // ───────────────────────────── */
 
-const dedup = (key, fn) => {
-  if (inflight.has(key)) return inflight.get(key);
+// // const dedup = (key, fn) => {
+// //   if (inflight.has(key)) return inflight.get(key);
 
-  const p = fn().finally(() => inflight.delete(key));
+// //   const p = fn().finally(() => inflight.delete(key));
 
-  inflight.set(key, p);
+// //   inflight.set(key, p);
 
-  return p;
-};
+// //   return p;
+// // };
 
-const buildKey = (params) => JSON.stringify(params);
+// // const buildKey = (params) => JSON.stringify(params);
 
-/* ─────────────────────────────
-   NORMALIZE
-───────────────────────────── */
+// // /* ─────────────────────────────
+// //    NORMALIZE
+// // ───────────────────────────── */
 
-const normalize = (id, data = {}) => ({
-  id: String(id),
+// // const normalize = (id, data = {}) => ({
+// //   id: String(id),
 
-  name: data.name ?? "",
-  slug: data.slug ?? "",
+// //   name: data.name ?? "",
+// //   slug: data.slug ?? "",
 
-  description: data.description ?? "",
-  banner: data.banner ?? "",
+// //   description: data.description ?? "",
+// //   banner: data.banner ?? "",
 
-  images: Array.isArray(data.images) ? data.images : [],
+// //   images: Array.isArray(data.images) ? data.images : [],
 
-  price: Number(data.price ?? 0),
-  originalPrice: Number(data.originalPrice ?? data.price ?? 0),
+// //   price: Number(data.price ?? 0),
+// //   originalPrice: Number(data.originalPrice ?? data.price ?? 0),
 
-  stock: Number(data.stock ?? 0),
+// //   stock: Number(data.stock ?? 0),
 
-  sizes: Array.isArray(data.sizes) ? data.sizes : [],
-  colors: Array.isArray(data.colors) ? data.colors : [],
+// //   sizes: Array.isArray(data.sizes) ? data.sizes : [],
+// //   colors: Array.isArray(data.colors) ? data.colors : [],
 
-  categoryId: data.categoryId ?? "",
-  collectionTypes: Array.isArray(data.collectionTypes)
-    ? data.collectionTypes
-    : [],
+// //   categoryId: data.categoryId ?? "",
+// //   collectionTypes: Array.isArray(data.collectionTypes)
+// //     ? data.collectionTypes
+// //     : [],
 
-  tags: Array.isArray(data.tags) ? data.tags : [],
+// //   tags: Array.isArray(data.tags) ? data.tags : [],
 
-  isActive: data.isActive ?? true,
+// //   isActive: data.isActive ?? true,
 
-  createdAt: data.createdAt ?? null,
-});
+// //   createdAt: data.createdAt ?? null,
+// // });
 
-/* ─────────────────────────────
-   PRIME CROSS REFERENCES
-───────────────────────────── */
+// // /* ─────────────────────────────
+// //    PRIME CROSS REFERENCES
+// // ───────────────────────────── */
 
-const primeRefs = (product) => {
-  if (!product?.id) return;
+// // const primeRefs = (product) => {
+// //   if (!product?.id) return;
 
-  cacheSet(`product_${product.id}`, product);
+// //   cacheSet(`product_${product.id}`, product);
 
-  if (product.slug) {
-    cacheSet(`slug_${product.slug}`, product);
+// //   if (product.slug) {
+// //     cacheSet(`slug_${product.slug}`, product);
 
-    slugToId.set(product.slug, product.id);
-    idToSlug.set(product.id, product.slug);
-  }
-};
+// //     slugToId.set(product.slug, product.id);
+// //     idToSlug.set(product.id, product.slug);
+// //   }
+// // };
 
-/* ─────────────────────────────
-   PRODUCT SERVICE
-───────────────────────────── */
+// // /* ─────────────────────────────
+// //    PRODUCT SERVICE
+// // ───────────────────────────── */
 
-export const productService = {
+// // export const productService = {
 
-  /* ─────────────────────────
-     PAGINATED PRODUCTS
-  ───────────────────────── */
+// //   /* ─────────────────────────
+// //      PAGINATED PRODUCTS
+// //   ───────────────────────── */
 
-  async getProducts({
-    lastDoc = null,
-    category = "all",
-    collectionType = "all",
-    status = "active",
-    pageSize = PAGE_SIZE,
-  } = {}) {
+// //   async getProducts({
+// //     lastDoc = null,
+// //     category = "all",
+// //     collectionType = "all",
+// //     status = "active",
+// //     pageSize = PAGE_SIZE,
+// //   } = {}) {
 
-    const key = buildKey({
-      lastDoc: lastDoc?.id,
-      category,
-      collectionType,
-      status,
-      pageSize,
-    });
+// //     const key = buildKey({
+// //       lastDoc: lastDoc?.id,
+// //       category,
+// //       collectionType,
+// //       status,
+// //       pageSize,
+// //     });
 
-    const cached = cacheGet(key);
+// //     const cached = cacheGet(key);
 
-    if (cached) return cached;
+// //     if (cached) return cached;
 
-    return dedup(key, async () => {
+// //     return dedup(key, async () => {
 
-      const constraints = [];
+// //       const constraints = [];
 
-      if (category !== "all")
-        constraints.push(where("categoryId", "==", category));
+// //       if (category !== "all")
+// //         constraints.push(where("categoryId", "==", category));
 
-      if (collectionType !== "all")
-        constraints.push(
-          where("collectionTypes", "array-contains", collectionType)
-        );
+// //       if (collectionType !== "all")
+// //         constraints.push(
+// //           where("collectionTypes", "array-contains", collectionType)
+// //         );
 
-      if (status !== "all")
-        constraints.push(where("isActive", "==", status === "active"));
+// //       if (status !== "all")
+// //         constraints.push(where("isActive", "==", status === "active"));
 
-      constraints.push(orderBy("createdAt", "desc"));
+// //       constraints.push(orderBy("createdAt", "desc"));
 
-      if (lastDoc) constraints.push(startAfter(lastDoc));
+// //       if (lastDoc) constraints.push(startAfter(lastDoc));
 
-      constraints.push(limit(pageSize));
+// //       constraints.push(limit(pageSize));
 
-      const snap = await getDocs(
-        query(collection(db, COL), ...constraints)
-      );
+// //       const snap = await getDocs(
+// //         query(collection(db, COL), ...constraints)
+// //       );
 
-      const products = snap.docs.map((d) => {
-        const p = normalize(d.id, d.data());
-        primeRefs(p);
-        return p;
-      });
+// //       const products = snap.docs.map((d) => {
+// //         const p = normalize(d.id, d.data());
+// //         primeRefs(p);
+// //         return p;
+// //       });
 
-      const newLastDoc =
-        snap.docs[snap.docs.length - 1] ?? null;
+// //       const newLastDoc =
+// //         snap.docs[snap.docs.length - 1] ?? null;
 
-      const result = {
-        products,
-        lastDoc: newLastDoc,
-        hasMore: snap.docs.length === pageSize,
-      };
+// //       const result = {
+// //         products,
+// //         lastDoc: newLastDoc,
+// //         hasMore: snap.docs.length === pageSize,
+// //       };
 
-      cacheSet(key, result);
+// //       cacheSet(key, result);
 
-      return result;
-    });
-  },
+// //       return result;
+// //     });
+// //   },
 
-  /* ─────────────────────────
-     GET ALL PRODUCTS
-  ───────────────────────── */
+// //   /* ─────────────────────────
+// //      GET ALL PRODUCTS
+// //   ───────────────────────── */
 
-  async getAllProducts() {
+// //   async getAllProducts() {
 
-    const key = "all_products";
+// //     const key = "all_products";
 
-    const cached = cacheGet(key);
+// //     const cached = cacheGet(key);
 
-    if (cached) return cached;
+// //     if (cached) return cached;
 
-    const snap = await getDocs(
-      query(
-        collection(db, COL),
-        where("isActive", "==", true),
-        orderBy("createdAt", "desc")
-      )
-    );
+// //     const snap = await getDocs(
+// //       query(
+// //         collection(db, COL),
+// //         where("isActive", "==", true),
+// //         orderBy("createdAt", "desc")
+// //       )
+// //     );
 
-    const products = snap.docs.map((d) => {
-      const p = normalize(d.id, d.data());
-      primeRefs(p);
-      return p;
-    });
+// //     const products = snap.docs.map((d) => {
+// //       const p = normalize(d.id, d.data());
+// //       primeRefs(p);
+// //       return p;
+// //     });
 
-    cacheSet(key, products);
+// //     cacheSet(key, products);
 
-    return products;
-  },
+// //     return products;
+// //   },
 
-  /* ─────────────────────────
-     PRODUCT BY ID
-  ───────────────────────── */
+// //   /* ─────────────────────────
+// //      PRODUCT BY ID
+// //   ───────────────────────── */
 
-  async getProductById(id) {
+// //   async getProductById(id) {
 
-    if (!id) return null;
+// //     if (!id) return null;
 
-    const key = `product_${id}`;
+// //     const key = `product_${id}`;
 
-    const cached = cacheGet(key);
+// //     const cached = cacheGet(key);
 
-    if (cached) return cached;
+// //     if (cached) return cached;
 
-    return dedup(key, async () => {
+// //     return dedup(key, async () => {
 
-      const snap = await getDoc(doc(db, COL, String(id)));
+// //       const snap = await getDoc(doc(db, COL, String(id)));
 
-      if (!snap.exists()) return null;
+// //       if (!snap.exists()) return null;
 
-      const p = normalize(snap.id, snap.data());
+// //       const p = normalize(snap.id, snap.data());
 
-      primeRefs(p);
+// //       primeRefs(p);
 
-      return p;
-    });
-  },
+// //       return p;
+// //     });
+// //   },
 
-  /* ─────────────────────────
-     PRODUCT BY SLUG
-  ───────────────────────── */
+// //   /* ─────────────────────────
+// //      PRODUCT BY SLUG
+// //   ───────────────────────── */
 
-  async getProductBySlug(slug) {
+// //   async getProductBySlug(slug) {
 
-    if (!slug) return null;
+// //     if (!slug) return null;
 
-    const key = `slug_${slug}`;
+// //     const key = `slug_${slug}`;
 
-    const cached = cacheGet(key);
+// //     const cached = cacheGet(key);
 
-    if (cached) return cached;
+// //     if (cached) return cached;
 
-    if (slugToId.has(slug)) {
-      const cachedProduct = cacheGet(
-        `product_${slugToId.get(slug)}`
-      );
+// //     if (slugToId.has(slug)) {
+// //       const cachedProduct = cacheGet(
+// //         `product_${slugToId.get(slug)}`
+// //       );
 
-      if (cachedProduct) return cachedProduct;
-    }
+// //       if (cachedProduct) return cachedProduct;
+// //     }
 
-    return dedup(key, async () => {
+// //     return dedup(key, async () => {
 
-      const snap = await getDocs(
-        query(
-          collection(db, COL),
-          where("slug", "==", slug),
-          limit(1)
-        )
-      );
+// //       const snap = await getDocs(
+// //         query(
+// //           collection(db, COL),
+// //           where("slug", "==", slug),
+// //           limit(1)
+// //         )
+// //       );
 
-      if (snap.empty) return null;
+// //       if (snap.empty) return null;
 
-      const p = normalize(
-        snap.docs[0].id,
-        snap.docs[0].data()
-      );
+// //       const p = normalize(
+// //         snap.docs[0].id,
+// //         snap.docs[0].data()
+// //       );
 
-      primeRefs(p);
+// //       primeRefs(p);
 
-      return p;
-    });
-  },
+// //       return p;
+// //     });
+// //   },
 
-  /* ─────────────────────────
-     PRODUCTS BY IDS
-  ───────────────────────── */
+// //   /* ─────────────────────────
+// //      PRODUCTS BY IDS
+// //   ───────────────────────── */
 
-  async getProductsByIds(ids = []) {
+// //   async getProductsByIds(ids = []) {
 
-    if (!ids.length) return [];
+// //     if (!ids.length) return [];
 
-    const unique = [...new Set(ids.map(String))];
+// //     const unique = [...new Set(ids.map(String))];
 
-    const cachedProducts = unique
-      .map((id) => cacheGet(`product_${id}`))
-      .filter(Boolean);
+// //     const cachedProducts = unique
+// //       .map((id) => cacheGet(`product_${id}`))
+// //       .filter(Boolean);
 
-    const missing = unique.filter(
-      (id) => !cacheGet(`product_${id}`)
-    );
+// //     const missing = unique.filter(
+// //       (id) => !cacheGet(`product_${id}`)
+// //     );
 
-    if (!missing.length) return cachedProducts;
+// //     if (!missing.length) return cachedProducts;
 
-    const chunks = [];
+// //     const chunks = [];
 
-    for (let i = 0; i < missing.length; i += 10)
-      chunks.push(missing.slice(i, i + 10));
+// //     for (let i = 0; i < missing.length; i += 10)
+// //       chunks.push(missing.slice(i, i + 10));
 
-    const snaps = await Promise.all(
-      chunks.map((chunk) =>
-        getDocs(
-          query(
-            collection(db, COL),
-            where("__name__", "in", chunk)
-          )
-        )
-      )
-    );
+// //     const snaps = await Promise.all(
+// //       chunks.map((chunk) =>
+// //         getDocs(
+// //           query(
+// //             collection(db, COL),
+// //             where("__name__", "in", chunk)
+// //           )
+// //         )
+// //       )
+// //     );
 
-    const fetched = snaps
-      .flatMap((s) => s.docs)
-      .map((d) => {
-        const p = normalize(d.id, d.data());
-        primeRefs(p);
-        return p;
-      });
+// //     const fetched = snaps
+// //       .flatMap((s) => s.docs)
+// //       .map((d) => {
+// //         const p = normalize(d.id, d.data());
+// //         primeRefs(p);
+// //         return p;
+// //       });
 
-    return [...cachedProducts, ...fetched];
-  },
+// //     return [...cachedProducts, ...fetched];
+// //   },
 
-  /* ─────────────────────────
-     PRODUCTS BY CATEGORY
-  ───────────────────────── */
+// //   /* ─────────────────────────
+// //      PRODUCTS BY CATEGORY
+// //   ───────────────────────── */
 
-  async getProductsByCategory(categoryId, pageSize = PAGE_SIZE) {
+// //   async getProductsByCategory(categoryId, pageSize = PAGE_SIZE) {
 
-    if (!categoryId) return [];
+// //     if (!categoryId) return [];
 
-    const key = `category_${categoryId}_${pageSize}`;
+// //     const key = `category_${categoryId}_${pageSize}`;
 
-    const cached = cacheGet(key);
+// //     const cached = cacheGet(key);
 
-    if (cached) return cached;
+// //     if (cached) return cached;
 
-    const snap = await getDocs(
-      query(
-        collection(db, COL),
-        where("categoryId", "==", categoryId),
-        where("isActive", "==", true),
-        orderBy("createdAt", "desc"),
-        limit(pageSize)
-      )
-    );
+// //     const snap = await getDocs(
+// //       query(
+// //         collection(db, COL),
+// //         where("categoryId", "==", categoryId),
+// //         where("isActive", "==", true),
+// //         orderBy("createdAt", "desc"),
+// //         limit(pageSize)
+// //       )
+// //     );
 
-    const products = snap.docs.map((d) => {
-      const p = normalize(d.id, d.data());
-      primeRefs(p);
-      return p;
-    });
+// //     const products = snap.docs.map((d) => {
+// //       const p = normalize(d.id, d.data());
+// //       primeRefs(p);
+// //       return p;
+// //     });
 
-    cacheSet(key, products);
+// //     cacheSet(key, products);
 
-    return products;
-  },
+// //     return products;
+// //   },
 
-  /* ─────────────────────────
-     COLLECTION PRODUCTS
-  ───────────────────────── */
+// //   /* ─────────────────────────
+// //      COLLECTION PRODUCTS
+// //   ───────────────────────── */
 
-  async getProductsByCollections(types = [], maxResults = 8) {
+// //   async getProductsByCollections(types = [], maxResults = 8) {
 
-    if (!types.length) return [];
+// //     if (!types.length) return [];
 
-    const normalized = [...new Set(types.map((t) => t.toLowerCase()))];
+// //     const normalized = [...new Set(types.map((t) => t.toLowerCase()))];
 
-    const key = `collection_${normalized.join(",")}_${maxResults}`;
+// //     const key = `collection_${normalized.join(",")}_${maxResults}`;
 
-    const cached = cacheGet(key);
+// //     const cached = cacheGet(key);
 
-    if (cached) return cached;
+// //     if (cached) return cached;
 
-    const snap = await getDocs(
-      query(
-        collection(db, COL),
-        where("isActive", "==", true),
-        where("collectionTypes", "array-contains-any", normalized.slice(0, 10)),
-        limit(maxResults)
-      )
-    );
+// //     const snap = await getDocs(
+// //       query(
+// //         collection(db, COL),
+// //         where("isActive", "==", true),
+// //         where("collectionTypes", "array-contains-any", normalized.slice(0, 10)),
+// //         limit(maxResults)
+// //       )
+// //     );
 
-    const products = snap.docs.map((d) => {
-      const p = normalize(d.id, d.data());
-      primeRefs(p);
-      return p;
-    });
+// //     const products = snap.docs.map((d) => {
+// //       const p = normalize(d.id, d.data());
+// //       primeRefs(p);
+// //       return p;
+// //     });
 
-    cacheSet(key, products);
+// //     cacheSet(key, products);
 
-    return products;
-  },
+// //     return products;
+// //   },
 
-  /* ─────────────────────────
-     CLIENT SEARCH
-  ───────────────────────── */
+// //   /* ─────────────────────────
+// //      CLIENT SEARCH
+// //   ───────────────────────── */
 
-  searchProducts(term, products = []) {
+// //   searchProducts(term, products = []) {
 
-    if (!term?.trim()) return [];
+// //     if (!term?.trim()) return [];
 
-    const q = term.toLowerCase();
+// //     const q = term.toLowerCase();
 
-    return products.filter(
-      (p) =>
-        p.name?.toLowerCase().includes(q) ||
-        p.description?.toLowerCase().includes(q) ||
-        p.tags?.some((t) => t.toLowerCase().includes(q))
-    );
-  },
+// //     return products.filter(
+// //       (p) =>
+// //         p.name?.toLowerCase().includes(q) ||
+// //         p.description?.toLowerCase().includes(q) ||
+// //         p.tags?.some((t) => t.toLowerCase().includes(q))
+// //     );
+// //   },
 
-  /* ─────────────────────────
-     CACHE BUST
-  ───────────────────────── */
+// //   /* ─────────────────────────
+// //      CACHE BUST
+// //   ───────────────────────── */
 
-  bustCache(id, slug) {
+// //   bustCache(id, slug) {
 
-    if (id) cache.delete(`product_${id}`);
+// //     if (id) cache.delete(`product_${id}`);
 
-    if (slug) cache.delete(`slug_${slug}`);
+// //     if (slug) cache.delete(`slug_${slug}`);
 
-    for (const key of cache.keys()) {
-      if (
-        key.startsWith("{") ||
-        key.startsWith("category_") ||
-        key.startsWith("collection_")
-      ) {
-        cache.delete(key);
-      }
-    }
-  },
-};
+// //     for (const key of cache.keys()) {
+// //       if (
+// //         key.startsWith("{") ||
+// //         key.startsWith("category_") ||
+// //         key.startsWith("collection_")
+// //       ) {
+// //         cache.delete(key);
+// //       }
+// //     }
+// //   },
+// // };
+
+
+// /**
+//  * Unified Product Service (Production Ready)
+//  */
+
+// import {
+//   collection,
+//   doc,
+//   getDoc,
+//   getDocs,
+//   query,
+//   where,
+//   orderBy,
+//   limit,
+//   startAfter,
+// } from "firebase/firestore";
+
+// import { db } from "../../../config/firebaseDB";
+
+// const COL = "products";
+// const PAGE_SIZE = 20;
+// const TTL = 5 * 60 * 1000;
+// const MAX_CACHE_SIZE = 100;
+
+// /* ─────────────────────────────
+//    CACHE LAYERS
+// ───────────────────────────── */
+
+// const cache = new Map();
+// const inflight = new Map();
+
+// const slugToId = new Map();
+// const idToSlug = new Map();
+
+// /* ─────────────────────────────
+//    CACHE HELPERS
+// ───────────────────────────── */
+
+// const cacheGet = (key) => {
+//   const entry = cache.get(key);
+
+//   if (!entry) return null;
+
+//   if (Date.now() - entry.ts > TTL) {
+//     cache.delete(key);
+//     return null;
+//   }
+
+//   return entry.data;
+// };
+
+// const cacheSet = (key, data) => {
+//   if (cache.size > MAX_CACHE_SIZE) {
+//     cache.clear(); // prevent memory leak
+//   }
+
+//   cache.set(key, { data, ts: Date.now() });
+// };
+
+// /* ─────────────────────────────
+//    REQUEST DEDUP
+// ───────────────────────────── */
+
+// const dedup = (key, fn) => {
+//   if (inflight.has(key)) return inflight.get(key);
+
+//   const p = fn().finally(() => inflight.delete(key));
+//   inflight.set(key, p);
+
+//   return p;
+// };
+
+// /* ─────────────────────────────
+//    STABLE KEY BUILDER
+// ───────────────────────────── */
+
+// const buildKey = (params) =>
+//   JSON.stringify(
+//     Object.keys(params)
+//       .sort()
+//       .map((k) => [k, params[k]])
+//   );
+
+// /* ─────────────────────────────
+//    NORMALIZE
+// ───────────────────────────── */
+
+// const normalize = (id, data = {}) => ({
+//   id: String(id),
+
+//   name: data.name ?? "",
+//   slug: data.slug ?? "",
+
+//   description: data.description ?? "",
+//   banner: data.banner ?? "",
+
+//   images: Array.isArray(data.images) ? data.images : [],
+
+//   price: Number(data.price ?? 0),
+//   originalPrice: Number(data.originalPrice ?? data.price ?? 0),
+
+//   stock: Number(data.stock ?? 0),
+
+//   sizes: Array.isArray(data.sizes) ? data.sizes : [],
+//   colors: Array.isArray(data.colors) ? data.colors : [],
+
+//   categoryId: data.categoryId ?? "",
+//   collectionTypes: Array.isArray(data.collectionTypes)
+//     ? data.collectionTypes
+//     : [],
+
+//   tags: Array.isArray(data.tags) ? data.tags : [],
+
+//   isActive: data.isActive ?? true,
+
+//   createdAt: data.createdAt ?? null,
+// });
+
+// /* ─────────────────────────────
+//    PRIME CACHE REFERENCES
+// ───────────────────────────── */
+
+// const primeRefs = (product) => {
+//   if (!product?.id) return;
+
+//   cacheSet(`product_${product.id}`, product);
+
+//   if (product.slug) {
+//     cacheSet(`slug_${product.slug}`, product);
+
+//     slugToId.set(product.slug, product.id);
+//     idToSlug.set(product.id, product.slug);
+//   }
+// };
+
+// /* ─────────────────────────────
+//    PRODUCT SERVICE
+// ───────────────────────────── */
+
+// export const productService = {
+//   /* ─────────────────────────
+//      PAGINATED PRODUCTS
+//   ───────────────────────── */
+
+//   async getProducts({
+//     lastDoc = null,
+//     category = "all",
+//     collectionType = "all",
+//     status = "active",
+//     pageSize = PAGE_SIZE,
+//   } = {}) {
+//     const key = buildKey({
+//       lastDoc: lastDoc?.id || null,
+//       category,
+//       collectionType,
+//       status,
+//       pageSize,
+//     });
+
+//     const cached = cacheGet(key);
+//     if (cached) return cached;
+
+//     return dedup(key, async () => {
+//       try {
+//         const constraints = [];
+
+//         if (category !== "all")
+//           constraints.push(where("categoryId", "==", category));
+
+//         if (collectionType !== "all")
+//           constraints.push(
+//             where("collectionTypes", "array-contains", collectionType)
+//           );
+
+//         if (status !== "all")
+//           constraints.push(where("isActive", "==", status === "active"));
+
+//         constraints.push(orderBy("createdAt", "desc"));
+
+//         if (lastDoc) constraints.push(startAfter(lastDoc));
+
+//         constraints.push(limit(pageSize));
+
+//         const snap = await getDocs(
+//           query(collection(db, COL), ...constraints)
+//         );
+
+//         const products = snap.docs.map((d) => {
+//           const p = normalize(d.id, d.data());
+//           primeRefs(p);
+//           return p;
+//         });
+
+//         const newLastDoc =
+//           snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] : null;
+
+//         const result = {
+//           products,
+//           lastDoc: newLastDoc,
+//           hasMore: snap.docs.length === pageSize,
+//         };
+
+//         cacheSet(key, result);
+//         return result;
+//       } catch (err) {
+//         console.error("getProducts error:", err);
+//         return { products: [], lastDoc: null, hasMore: false };
+//       }
+//     });
+//   },
+
+//   /* ─────────────────────────
+//      GET ALL PRODUCTS
+//   ───────────────────────── */
+
+//   async getAllProducts() {
+//     const key = "all_products";
+
+//     const cached = cacheGet(key);
+//     if (cached) return cached;
+
+//     try {
+//       const snap = await getDocs(
+//         query(
+//           collection(db, COL),
+//           where("isActive", "==", true),
+//           orderBy("createdAt", "desc")
+//         )
+//       );
+
+//       const products = snap.docs.map((d) => {
+//         const p = normalize(d.id, d.data());
+//         primeRefs(p);
+//         return p;
+//       });
+
+//       cacheSet(key, products);
+//       return products;
+//     } catch (err) {
+//       console.error("getAllProducts error:", err);
+//       return [];
+//     }
+//   },
+
+//   /* ─────────────────────────
+//      PRODUCT BY ID
+//   ───────────────────────── */
+
+//   async getProductById(id) {
+//     if (!id) return null;
+
+//     const key = `product_${id}`;
+//     const cached = cacheGet(key);
+//     if (cached) return cached;
+
+//     return dedup(key, async () => {
+//       try {
+//         const snap = await getDoc(doc(db, COL, String(id)));
+
+//         if (!snap.exists()) return null;
+
+//         const p = normalize(snap.id, snap.data());
+//         primeRefs(p);
+
+//         return p;
+//       } catch (err) {
+//         console.error("getProductById error:", err);
+//         return null;
+//       }
+//     });
+//   },
+
+//   /* ─────────────────────────
+//      PRODUCT BY SLUG
+//   ───────────────────────── */
+
+//   async getProductBySlug(slug) {
+//     if (!slug) return null;
+
+//     const key = `slug_${slug}`;
+//     const cached = cacheGet(key);
+//     if (cached) return cached;
+
+//     if (slugToId.has(slug)) {
+//       const cachedProduct = cacheGet(`product_${slugToId.get(slug)}`);
+//       if (cachedProduct) return cachedProduct;
+//     }
+
+//     return dedup(key, async () => {
+//       try {
+//         const snap = await getDocs(
+//           query(
+//             collection(db, COL),
+//             where("slug", "==", slug),
+//             limit(1)
+//           )
+//         );
+
+//         if (snap.empty) return null;
+
+//         const p = normalize(
+//           snap.docs[0].id,
+//           snap.docs[0].data()
+//         );
+
+//         primeRefs(p);
+//         return p;
+//       } catch (err) {
+//         console.error("getProductBySlug error:", err);
+//         return null;
+//       }
+//     });
+//   },
+
+//   /* ─────────────────────────
+//      PRODUCTS BY IDS (ORDER SAFE)
+//   ───────────────────────── */
+
+//   async getProductsByIds(ids = []) {
+//     if (!ids.length) return [];
+
+//     const unique = [...new Set(ids.map(String))];
+
+//     const cachedProducts = unique
+//       .map((id) => cacheGet(`product_${id}`))
+//       .filter(Boolean);
+
+//     const missing = unique.filter(
+//       (id) => !cacheGet(`product_${id}`)
+//     );
+
+//     let fetched = [];
+
+//     try {
+//       const chunks = [];
+//       for (let i = 0; i < missing.length; i += 10) {
+//         chunks.push(missing.slice(i, i + 10));
+//       }
+
+//       const snaps = await Promise.all(
+//         chunks.map((chunk) =>
+//           getDocs(
+//             query(
+//               collection(db, COL),
+//               where("__name__", "in", chunk)
+//             )
+//           )
+//         )
+//       );
+
+//       fetched = snaps
+//         .flatMap((s) => s.docs)
+//         .map((d) => {
+//           const p = normalize(d.id, d.data());
+//           primeRefs(p);
+//           return p;
+//         });
+//     } catch (err) {
+//       console.error("getProductsByIds error:", err);
+//     }
+
+//     const map = new Map(
+//       [...cachedProducts, ...fetched].map((p) => [p.id, p])
+//     );
+
+//     return ids.map((id) => map.get(String(id))).filter(Boolean);
+//   },
+
+//   /* ─────────────────────────
+//      PRODUCTS BY CATEGORY
+//   ───────────────────────── */
+
+//   async getProductsByCategory(categoryId, pageSize = PAGE_SIZE) {
+//     if (!categoryId) return [];
+
+//     const key = `category_${categoryId}_${pageSize}`;
+//     const cached = cacheGet(key);
+//     if (cached) return cached;
+
+//     try {
+//       const snap = await getDocs(
+//         query(
+//           collection(db, COL),
+//           where("categoryId", "==", categoryId),
+//           where("isActive", "==", true),
+//           orderBy("createdAt", "desc"),
+//           limit(pageSize)
+//         )
+//       );
+
+//       const products = snap.docs.map((d) => {
+//         const p = normalize(d.id, d.data());
+//         primeRefs(p);
+//         return p;
+//       });
+
+//       cacheSet(key, products);
+//       return products;
+//     } catch (err) {
+//       console.error("getProductsByCategory error:", err);
+//       return [];
+//     }
+//   },
+
+//   /* ─────────────────────────
+//      COLLECTION PRODUCTS
+//   ───────────────────────── */
+
+//   async getProductsByCollections(types = [], maxResults = 8) {
+//     if (!types.length) return [];
+
+//     const normalized = [...new Set(types.map((t) => t.toLowerCase()))];
+
+//     const key = `collection_${normalized.join(",")}_${maxResults}`;
+//     const cached = cacheGet(key);
+//     if (cached) return cached;
+
+//     try {
+//       const snap = await getDocs(
+//         query(
+//           collection(db, COL),
+//           where("isActive", "==", true),
+//           where(
+//             "collectionTypes",
+//             "array-contains-any",
+//             normalized.slice(0, 10)
+//           ),
+//           limit(maxResults)
+//         )
+//       );
+
+//       const products = snap.docs.map((d) => {
+//         const p = normalize(d.id, d.data());
+//         primeRefs(p);
+//         return p;
+//       });
+
+//       cacheSet(key, products);
+//       return products;
+//     } catch (err) {
+//       console.error("getProductsByCollections error:", err);
+//       return [];
+//     }
+//   },
+
+//   /* ─────────────────────────
+//      CLIENT SEARCH
+//   ───────────────────────── */
+
+//   searchProducts(term, products = []) {
+//     if (!term?.trim()) return [];
+
+//     const q = term.toLowerCase();
+
+//     return products.filter(
+//       (p) =>
+//         p.name?.toLowerCase().includes(q) ||
+//         p.description?.toLowerCase().includes(q) ||
+//         p.tags?.some((t) => t.toLowerCase().includes(q))
+//     );
+//   },
+
+//   /* ─────────────────────────
+//      CACHE BUST
+//   ───────────────────────── */
+
+//   bustCache(id, slug) {
+//     if (id) cache.delete(`product_${id}`);
+//     if (slug) cache.delete(`slug_${slug}`);
+
+//     for (const key of cache.keys()) {
+//       if (
+//         key.startsWith("[") ||
+//         key.startsWith("category_") ||
+//         key.startsWith("collection_")
+//       ) {
+//         cache.delete(key);
+//       }
+//     }
+//   },
+// };

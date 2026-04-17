@@ -24,7 +24,6 @@ const ProductCard = ({ product }) => {
   } = useWishlist();
 
   const { addToCart, syncing: cartSyncing } = useCart();
-
   const navigate = useNavigate();
 
   /* memoized liked state */
@@ -38,7 +37,6 @@ const ProductCard = ({ product }) => {
 
   const discount = useMemo(() => {
     if (!product.originalPrice || !product.price) return 0;
-
     return Math.round(
       ((product.originalPrice - product.price) / product.originalPrice) * 100,
     );
@@ -64,18 +62,20 @@ const ProductCard = ({ product }) => {
 
       setIsAdded(true);
 
+      // Trigger the premium notification
       setNotification({
         show: true,
-        message: "Added to your bag",
-        type: "success",
+        message: product.name, // Will show the product name in the alert
+        type: "cart", // Uses the pink Shopping Bag theme
       });
 
-      setTimeout(() => setIsAdded(false), 2200);
+      // Reset the button checkmark after 2 seconds
+      setTimeout(() => setIsAdded(false), 2000);
     } catch {
       setNotification({
         show: true,
         message: "Could not add to bag",
-        type: "error",
+        type: "error", // Uses the red alert theme
       });
     }
   };
@@ -83,18 +83,24 @@ const ProductCard = ({ product }) => {
   /* wishlist toggle */
   const handleWishlist = (e) => {
     e.stopPropagation();
-
     if (wishlistLoading) return;
-
     toggleWishlist(product.id);
   };
 
   return (
     <>
+      {/* Premium Notification Wrapper */}
       {notification.show && (
         <NotificationProduct
           message={notification.message}
           type={notification.type}
+          // Pass the product details so the image and price render in the toast
+          product={{
+            img: mainImage,
+            name: product.name,
+            price: formatPrice(product.price),
+          }}
+          // Let the notification close itself after its animation
           onClose={() =>
             setNotification((prev) => ({
               ...prev,
