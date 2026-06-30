@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { orderService } from "./orderService";
+import { orderService } from "../features/orders/services/orderService";
 import { useEffect } from "react";
 
 export const useOrder = (orderId) => {

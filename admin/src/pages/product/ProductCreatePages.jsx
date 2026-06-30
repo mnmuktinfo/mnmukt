@@ -23,8 +23,12 @@ import ProductImageCard from "../../components/productManage/createProduct/produ
 import ProductGalleryCard from "../../components/productManage/createProduct/productForm/ProductGalleryCard";
 import ProductOrganizationCard from "../../components/productManage/createProduct/productForm/ProductOrganizationCard";
 import ProductStatusCard from "../../components/productManage/createProduct/productForm/ProductStatusCard";
-
 import MobileStickySaveButton from "../../components/productManage/createProduct/ui/MobileStickySaveButton";
+
+import ProductSEOCard from "../../components/productManage/createProduct/productForm/ProductSEOCard";
+import ProductShippingPoliciesCard from "../../components/productManage/createProduct/productForm/ProductShippingPoliciesCard";
+import ProductAttributesCard from "../../components/productManage/createProduct/productForm/ProductAttributesCard";
+import ProductSpecsHighlightsCard from "../../components/productManage/createProduct/productForm/ProductSpecsHighlightsCard";
 
 const ProductCreatePage = () => {
   const navigate = useNavigate();
@@ -50,6 +54,11 @@ const ProductCreatePage = () => {
 
     togglePresetSize,
     addCustomSize,
+    removeSize,
+
+    addDynamicItem,
+    updateDynamicItem,
+    removeDynamicItem,
 
     customSizeInput,
     setCustomSizeInput,
@@ -61,7 +70,6 @@ const ProductCreatePage = () => {
     newCollection,
     setNewCollection,
     removeColor,
-    removeSize,
     handleColorImageUpload,
     handleGalleryUpload,
     handleBannerUpload,
@@ -175,10 +183,19 @@ const ProductCreatePage = () => {
           <div className="flex-1 space-y-6">
             <ProductInfoCard product={product} handleChange={handleChange} />
 
+            <ProductAttributesCard product={product} handleChange={handleChange} />
+
             <PriceInventoryCard
               product={product}
               handleChange={handleChange}
               discount={discount}
+            />
+
+            <ProductSpecsHighlightsCard 
+              product={product} 
+              addDynamicItem={addDynamicItem}
+              updateDynamicItem={updateDynamicItem}
+              removeDynamicItem={removeDynamicItem}
             />
 
             <SizesCard
@@ -200,6 +217,10 @@ const ProductCreatePage = () => {
               removeColor={removeColor}
               handleColorImageUpload={handleColorImageUpload}
             />
+
+            <ProductShippingPoliciesCard product={product} handleChange={handleChange} />
+            
+            <ProductSEOCard product={product} handleChange={handleChange} />
           </div>
 
           {/* RIGHT COLUMN - Meta & Media */}

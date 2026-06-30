@@ -387,6 +387,26 @@ export const useProducts = () => {
     log.info("All product caches invalidated");
   }, [qc]);
 
+  /**
+   * Submit a review and invalidate cache to refetch the product.
+   */
+  const addReview = useCallback(
+    async (productId, reviewData) => {
+      if (!productId) return;
+      try {
+        const newReview = await productService.addReview(productId, reviewData);
+        // We do a full invalidation on the product so it fetches the updated review array and averages
+        productService.bustCache(productId);
+        await qc.invalidateQueries({ queryKey: PRODUCT_KEYS.byId(productId) });
+        return newReview;
+      } catch (err) {
+        log.error("Failed to add review", err);
+        throw err;
+      }
+    },
+    [qc]
+  );
+
   // ─────────────────────────────────────────────────────────
   // RETURN API
   // ─────────────────────────────────────────────────────────
@@ -411,6 +431,7 @@ export const useProducts = () => {
     invalidateProduct,
     optimisticUpdateProduct,
     invalidateAll,
+    addReview,
 
     // Error Management
     errors,

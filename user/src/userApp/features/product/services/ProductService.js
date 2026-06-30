@@ -8,6 +8,8 @@ import {
   orderBy,
   limit,
   startAfter,
+  updateDoc,
+  arrayUnion,
 } from "firebase/firestore";
 import { db } from "../../../../config/firebaseDB";
 
@@ -76,6 +78,9 @@ const normalize = (id, data) => {
     isActive: data.isActive ?? true,
     createdAt: data.createdAt ?? null,
     tags: Array.isArray(data.tags) ? data.tags : [],
+    reviews: Array.isArray(data.reviews) ? data.reviews : [],
+    averageRating: Number(data.averageRating ?? 0),
+    totalReviews: Number(data.totalReviews ?? 0),
   };
 };
 
@@ -351,6 +356,44 @@ export const productService = {
         p.description?.toLowerCase().includes(lower) ||
         p.tags?.some((t) => t.toLowerCase().includes(lower))
     );
+  },
+
+  // ── ADD REVIEW (EMBEDDED) ──────────────────────────────────
+  async addReview(productId, reviewData) {
+    if (!productId || !reviewData) throw new Error("Missing data");
+
+    const docRef = doc(db, COL, String(productId));
+    const snap = await getDoc(docRef);
+    if (!snap.exists()) throw new Error("Product not found");
+
+    const data = snap.data();
+    const oldTotal = data.totalReviews || 0;
+    const oldAvg = data.averageRating || 0;
+
+    const newRating = Number(reviewData.rating);
+    const newTotal = oldTotal + 1;
+    const newAvg = ((oldAvg * oldTotal) + newRating) / newTotal;
+
+    const newReview = {
+      id: Date.now().toString(),
+      author: reviewData.author || "Guest",
+      rating: newRating,
+      text: reviewData.text || "",
+      date: new Date().toISOString(),
+      isVerified: reviewData.isVerified ?? false,
+      userId: reviewData.userId || null,
+    };
+
+    await updateDoc(docRef, {
+      totalReviews: newTotal,
+      averageRating: newAvg,
+      reviews: arrayUnion(newReview),
+    });
+
+    // Clean up cache
+    this.bustCache(productId, data.slug);
+    
+    return newReview;
   },
 
   // ── CACHE BUST ─────────────────────────────────────────────

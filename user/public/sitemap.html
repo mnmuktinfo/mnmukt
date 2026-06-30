@@ -1,0 +1,677 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sitemap — Mnmukt</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,400&family=DM+Sans:wght@300;400;500&display=swap"
+      rel="stylesheet" />
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      :root {
+        --pink: #da127d;
+        --pink-soft: #f7d6ea;
+        --pink-mid: #f0b0d4;
+        --dark: #1a0010;
+        --muted: #7a5068;
+        --bg: #fff8fc;
+        --white: #ffffff;
+        --serif: "Playfair Display", Georgia, serif;
+        --sans: "DM Sans", sans-serif;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        font-family: var(--sans);
+        background: var(--bg);
+        color: var(--dark);
+        min-height: 100vh;
+      }
+
+      /* ── BREADCRUMB ── */
+      .breadcrumb {
+        padding: 18px 48px;
+        font-size: 12px;
+        color: var(--muted);
+        letter-spacing: 0.06em;
+        border-bottom: 1px solid var(--pink-soft);
+        background: var(--white);
+      }
+      .breadcrumb a {
+        color: var(--muted);
+        text-decoration: none;
+      }
+      .breadcrumb a:hover {
+        color: var(--pink);
+      }
+      .breadcrumb span {
+        color: var(--pink);
+        margin: 0 6px;
+      }
+
+      /* ── HERO HEADER ── */
+      .site-header {
+        background: var(--white);
+        padding: 56px 48px 48px;
+        position: relative;
+        overflow: hidden;
+        border-bottom: 1px solid var(--pink-soft);
+      }
+      .site-header::before {
+        content: "";
+        position: absolute;
+        top: -80px;
+        right: -80px;
+        width: 320px;
+        height: 320px;
+        border-radius: 50%;
+        background: radial-gradient(
+          circle,
+          rgba(218, 18, 125, 0.09) 0%,
+          transparent 70%
+        );
+        pointer-events: none;
+      }
+      .site-header::after {
+        content: "";
+        position: absolute;
+        bottom: -40px;
+        left: -60px;
+        width: 200px;
+        height: 200px;
+        border-radius: 50%;
+        background: radial-gradient(
+          circle,
+          rgba(218, 18, 125, 0.06) 0%,
+          transparent 70%
+        );
+        pointer-events: none;
+      }
+      .header-inner {
+        max-width: 1200px;
+        margin: 0 auto;
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 24px;
+        flex-wrap: wrap;
+      }
+      .header-left {
+      }
+      .site-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 11px;
+        font-weight: 500;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--pink);
+        margin-bottom: 14px;
+      }
+      .site-label::before {
+        content: "";
+        display: inline-block;
+        width: 28px;
+        height: 1.5px;
+        background: var(--pink);
+      }
+      .site-title {
+        font-family: var(--serif);
+        font-size: clamp(36px, 5vw, 60px);
+        font-weight: 900;
+        color: var(--dark);
+        letter-spacing: -0.02em;
+        line-height: 1.05;
+      }
+      .site-title em {
+        font-style: italic;
+        color: var(--pink);
+      }
+      .header-meta {
+        font-size: 13px;
+        color: var(--muted);
+        font-weight: 300;
+        line-height: 1.6;
+        max-width: 260px;
+        text-align: right;
+      }
+      .header-meta strong {
+        color: var(--dark);
+        font-weight: 500;
+      }
+
+      /* ── STATS BAR ── */
+      .stats-bar {
+        background: var(--dark);
+        padding: 18px 48px;
+      }
+      .stats-inner {
+        max-width: 1200px;
+        margin: 0 auto;
+        display: flex;
+        gap: 48px;
+        flex-wrap: wrap;
+      }
+      .stat {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .stat-num {
+        font-family: var(--serif);
+        font-size: 22px;
+        font-weight: 700;
+        color: var(--pink);
+        line-height: 1;
+      }
+      .stat-label {
+        font-size: 10px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.45);
+        font-weight: 400;
+      }
+
+      /* ── MAIN CONTENT ── */
+      .content {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 56px 48px 80px;
+      }
+
+      /* ── SECTION ── */
+      .section {
+        margin-bottom: 64px;
+        animation: fadeUp 0.5s ease both;
+      }
+      .section:nth-child(1) {
+        animation-delay: 0.05s;
+      }
+      .section:nth-child(2) {
+        animation-delay: 0.15s;
+      }
+      .section:nth-child(3) {
+        animation-delay: 0.25s;
+      }
+      .section:nth-child(4) {
+        animation-delay: 0.35s;
+      }
+
+      @keyframes fadeUp {
+        from {
+          opacity: 0;
+          transform: translateY(18px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .section-header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 28px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--pink-soft);
+      }
+      .section-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, var(--pink) 0%, #b00e65 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .section-icon svg {
+        width: 18px;
+        height: 18px;
+        stroke: #fff;
+        fill: none;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .section-title {
+        font-family: var(--serif);
+        font-size: 22px;
+        font-weight: 700;
+        color: var(--dark);
+        letter-spacing: -0.01em;
+      }
+      .section-count {
+        margin-left: auto;
+        font-size: 11px;
+        color: var(--muted);
+        letter-spacing: 0.12em;
+        background: var(--pink-soft);
+        padding: 4px 12px;
+        border-radius: 100px;
+      }
+
+      /* ── GRID ── */
+      .grid-cols-3 {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 48px;
+      }
+      .grid-cols-2 {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 48px;
+      }
+
+      /* ── LINKS LIST ── */
+      .links-list {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .links-list li a {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 14px;
+        color: var(--muted);
+        text-decoration: none;
+        font-weight: 300;
+        padding: 7px 10px;
+        border-radius: 7px;
+        transition: all 0.18s ease;
+        line-height: 1.5;
+      }
+      .links-list li a::before {
+        content: "";
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--pink-mid);
+        flex-shrink: 0;
+        transition: background 0.18s;
+      }
+      .links-list li a:hover {
+        color: var(--pink);
+        background: rgba(218, 18, 125, 0.04);
+      }
+      .links-list li a:hover::before {
+        background: var(--pink);
+      }
+
+      /* ── DIVIDER ── */
+      .section-divider {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin: 56px 0;
+      }
+      .section-divider::before,
+      .section-divider::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--pink-soft);
+      }
+      .section-divider-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--pink);
+        opacity: 0.5;
+      }
+
+      /* ── FOOTER ── */
+      .site-footer {
+        background: var(--dark);
+        padding: 28px 48px;
+        text-align: center;
+      }
+      .footer-inner {
+        max-width: 1200px;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      .footer-brand {
+        font-family: var(--serif);
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--white);
+        font-style: italic;
+      }
+      .footer-brand span {
+        color: var(--pink);
+      }
+      .footer-note {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.3);
+        letter-spacing: 0.08em;
+      }
+
+      /* ── RESPONSIVE ── */
+      @media (max-width: 900px) {
+        .grid-cols-3 {
+          grid-template-columns: 1fr 1fr;
+          gap: 36px;
+        }
+      }
+      @media (max-width: 600px) {
+        .breadcrumb,
+        .site-header,
+        .stats-bar,
+        .content,
+        .site-footer {
+          padding-left: 20px;
+          padding-right: 20px;
+        }
+        .grid-cols-3,
+        .grid-cols-2 {
+          grid-template-columns: 1fr;
+          gap: 28px;
+        }
+        .header-meta {
+          text-align: left;
+        }
+        .stats-inner {
+          gap: 24px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Breadcrumb -->
+    <nav class="breadcrumb">
+      <a href="/">Home</a>
+      <span>/</span>
+      HTML Sitemap
+    </nav>
+
+    <!-- Header -->
+    <header class="site-header">
+      <div class="header-inner">
+        <div class="header-left">
+          <div class="site-label">Mnmukt</div>
+          <h1 class="site-title">Site<em>map</em></h1>
+        </div>
+        <p class="header-meta">
+          A complete directory of all <strong>collections</strong>,
+          <strong>products</strong>, and <strong>blog posts</strong> available
+          at Mnmukt.
+        </p>
+      </div>
+    </header>
+
+    <!-- Stats Bar -->
+    <div class="stats-bar">
+      <div class="stats-inner">
+        <div class="stat">
+          <span class="stat-num">24</span>
+          <span class="stat-label">Collections</span>
+        </div>
+        <div class="stat">
+          <span class="stat-num">18</span>
+          <span class="stat-label">Blog Posts</span>
+        </div>
+        <div class="stat">
+          <span class="stat-num">20</span>
+          <span class="stat-label">Products</span>
+        </div>
+        <div class="stat">
+          <span class="stat-num">3</span>
+          <span class="stat-label">Pages</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main -->
+    <main class="content">
+      <!-- Collections + Blog Posts side by side -->
+      <div class="grid-cols-2">
+        <!-- Collections -->
+        <section class="section">
+          <div class="section-header">
+            <div class="section-icon">
+              <svg viewBox="0 0 24 24">
+                <path d="M3 7h18M3 12h18M3 17h18" />
+              </svg>
+            </div>
+            <h2 class="section-title">Collections</h2>
+            <span class="section-count">24 links</span>
+          </div>
+          <ul class="links-list">
+            <li><a href="#">All</a></li>
+            <li><a href="#">Artsy</a></li>
+            <li><a href="#">Basic Dresses</a></li>
+            <li><a href="#">Basics</a></li>
+            <li><a href="#">Basics Co-Ords</a></li>
+            <li><a href="#">Basics Dresses</a></li>
+            <li><a href="#">Basics Shirts</a></li>
+            <li><a href="#">Basics Tops</a></li>
+            <li><a href="#">Below ₹1000</a></li>
+            <li><a href="#">Below ₹1500</a></li>
+            <li><a href="#">Below ₹2000</a></li>
+            <li><a href="#">Below ₹2500</a></li>
+            <li><a href="#">Bestsellers</a></li>
+            <li><a href="#">Bottoms</a></li>
+            <li><a href="#">Co-Ord Sets</a></li>
+            <li><a href="#">Dresses</a></li>
+            <li><a href="#">Jackets</a></li>
+            <li><a href="#">New Arrivals</a></li>
+            <li><a href="#">New Dresses</a></li>
+            <li><a href="#">Sale</a></li>
+            <li><a href="#">Shirts</a></li>
+            <li><a href="#">Tops</a></li>
+            <li><a href="#">Trending</a></li>
+            <li><a href="#">Workwear</a></li>
+          </ul>
+        </section>
+
+        <!-- Blog Posts -->
+        <section class="section">
+          <div class="section-header">
+            <div class="section-icon">
+              <svg viewBox="0 0 24 24">
+                <path
+                  d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
+              </svg>
+            </div>
+            <h2 class="section-title">Blog Posts</h2>
+            <span class="section-count">18 links</span>
+          </div>
+          <ul class="links-list">
+            <li>
+              <a href="#"
+                >Co-Ord Sets For Work: The Outfit That Just Makes Life Easier</a
+              >
+            </li>
+            <li>
+              <a href="#"
+                >Summer Wear Dress For Women: The Kind Of Styles You'll Reach
+                For On Repeat</a
+              >
+            </li>
+            <li>
+              <a href="#"
+                >Stylish Office Wear Women: Easy, Polished Picks For Everyday
+                Workdays</a
+              >
+            </li>
+            <li>
+              <a href="#"
+                >Basic Clothes For Women: The Pieces You End Up Loving The
+                Most</a
+              >
+            </li>
+            <li>
+              <a href="#"
+                >How To Style Handwoven Cotton Dresses For Every Occasion</a
+              >
+            </li>
+            <li>
+              <a href="#"
+                >Style Co-Ord Sets: The Kind Of Outfit You Reach For Without
+                Thinking</a
+              >
+            </li>
+            <li>
+              <a href="#"
+                >Styling Tops For Women: Clothes That Fit Into Real Life</a
+              >
+            </li>
+            <li>
+              <a href="#"
+                >Valentine's Day Gift Ideas For Her: Clothes She'll Actually
+                Wear</a
+              >
+            </li>
+            <li>
+              <a href="#"
+                >Shirts For Women: The Ones You Wear Without Thinking</a
+              >
+            </li>
+            <li>
+              <a href="#"
+                >Top For Women: Easy Styles You'll Actually Want To Wear</a
+              >
+            </li>
+            <li>
+              <a href="#"
+                >Best Beachwear Dresses For Women: Easy, Breezy & Made For Real
+                Days</a
+              >
+            </li>
+            <li>
+              <a href="#"
+                >Co-Ord Set For Women: When Getting Dressed Stops Feeling
+                Complicated</a
+              >
+            </li>
+            <li><a href="#">How To Wear A Crop Top For Every Body Type</a></li>
+            <li>
+              <a href="#"
+                >Top 10 Summer Wear Dresses For A Chic & Breezy Look</a
+              >
+            </li>
+            <li>
+              <a href="#"
+                >Airport Outfits For Women: Complete Guide For Stylish Travel</a
+              >
+            </li>
+            <li>
+              <a href="#">Ethnic Wear For Women: Styles That Feel Like Home</a>
+            </li>
+            <li>
+              <a href="#"
+                >Casual Wear For Women: Building A Wardrobe You'll Love</a
+              >
+            </li>
+            <li>
+              <a href="#"
+                >Cotton Dresses For Women: Breathe Easy, Look Effortless</a
+              >
+            </li>
+          </ul>
+        </section>
+      </div>
+
+      <div class="section-divider">
+        <div class="section-divider-dot"></div>
+        <div class="section-divider-dot"></div>
+        <div class="section-divider-dot"></div>
+      </div>
+
+      <!-- Products -->
+      <section class="section">
+        <div class="section-header">
+          <div class="section-icon">
+            <svg viewBox="0 0 24 24">
+              <path
+                d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4zM3 6h18M16 10a4 4 0 01-8 0" />
+            </svg>
+          </div>
+          <h2 class="section-title">Products</h2>
+          <span class="section-count">20 links</span>
+        </div>
+        <div class="grid-cols-3">
+          <ul class="links-list">
+            <li><a href="#">Royal Black Cotton Straight Pants</a></li>
+            <li><a href="#">Turquoise Ombre Shirt</a></li>
+            <li><a href="#">Pistachio Green Embroidered Top</a></li>
+            <li><a href="#">Pastel Green Mirror Work Top</a></li>
+            <li><a href="#">Tangerine Embroidered Top</a></li>
+            <li><a href="#">Artsy Khadi Sassy Jacket</a></li>
+            <li><a href="#">Caramel Brown Co-Ord Set</a></li>
+          </ul>
+          <ul class="links-list">
+            <li><a href="#">Leafy Green Dress</a></li>
+            <li><a href="#">Mystic Mehndi Weave Dress</a></li>
+            <li><a href="#">Royal Black Cotton Palazzo</a></li>
+            <li><a href="#">Evening Blue Strappy Dress</a></li>
+            <li><a href="#">Spider Black Shirt</a></li>
+            <li><a href="#">Solid Grey Sleeveless Dress</a></li>
+            <li><a href="#">Navy Blue Top With Inner</a></li>
+          </ul>
+          <ul class="links-list">
+            <li><a href="#">Oxford Blue Dress</a></li>
+            <li><a href="#">Salted Lime Dress</a></li>
+            <li><a href="#">Egyptian Blue Co-Ord Set</a></li>
+            <li><a href="#">Muted Red Co-Ord Set</a></li>
+            <li><a href="#">Wine Sequins Peplum Top</a></li>
+            <li><a href="#">Ivory Block Print Kurta Set</a></li>
+          </ul>
+        </div>
+      </section>
+
+      <div class="section-divider">
+        <div class="section-divider-dot"></div>
+      </div>
+
+      <!-- Pages -->
+      <section class="section">
+        <div class="section-header">
+          <div class="section-icon">
+            <svg viewBox="0 0 24 24">
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+            </svg>
+          </div>
+          <h2 class="section-title">Pages</h2>
+          <span class="section-count">3 links</span>
+        </div>
+        <ul class="links-list" style="max-width: 320px">
+          <li><a href="#">About Us</a></li>
+          <li><a href="#">Contact Us</a></li>
+          <li><a href="#">Track Your Order</a></li>
+        </ul>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <div class="footer-brand">Mn<span>mukt</span></div>
+        <p class="footer-note">© 2025 Mnmukt · All rights reserved</p>
+      </div>
+    </footer>
+  </body>
+</html>

@@ -18,16 +18,16 @@ import {
 // ✅ 1. CATEGORY MENU (Fashion Navigation)
 // Used in Desktop & Mobile dropdown — NO ICONS
 export const categoryMenuItems = [
-  { label: "New In", path: "/new-in" },
-  { label: "Mulmul Wedding", path: "/mulmul-wedding" },
-  { label: "Mulmul Classic", path: "/mulmul-classic" },
-  { label: "Studio (Western)", path: "/studio" },
-  { label: "Accessories", path: "/accessories" },
+  { label: "New In", path: "/collections/new-in" },
+  { label: "Mulmul Wedding", path: "/collections/mulmul-wedding" },
+  { label: "Mulmul Classic", path: "/collections/mulmul-classic" },
+  { label: "Studio (Western)", path: "/collections/studio" },
+  { label: "Accessories", path: "/collections/accessories" },
 
-  { label: "Shop", path: "/shop" },
-  { label: "Collections", path: "/collections" },
-  { label: "Bestsellers", path: "/bestsellers" },
-  { label: "Celebrities", path: "/celebrities" },
+  { label: "Shop", path: "/collections/all" },
+  { label: "Collections", path: "/collections/all" },
+  { label: "Bestsellers", path: "/collections/bestsellers" },
+  { label: "Celebrities", path: "/collections/celebrities" },
 ];
 
 
@@ -35,13 +35,13 @@ export const categoryMenuItems = [
 // Clean, readable, NO ICONS
 export const utilityMenuItems = [
   { label: "Home", path: "/" },
-  { label: "About Us", path: "/about" },
-  { label: "Shop", path: "/shop" },
+  { label: "About Us", path: "/about-us" },
+  { label: "Shop", path: "/collections/all" },
 
   { label: "Artsy Collection", path: "/collections/artsy" },
   { label: "Basics Collection", path: "/collections/basics" },
   { label: "Rang Collection", path: "/collections/rang" },
-  { label: "Babli On You", path: "/babli-on-you" },
+  { label: "Babli On You", path: "/collections/babli-on-you" },
 
   { label: "Return / Exchange", path: "/return-exchange" },
   { label: "Contact Us", path: "/contact" },
@@ -63,7 +63,7 @@ export const mobileMenuItems=[]
 // export const mobileMenuItems = [
 //   { path: "/", label: "Home", icon: <FaHome className="mr-2" /> },
 
-//   { path: "/categories", label: "Categories", icon: <FaBox className="mr-2" /> },
+//   { path: "/collections/all", label: "Collection", icon: <FaBox className="mr-2" /> },
 
 //   { path: "/cart", label: "My Cart", icon: <FaShoppingCart className="mr-2" /> },
 

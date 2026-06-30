@@ -1,17 +1,23 @@
 import React, { useMemo, useState } from "react";
+import { useProducts } from "../../features/product/hook/useProducts";
+import { useAuth } from "../../features/auth/context/UserContext";
 
 // ⭐ Updated Star Component (Handles both filled and outlined pink stars)
-const StarRating = ({ rating, size = "w-4 h-4" }) => {
+const StarRating = ({ rating, size = "w-4 h-4", interactive = false, onHover, onClick }) => {
   return (
     <div className="flex space-x-1">
       {[1, 2, 3, 4, 5].map((star) => (
         <svg
           key={star}
-          className={`${size} text-[#e6007e]`} // Matching the exact pink shade
+          className={`${size} text-[#e6007e] ${interactive ? "cursor-pointer transition-transform hover:scale-110" : ""}`}
           fill={star <= rating ? "currentColor" : "none"}
           stroke={star <= rating ? "none" : "currentColor"}
           strokeWidth={star <= rating ? "0" : "1.5"}
-          viewBox="0 0 24 24">
+          viewBox="0 0 24 24"
+          onMouseEnter={() => interactive && onHover && onHover(star)}
+          onMouseLeave={() => interactive && onHover && onHover(0)}
+          onClick={() => interactive && onClick && onClick(star)}
+        >
           <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
         </svg>
       ))}
@@ -19,45 +25,46 @@ const StarRating = ({ rating, size = "w-4 h-4" }) => {
   );
 };
 
-// 🧪 Static Data (Updated to resemble the screenshot's state)
-const mockReviews = [
-  {
-    id: 1,
-    rating: 4,
-    date: "2026-02-27",
-    author: "N Raval",
-    isVerified: true,
-    text: "It's fine... I could have taken a smaller size but then the joint in the fabric above the chest level would have been too tight. Considering how loose the rest of the top is the section at the joint should have been a bit looser than it is . . This is a comment / view as I know tailoring.",
-  },
-  {
-    id: 2,
-    rating: 5,
-    date: "2026-01-15",
-    author: "Aparna",
-    isVerified: true,
-    text: "Great fit! And beautiful.",
-  },
-];
-
-// 🔁 Transform Logic (calculating average exactly like the image)
-const transformReviews = (reviews) => {
-  const totalReviews = 13; // Hardcoded to match the 13 reviews from your image distribution
-  const ratingDistribution = { 5: 10, 4: 3, 3: 0, 2: 0, 1: 0 };
-
-  let total = 10 * 5 + 3 * 4; // 50 + 12 = 62
-
-  return {
-    averageRating: totalReviews ? (total / totalReviews).toFixed(2) : 0,
-    totalReviews,
-    ratingDistribution,
-    reviews,
-  };
-};
-
-const CustomerReviews = () => {
+const CustomerReviews = ({ product }) => {
   const [sort, setSort] = useState("recent");
-  const data = useMemo(() => transformReviews(mockReviews), []);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  
+  // Review Form State
+  const [rating, setRating] = useState(0);
+  const [hoverRating, setHoverRating] = useState(0);
+  const [text, setText] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
+  const { addReview } = useProducts();
+  const { user } = useAuth(); // Assuming this returns { user } or { currentUser }
+
+  // 1. DYNAMIC DATA TRANSFORM
+  const data = useMemo(() => {
+    const reviews = Array.isArray(product?.reviews) ? product.reviews : [];
+    
+    // Distribution
+    const dist = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+    reviews.forEach(r => {
+      if (r.rating && dist[r.rating] !== undefined) {
+        dist[r.rating]++;
+      }
+    });
+
+    const totalReviews = reviews.length;
+    const avg = totalReviews 
+      ? (reviews.reduce((acc, curr) => acc + curr.rating, 0) / totalReviews).toFixed(2)
+      : 0;
+
+    return {
+      averageRating: avg,
+      totalReviews,
+      ratingDistribution: dist,
+      reviews,
+    };
+  }, [product]);
+
+  // 2. SORTING
   const sortedReviews = useMemo(() => {
     const arr = [...data.reviews];
     if (sort === "recent")
@@ -73,14 +80,51 @@ const CustomerReviews = () => {
     return `${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}/${date.getFullYear()}`;
   };
 
+  // 3. SUBMIT HANDLER
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (rating === 0) {
+      setErrorMsg("Please select a rating star.");
+      return;
+    }
+    
+    setErrorMsg("");
+    setIsSubmitting(true);
+
+    try {
+      const reviewPayload = {
+        rating,
+        text: text.trim(),
+        author: user?.displayName || user?.name || "Verified Customer",
+        userId: user?.uid || user?.id || null,
+        isVerified: !!user,
+      };
+
+      await addReview(product.id, reviewPayload);
+      
+      // Reset form
+      setRating(0);
+      setText("");
+      setIsFormOpen(false);
+      alert("Thank you for your review!");
+
+    } catch (error) {
+      console.error(error);
+      setErrorMsg("Failed to submit review. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="max-w-5xl mx-auto p-6 font-sans text-gray-800">
       <h2 className="text-[22px] font-medium text-center mb-8">
         Customer Reviews
       </h2>
 
-      {/* Summary Section */}
+      {/* ── Summary Section ── */}
       <div className="flex flex-col md:flex-row items-center justify-center md:gap-12 gap-8 mb-4 pb-8 border-b border-gray-100">
+        
         {/* Left: Overall Rating */}
         <div className="flex flex-col items-center md:items-end justify-center min-w-[200px]">
           <div className="flex items-center gap-3 mb-1">
@@ -136,103 +180,156 @@ const CustomerReviews = () => {
 
         {/* Right: Write Review Button */}
         <div className="min-w-[200px] flex justify-center">
-          <button className="bg-black text-white px-8 py-3 text-sm font-bold uppercase tracking-wider hover:bg-gray-800 transition-colors">
-            Write a Review
+          <button 
+            onClick={() => setIsFormOpen(!isFormOpen)}
+            className="bg-black text-white px-8 py-3 text-sm font-bold uppercase tracking-wider hover:bg-gray-800 transition-colors"
+          >
+            {isFormOpen ? "Cancel Review" : "Write a Review"}
           </button>
         </div>
       </div>
 
-      {/* Sort Section */}
-      <div className="flex justify-start border-b border-gray-100 pb-2 mb-6 relative">
-        <select
-          value={sort}
-          onChange={(e) => setSort(e.target.value)}
-          className="appearance-none bg-transparent cursor-pointer text-sm font-medium pr-6 focus:outline-none">
-          <option value="recent">Most Recent</option>
-          <option value="highest">Highest Rated</option>
-          <option value="lowest">Lowest Rated</option>
-        </select>
-        {/* Custom Chevron for select */}
-        <svg
-          className="w-4 h-4 absolute left-[88px] top-1 pointer-events-none"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M19 9l-7 7-7-7"
-          />
-        </svg>
-      </div>
+      {/* ── Write a Review Form ── */}
+      {isFormOpen && (
+        <div className="mb-10 bg-gray-50 p-6 rounded-lg animate-in fade-in slide-in-from-top-4 duration-300">
+          <h3 className="text-[16px] font-bold mb-4">Leave Your Review</h3>
+          
+          {errorMsg && (
+            <div className="mb-4 text-red-500 text-[13px] font-medium bg-red-50 p-3 rounded">
+              {errorMsg}
+            </div>
+          )}
 
-      {/* Reviews List */}
-      <div className="space-y-8">
-        {sortedReviews.map((review) => (
-          <div
-            key={review.id}
-            className="border-b border-gray-100 pb-8 last:border-0">
-            <div className="flex justify-between items-start mb-4">
-              <StarRating rating={review.rating} />
-              <span className="text-[13px] text-gray-400">
-                {formatDate(review.date)}
-              </span>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+            <div>
+              <label className="block text-[13px] font-medium text-gray-700 mb-2">Overall Rating *</label>
+              <StarRating 
+                rating={hoverRating || rating} 
+                size="w-8 h-8"
+                interactive={true}
+                onHover={(val) => setHoverRating(val)}
+                onClick={(val) => setRating(val)}
+              />
+            </div>
+            
+            <div>
+              <label className="block text-[13px] font-medium text-gray-700 mb-2">Review (Optional)</label>
+              <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                className="w-full bg-white border border-gray-200 p-3 rounded focus:outline-none focus:border-black text-[14px]"
+                rows="4"
+                placeholder="What did you love? How was the fit?"
+              />
             </div>
 
-            <div className="flex items-center gap-3 mb-4">
-              {/* Avatar Icon Box */}
-              <div className="relative">
-                <div className="w-10 h-10 bg-gray-100 rounded-sm flex items-center justify-center text-gray-600">
-                  <svg
-                    className="w-6 h-6"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                    viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
-                    />
-                  </svg>
-                </div>
-                {/* Tiny Avatar Checkmark */}
-                {review.isVerified && (
-                  <div className="absolute -bottom-1 -right-1 bg-black rounded-sm w-3.5 h-3.5 flex items-center justify-center">
-                    <svg
-                      className="w-2.5 h-2.5 text-white"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={3}
-                      viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M4.5 12.75l6 6 9-13.5"
-                      />
-                    </svg>
-                  </div>
-                )}
-              </div>
-
-              {/* Author & Badge */}
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-[15px]">{review.author}</span>
-                {review.isVerified && (
-                  <span className="bg-black text-white text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-sm">
-                    Verified
-                  </span>
-                )}
-              </div>
+            <div className="flex justify-end">
+              <button 
+                type="submit"
+                disabled={isSubmitting}
+                className="bg-[#e6007e] text-white px-8 py-3 text-sm font-bold uppercase tracking-wider hover:bg-[#d00070] transition-colors disabled:opacity-50"
+              >
+                {isSubmitting ? "Submitting..." : "Submit Review"}
+              </button>
             </div>
+          </form>
+        </div>
+      )}
 
-            <p className="text-[14px] text-gray-700 leading-relaxed">
-              {review.text}
-            </p>
+      {/* ── Sort Section ── */}
+      {data.totalReviews > 0 && (
+        <>
+          <div className="flex justify-start border-b border-gray-100 pb-2 mb-6 relative">
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value)}
+              className="appearance-none bg-transparent cursor-pointer text-sm font-medium pr-6 focus:outline-none">
+              <option value="recent">Most Recent</option>
+              <option value="highest">Highest Rated</option>
+              <option value="lowest">Lowest Rated</option>
+            </select>
+            {/* Custom Chevron for select */}
+            <svg
+              className="w-4 h-4 absolute left-[88px] top-1 pointer-events-none"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
           </div>
-        ))}
-      </div>
+
+          {/* ── Reviews List ── */}
+          <div className="space-y-8">
+            {sortedReviews.map((review) => (
+              <div
+                key={review.id}
+                className="border-b border-gray-100 pb-8 last:border-0">
+                <div className="flex justify-between items-start mb-4">
+                  <StarRating rating={review.rating} />
+                  <span className="text-[13px] text-gray-400">
+                    {formatDate(review.date)}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-3 mb-4">
+                  {/* Avatar Icon Box */}
+                  <div className="relative">
+                    <div className="w-10 h-10 bg-gray-100 rounded-sm flex items-center justify-center text-gray-600">
+                      <span className="font-bold text-[16px] uppercase">
+                        {review.author ? review.author[0] : "A"}
+                      </span>
+                    </div>
+                    {/* Tiny Avatar Checkmark */}
+                    {review.isVerified && (
+                      <div className="absolute -bottom-1 -right-1 bg-black rounded-sm w-3.5 h-3.5 flex items-center justify-center">
+                        <svg
+                          className="w-2.5 h-2.5 text-white"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth={3}
+                          viewBox="0 0 24 24">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M4.5 12.75l6 6 9-13.5"
+                          />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Author & Badge */}
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-[15px]">{review.author}</span>
+                    {review.isVerified && (
+                      <span className="bg-black text-white text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-sm">
+                        Verified
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {review.text && (
+                  <p className="text-[14px] text-gray-700 leading-relaxed">
+                    {review.text}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {data.totalReviews === 0 && (
+        <div className="text-center py-10 text-gray-500">
+          <p>No reviews yet. Be the first to review this product!</p>
+        </div>
+      )}
     </div>
   );
 };

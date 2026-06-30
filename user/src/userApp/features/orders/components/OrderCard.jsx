@@ -164,8 +164,11 @@ const OrderCard = ({
   const navigate = navProp || nav;
 
   const orderId = order?.id || order?.orderId;
-  const amount = order?.totalAmount || 0;
-  const customerName = order?.addressSnapshot?.name;
+  const amount = order?.pricing?.total ?? order?.totalAmount ?? 0;
+  const customerName =
+    order?.shippingAddress?.fullName ??
+    order?.customer?.name ??
+    order?.addressSnapshot?.name;
 
   const isCancelled = order.orderStatus === "cancelled";
   const isDelivered = order.orderStatus === "delivered";
@@ -197,8 +200,10 @@ const OrderCard = ({
       : [];
 
   const showConfirmButton =
-    order.paymentStatus?.toLowerCase() === "pending" ||
-    order.orderStatus === "placed";
+    (order.payment?.status ?? order.paymentStatus)?.toLowerCase() ===
+      "pending" ||
+    order.orderStatus === "placed" ||
+    order.orderStatus === "pending";
 
   return (
     <div className="bg-white  overflow-hidden w-full s mb-4 sm:mb-6">

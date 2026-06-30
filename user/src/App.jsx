@@ -6,6 +6,7 @@ import { AuthProvider } from "./userApp/features/auth/context/UserContext";
 import { CartProvider } from "./userApp/features/cart/context/CartContext";
 import { WishlistProvider } from "./userApp/features/wishList/context/WishlistContext";
 import { TaruvedaCartProvider } from "./userApp/context/TaruvedaCartContext";
+import { OrderProvider } from "./userApp/features/orders/context/Ordercontext";
 
 const App = () => {
   // (function () {
@@ -53,9 +54,12 @@ const App = () => {
       <AuthProvider>
         <CartProvider>
           <WishlistProvider>
-            <TaruvedaCartProvider>
-              <AppRoutes />
-            </TaruvedaCartProvider>
+            <OrderProvider>
+              {" "}
+              <TaruvedaCartProvider>
+                <AppRoutes />
+              </TaruvedaCartProvider>
+            </OrderProvider>
           </WishlistProvider>
         </CartProvider>
       </AuthProvider>

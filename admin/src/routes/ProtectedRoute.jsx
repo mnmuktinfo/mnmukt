@@ -1,24 +1,35 @@
-// routes/ProtectedRoute.jsx
-import React from "react";
-import { Navigate } from "react-router-dom";
-import { useAdminAuth } from "../context/AdminAuthContext"; // adjust path
+import React, { useEffect } from "react";
+import { Navigate, useLocation } from "react-router-dom";
+import { useAdminAuth } from "../context/AdminAuthContext";
 
+/**
+ * ProtectedRoute - Guards routes that require authentication
+ * Redirects to /auth if user is not authorized
+ */
 export const ProtectedRoute = ({ children }) => {
-  const { isAuthorized, loading } = useAdminAuth();
-  console.log(isAuthorized);
+  const { isAuthorized, loading, admin } = useAdminAuth();
+  const location = useLocation();
 
+  // Show loading state
   if (loading) {
-    // Show your spinner/loading UI while auth state is being verified
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-gray-200 border-t-[#2874f0] rounded-full animate-spin"></div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+        <div className="text-center">
+          <div className="w-12 h-12 border-3 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-white/80">Loading dashboard...</p>
+        </div>
       </div>
     );
   }
 
-  if (!isAuthorized) {
-    return <Navigate to="/auth" replace />;
+  // Check authorization
+  if (!isAuthorized || !admin) {
+    // Save the location they were trying to access
+    return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
-  return children;
+  // Render protected content
+  return <>{children}</>;
 };
+
+export default ProtectedRoute;

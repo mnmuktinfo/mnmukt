@@ -10,20 +10,92 @@ import {
 const PRESET_SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
 
 const INITIAL_PRODUCT = {
+  // Basic Info
   name: "",
+  shortDescription: "",
   description: "",
+  sku: "",
+  brand: "",
+  categoryId: "",
+  subcategoryId: "",
+  collectionTypes: [],
+  tags: "",
+  gender: "Unisex",
+  season: "All Season",
+  
+  // Status
+  isActive: true,
+  isFeatured: false,
+  isTrending: false,
+  isNewArrival: false,
+  isBestSeller: false,
+
+  // Pricing & Inventory
   price: "",
   originalPrice: "",
+  taxRate: "",
   stock: "",
+  lowStockThreshold: "",
+
+  // Media
   banner: "",
-  categoryId: "",
-  collectionTypes: [],
+  hoverImage: "",
+  videoUrl: "",
   images: [],
-  colors: [],
-  sizes: [],
+
+  // Physical Attributes
   material: "",
-  brand: "",
-  isActive: true,
+  pattern: "",
+  fit: "",
+  sleeve: "",
+  neckline: "",
+  length: "",
+  style: "",
+  occasion: "",
+  transparency: "",
+  stretch: "",
+  countryOfOrigin: "India",
+
+  // Dynamic Arrays
+  colors: [], // { name, image, hex }
+  sizes: [],  // Currently string[], will be updated to objects in UI later if needed or kept simple
+  specifications: [], // { label, value }
+  highlights: [],     // { icon, title, description }
+  offers: [],         // { title, description, type }
+
+  // Shipping
+  shipping: {
+    codAvailable: true,
+    shipsInDays: "2",
+    isFreeShipping: false,
+    shippingCharges: "",
+    weightGm: "",
+    dimensions: ""
+  },
+
+  // Policies
+  policies: {
+    returnPolicy: "7 Days Easy Returns",
+    exchangePolicy: "7 Days Exchange",
+    washCare: "Machine wash cold"
+  },
+
+  // SEO
+  seo: {
+    metaTitle: "",
+    metaDescription: "",
+    metaKeywords: "",
+    canonicalUrl: ""
+  },
+
+  // Custom Badges
+  customTags: {
+    isHandmade: false,
+    isOrganic: false,
+    isArtisanMade: false,
+    isSustainable: false,
+    isLimitedEdition: false
+  }
 };
 
 const generateSlug = (name) => {
@@ -79,6 +151,14 @@ export const useProductForm = () => {
           colors: data.colors ?? [],
           sizes: data.sizes ?? [],
           collectionTypes: data.collectionTypes ?? [],
+          specifications: data.specifications ?? [],
+          highlights: data.highlights ?? [],
+          offers: data.offers ?? [],
+          sku: data.sku ?? "",
+          shipping: { ...INITIAL_PRODUCT.shipping, ...(data.shipping || {}) },
+          policies: { ...INITIAL_PRODUCT.policies, ...(data.policies || {}) },
+          seo: { ...INITIAL_PRODUCT.seo, ...(data.seo || {}) },
+          customTags: { ...INITIAL_PRODUCT.customTags, ...(data.customTags || {}) },
         });
       } catch (err) {
         setError("Could not load this product.");
@@ -94,13 +174,24 @@ export const useProductForm = () => {
      Field change
   ───────────────────────────── */
   const handleChange = useCallback((e) => {
-    const { name, value } = e.target;
-    setProduct((p) => ({
-      ...p,
-      [name]: value,
-    }));
-    // Clear errors when the user starts typing again
-    setError(null); 
+    const { name, value, type, checked } = e.target;
+    const finalValue = type === "checkbox" ? checked : value;
+
+    setProduct((p) => {
+      // Support for nested paths like "seo.metaTitle"
+      if (name.includes(".")) {
+        const [parent, child] = name.split(".");
+        return {
+          ...p,
+          [parent]: {
+            ...p[parent],
+            [child]: finalValue
+          }
+        };
+      }
+      return { ...p, [name]: finalValue };
+    });
+    setError(null);
   }, []);
 
   /* ─────────────────────────────
@@ -213,6 +304,31 @@ const handleColorImageUpload = async (e, idx) => {
   };
 
   /* ─────────────────────────────
+     Dynamic Arrays (Specs, Highlights, Offers)
+  ───────────────────────────── */
+  const addDynamicItem = (arrayName, initialObj) => {
+    setProduct((p) => ({
+      ...p,
+      [arrayName]: [...(p[arrayName] || []), initialObj]
+    }));
+  };
+
+  const updateDynamicItem = (arrayName, index, field, value) => {
+    setProduct((p) => {
+      const newArray = [...(p[arrayName] || [])];
+      newArray[index] = { ...newArray[index], [field]: value };
+      return { ...p, [arrayName]: newArray };
+    });
+  };
+
+  const removeDynamicItem = (arrayName, index) => {
+    setProduct((p) => ({
+      ...p,
+      [arrayName]: (p[arrayName] || []).filter((_, i) => i !== index)
+    }));
+  };
+
+  /* ─────────────────────────────
      Submit
   ───────────────────────────── */
   const handleSubmit = async () => {
@@ -229,6 +345,10 @@ const handleColorImageUpload = async (e, idx) => {
       setError("Please enter a valid selling price.");
       return;
     }
+    if (!product.sku.trim()) {
+      setError("Product SKU is required for order tracking.");
+      return;
+    }
 
     try {
       setLoading(true);
@@ -237,6 +357,7 @@ const handleColorImageUpload = async (e, idx) => {
       const payload = {
         ...product,
         slug: generateSlug(product.name),
+        sku: product.sku.trim().toUpperCase(),
         price: Number(product.price),
         originalPrice: Number(product.originalPrice) || Number(product.price),
         stock: Number(product.stock) || 0,
@@ -284,7 +405,11 @@ const handleColorImageUpload = async (e, idx) => {
 
     togglePresetSize,
     addCustomSize,
-    removeSize, // ✅ NEW: Exported here
+    removeSize,
+
+    addDynamicItem,
+    updateDynamicItem,
+    removeDynamicItem,
 
     customSizeInput,
     setCustomSizeInput,

@@ -60,26 +60,31 @@ export const productService = {
     try {
 
       const product = {
+        ...productData, // Base spread for all new fields (SEO, Shipping, etc.)
+
         name: productData.name ?? "",
         slug: productData.slug ?? "",
+        sku: productData.sku ?? "",
         description: productData.description ?? "",
-
         banner: productData.banner ?? "",
-        images: Array.isArray(productData.images) ? productData.images : [],
 
         price: Number(productData.price) || 0,
         originalPrice: Number(productData.originalPrice) || 0,
         stock: Number(productData.stock) || 0,
 
-        sizes: Array.isArray(productData.sizes) ? productData.sizes : [],
-        colors: Array.isArray(productData.colors) ? productData.colors : [],
-
+        // Core relations
         categoryId: productData.categoryId ?? "",
 
-        // ARRAY SUPPORT
-        collectionTypes: Array.isArray(productData.collectionTypes)
-          ? productData.collectionTypes
-          : [],
+        // Arrays
+        images: Array.isArray(productData.images) ? productData.images : [],
+        sizes: Array.isArray(productData.sizes) ? productData.sizes : [],
+        colors: Array.isArray(productData.colors) ? productData.colors : [],
+        collectionTypes: Array.isArray(productData.collectionTypes) ? productData.collectionTypes : [],
+        
+        // New Dynamic Arrays
+        specifications: Array.isArray(productData.specifications) ? productData.specifications : [],
+        highlights: Array.isArray(productData.highlights) ? productData.highlights : [],
+        offers: Array.isArray(productData.offers) ? productData.offers : [],
 
         isActive: productData.isActive ?? true,
 
@@ -141,21 +146,7 @@ export const productService = {
 
         return {
           id: d.id,
-          name: data.name,
-          slug: data.slug,
-          banner: data.banner,
-          price: data.price,
-          originalPrice: data.originalPrice,
-          stock: data.stock,
-          sizes: data.sizes,
-          colors: data.colors,
-          categoryId: data.categoryId,
-
-          // UPDATED
-          collectionTypes: data.collectionTypes,
-
-          isActive: data.isActive,
-          createdAt: data.createdAt,
+          ...data,
         };
       });
 
@@ -244,6 +235,24 @@ export const productService = {
     if ("colors" in productData) {
       updates.colors = Array.isArray(productData.colors)
         ? productData.colors
+        : [];
+    }
+    
+    if ("specifications" in productData) {
+      updates.specifications = Array.isArray(productData.specifications)
+        ? productData.specifications
+        : [];
+    }
+    
+    if ("highlights" in productData) {
+      updates.highlights = Array.isArray(productData.highlights)
+        ? productData.highlights
+        : [];
+    }
+    
+    if ("offers" in productData) {
+      updates.offers = Array.isArray(productData.offers)
+        ? productData.offers
         : [];
     }
 

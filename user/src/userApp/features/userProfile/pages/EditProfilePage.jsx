@@ -108,10 +108,10 @@ const EditProfilePage = () => {
     if (address) {
       setForm((p) => ({
         ...p,
-        addressLine1: address.line1 ?? "",
+        addressLine1: address.addressLine1 ?? address.line1 ?? "",
         city: address.city ?? "",
         state: address.state ?? "",
-        pincode: address.pincode ?? "",
+        pincode: address.postalCode ?? address.pincode ?? "",
       }));
     }
   }, [user, address]);
@@ -131,9 +131,13 @@ const EditProfilePage = () => {
       if (form.addressLine1 || form.city) {
         const saved = await saveAddress({
           line1: form.addressLine1,
+          addressLine1: form.addressLine1,
           city: form.city,
           state: form.state,
           pincode: form.pincode,
+          postalCode: form.pincode,
+          name: form.name,
+          fullName: form.name,
           id: address?.id ?? null,
         });
         finalAddressId = saved.id;

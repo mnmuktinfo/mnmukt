@@ -1,15 +1,15 @@
 export const categoryMenuItems = [
-  { label: "New Arrivals", path: "/new-in" },
+  { label: "New Arrivals", path: "/collections/new-in" },
 
   // WOMEN MAIN CATEGORIES
-  { label: "Women's Wear", path: "/women" },
-  { label: "Kurtas & Sets", path: "/women/kurtas-sets" },
-  { label: "Suits & Anarkalis", path: "/women/suits" },
-  { label: "Dresses", path: "/women/dresses" },
-  // { label: "Sarees", path: "/women/sarees" },
-  { label: "Co-ords", path: "/women/coord-sets" },
-  { label: "Bottomwear", path: "/women/bottomwear" },
-  { label: "Winterwear", path: "/women/winter" },
+  { label: "Women's Wear", path: "/collections/women" },
+  { label: "Kurtas & Sets", path: "/collections/kurtas-sets" },
+  { label: "Suits & Anarkalis", path: "/collections/suits" },
+  { label: "Dresses", path: "/collections/dresses" },
+  // { label: "Sarees", path: "/collections/sarees" },
+  { label: "Co-ords", path: "/collections/coord-sets" },
+  { label: "Bottomwear", path: "/collections/bottomwear" },
+  { label: "Winterwear", path: "/collections/winter" },
 
   // BEAUTY & WELLNESS
   {

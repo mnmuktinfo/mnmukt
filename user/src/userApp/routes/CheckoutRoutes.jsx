@@ -2,12 +2,14 @@ import { Suspense, lazy } from "react";
 import { Route, Routes } from "react-router-dom";
 import CheckoutLayout from "../layouts/CheckoutLayout";
 import LoadingScreen from "../components/loading/LoadingScreen";
+import SingleItemCheckout from "../pages/Singleitemcheckout";
 
-/* ─── Lazy: Checkout Pages ───────────────────────────────────────────────── */
+/* ─── Lazy: Checkout Pages ─────────────────────────────────────────────── */
 const CartPage = lazy(() => import("../features/cart/pages/CartPage"));
 const AddressPage = lazy(() => import("../pages/AddressPage"));
+const Singleitemcheckout = lazy(() => import("../pages/Singleitemcheckout"));
 
-/* ─── Inline Loader ──────────────────────────────────────────────────────── */
+/* ─── Inline Loader ─────────────────────────────────────────────────────── */
 const InlineLoader = () => (
   <div className="flex items-center justify-center min-h-[60vh] w-full bg-[#f4f4f5]">
     <LoadingScreen text="Loading..." />
@@ -18,6 +20,7 @@ const CheckoutRoutes = () => {
   return (
     <Routes>
       <Route path="/" element={<CheckoutLayout />}>
+        {/* 🛒 CART CHECKOUT */}
         <Route
           index
           element={
@@ -26,6 +29,7 @@ const CheckoutRoutes = () => {
             </Suspense>
           }
         />
+
         <Route
           path="cart"
           element={
@@ -34,6 +38,8 @@ const CheckoutRoutes = () => {
             </Suspense>
           }
         />
+
+        {/* 📦 ADDRESS STEP */}
         <Route
           path="address"
           element={

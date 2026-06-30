@@ -35,7 +35,6 @@ export default function AdminCategories() {
       setLoading(true);
       const response = await fetchCategories(reset ? null : lastDoc);
 
-      console.log("Categories fetched:", response.data);
 
       setCategories((prev) =>
         reset ? response.data : [...prev, ...response.data],

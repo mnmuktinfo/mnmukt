@@ -21,7 +21,7 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import { productService } from "./Productservice";
+import { productService } from "../product/services/ProductService";
 
 /* ─────────────────────────────────────────────────────
    URL FILTER PARSER

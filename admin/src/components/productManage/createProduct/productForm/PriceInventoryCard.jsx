@@ -11,7 +11,23 @@ const PriceInventoryCard = ({ product, handleChange, discount }) => {
 
   return (
     <Card icon={DollarSign} title="Pricing & Inventory">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* SKU (Stock Keeping Unit) */}
+        <div>
+          <FieldLabel required subtitle="Unique identifier for orders.">
+            SKU
+          </FieldLabel>
+          <div className="mt-1">
+            <Input
+              name="sku"
+              value={product.sku || ""}
+              onChange={handleChange}
+              placeholder="e.g. SHIRT-BLU-M"
+              className={`${inputClasses} uppercase`}
+            />
+          </div>
+        </div>
+
         {/* Selling Price */}
         <div>
           <FieldLabel required subtitle="Final price for the customer.">

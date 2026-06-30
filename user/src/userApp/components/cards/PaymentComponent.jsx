@@ -1,6 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
 import { ShieldCheck, Banknote } from "lucide-react";
 
+import {
+  CreditCard,
+  MessageCircle,
+  DollarSign,
+  CheckCircle2,
+} from "lucide-react";
+
 /*
   Fixes vs original:
   ──────────────────────────────────────────────────────────
@@ -53,124 +60,140 @@ const METHODS = {
 ──────────────────────────────────────── */
 
 const PaymentSelector = ({
-  availableMethods = ["cod", "whatsapp"],
+  availableMethods = ["razorpay", "cod", "whatsapp"],
+  defaultMethod = "razorpay",
   onSelectPayment,
-  defaultMethod = "cod",
 }) => {
-  const [selected, setSelected] = useState(
-    // If defaultMethod isn't in available list, fall back to first available
-    availableMethods.includes(defaultMethod)
-      ? defaultMethod
-      : availableMethods[0],
-  );
+  const [selectedMethod, setSelectedMethod] = React.useState(defaultMethod);
 
-  // ✅ Stable ref — callback changes in parent don't cause re-fires
-  const callbackRef = useRef(onSelectPayment);
-  useEffect(() => {
-    callbackRef.current = onSelectPayment;
-  }, [onSelectPayment]);
-
-  // Fire once on mount so parent always knows the initial selection
-  useEffect(() => {
-    callbackRef.current?.(selected);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // intentionally empty — fire once only
-
-  const handleSelect = (method) => {
-    if (method === selected) return; // no-op if already selected
-    setSelected(method);
-    callbackRef.current?.(method);
+  const paymentMethods = {
+    razorpay: {
+      id: "razorpay",
+      name: "Razorpay",
+      description: "Secure online payment",
+      subtext: "Credit Card, Debit Card, UPI, Wallets",
+      icon: CreditCard,
+      badge: "Recommended",
+      badgeColor: "bg-blue-100 text-blue-700",
+      color: "hover:border-blue-300 hover:bg-blue-50",
+      borderColor: "border-blue-200",
+    },
+    cod: {
+      id: "cod",
+      name: "Cash on Delivery",
+      description: "Pay when order arrives",
+      subtext: "No charges for payment",
+      icon: DollarSign,
+      badge: null,
+      badgeColor: "",
+      color: "hover:border-green-300 hover:bg-green-50",
+      borderColor: "border-green-200",
+    },
+    whatsapp: {
+      id: "whatsapp",
+      name: "WhatsApp Pay",
+      description: "Confirm via WhatsApp",
+      subtext: "Quick and convenient",
+      icon: MessageCircle,
+      badge: null,
+      badgeColor: "",
+      color: "hover:border-emerald-300 hover:bg-emerald-50",
+      borderColor: "border-emerald-200",
+    },
   };
 
-  const visibleMethods = availableMethods.filter((m) => METHODS[m]);
-  const isSingle = visibleMethods.length === 1;
+  const handleSelect = (method) => {
+    setSelectedMethod(method);
+    onSelectPayment?.(method);
+  };
+
+  const filteredMethods = availableMethods
+    .map((key) => paymentMethods[key])
+    .filter(Boolean);
 
   return (
-    <div className="bg-white border border-gray-100  overflow-hidden">
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-gray-100">
-        <p className=" text-[12px] sm:text-[12px] font-bold text-gray-700 uppercase tracking-wide">
-          Payment method
-        </p>
-      </div>
-
-      {/* Options — always visible inline, no modal */}
-      {visibleMethods.map((method, idx) => {
-        const cfg = METHODS[method];
-        const isSelected = selected === method;
-        const isLast = idx === visibleMethods.length - 1;
+    <div className="space-y-3">
+      {filteredMethods.map((method) => {
+        const Icon = method.icon;
+        const isSelected = selectedMethod === method.id;
 
         return (
           <label
-            key={method}
-            className={`flex items-center gap-3 px-4 py-3.5 cursor-pointer transition-colors ${
-              isSelected ? "" : "hover:bg-gray-50" // Removed bg-[#fff7fb]
-            } ${!isLast ? "border-b border-gray-100" : ""}`}
-            style={{ cursor: isSingle ? "default" : "pointer" }}>
-            {/* Hidden radio */}
+            key={method.id}
+            className={`flex items-start gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 ${
+              isSelected
+                ? `border-[#f43397] bg-[#fff0f5] shadow-md shadow-[#f43397]/10`
+                : `border-gray-200 bg-white ${method.color}`
+            }`}>
             <input
               type="radio"
               name="payment-method"
-              value={method}
+              value={method.id}
               checked={isSelected}
-              onChange={() => !isSingle && handleSelect(method)}
-              className="sr-only"
+              onChange={() => handleSelect(method.id)}
+              className="hidden"
             />
 
-            {/* Custom radio dot */}
-            {!isSingle && (
+            {/* Radio Button */}
+            <div className="flex-shrink-0 mt-0.5">
               <div
-                className="shrink-0 w-[18px] h-[18px] rounded-full flex items-center justify-center transition-all"
-                style={{
-                  border: isSelected
-                    ? "2px solid #f43397"
-                    : "1.5px solid #d1d5db",
-                }}>
+                className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                  isSelected
+                    ? "border-[#f43397] bg-[#f43397]"
+                    : "border-gray-300 bg-white"
+                }`}>
                 {isSelected && (
-                  <div className="w-2 h-2 rounded-full bg-[#f43397]" />
+                  <CheckCircle2 size={16} className="text-white" />
                 )}
               </div>
-            )}
-
-            {/* Icon */}
-            <div
-              className="shrink-0 w-9 h-9 rounded-[10px] flex items-center justify-center"
-              style={{
-                backgroundColor: cfg.iconBg,
-                color: cfg.iconColor,
-              }}>
-              {cfg.icon}
             </div>
 
-            {/* Text */}
+            {/* Content */}
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-[14px] font-medium text-gray-900">
-                  {cfg.label}
-                </span>
-                {cfg.badge && (
-                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-green-100 text-green-700 uppercase tracking-wide">
-                    {cfg.badge}
+              <div className="flex items-center gap-2 mb-1">
+                <Icon
+                  size={18}
+                  className={`flex-shrink-0 ${
+                    isSelected ? "text-[#f43397]" : "text-gray-400"
+                  }`}
+                />
+                <h3
+                  className={`font-semibold text-sm ${
+                    isSelected ? "text-[#f43397]" : "text-gray-900"
+                  }`}>
+                  {method.name}
+                </h3>
+                {method.badge && (
+                  <span
+                    className={`ml-auto text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap flex-shrink-0 ${method.badgeColor}`}>
+                    {method.badge}
                   </span>
                 )}
               </div>
-              <p className="text-[12px] text-gray-500 mt-0.5">
-                {cfg.description}
+              <p className="text-xs text-gray-600 leading-relaxed">
+                {method.description}
               </p>
+              <p className="text-xs text-gray-500 mt-1">{method.subtext}</p>
             </div>
-
-            {/* Selected badge */}
-            {isSelected && (
-              <span className="shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded-md border border-[#f43397] text-[#c0005e]">
-                Selected
-              </span>
-            )}
           </label>
         );
       })}
+
+      {/* Info Message */}
+      <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+        <p className="text-xs text-gray-600 font-medium">
+          {selectedMethod === "razorpay"
+            ? "✓ Fastest & most secure. Supports all major payment methods."
+            : selectedMethod === "cod"
+              ? "✓ No upfront payment required. Pay when you receive your order."
+              : "✓ Simple confirmation via WhatsApp. Order support at your fingertips."}
+        </p>
+      </div>
     </div>
   );
 };
+
+PaymentSelector;
 
 // ✅ Dual export — works as both PaymentSelector and PaymentComponent
 export { PaymentSelector };

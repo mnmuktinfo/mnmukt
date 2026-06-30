@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 
 // ─── Heroicons (outline) ─────────────────────────────────────────────────────
 import {
@@ -292,7 +293,10 @@ const ProductDetailsPage = () => {
   const checkPincode = () => {
     const pin = pincode.trim();
     if (/^\d{6}$/.test(pin)) {
-      setPincodeMsg("✓ Delivery available — estimated 3–5 business days.");
+      const days = product.shipping?.shipsInDays || "3-5";
+      const isFree = product.shipping?.isFreeShipping;
+      const chargeText = isFree ? "Free Shipping" : `Shipping charges apply`;
+      setPincodeMsg(`✓ Delivery available in ${days} days. ${chargeText}.`);
     } else {
       setPincodeMsg("Please enter a valid 6-digit pincode.");
     }
@@ -336,6 +340,12 @@ const ProductDetailsPage = () => {
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-white font-sans text-gray-900 pb-24 md:pb-0 md:mt-5">
+      <Helmet>
+        <title>{product.seo?.metaTitle || `${product.name} | Mnmukt`}</title>
+        <meta name="description" content={product.seo?.metaDescription || product.description || `Buy ${product.name} at Mnmukt.`} />
+        {product.seo?.keywords && <meta name="keywords" content={product.seo.keywords} />}
+      </Helmet>
+      
       {/* ── Toast Notification ── */}
       {notification && (
         <Toast {...notification} onClose={() => setNotification(null)} />
@@ -458,47 +468,49 @@ const ProductDetailsPage = () => {
                 Inclusive of all taxes
               </p>
 
-              {/* ── 5. Available Offers (Matches Design) ── */}
-              <div className="mb-8">
-                <h3 className="text-[15px] text-gray-700 mb-3">
-                  Available Offers
-                </h3>
-                <div className="bg-[#f8f8f8] px-4 py-3.5 rounded flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-4">
-                    {/* Custom SVG for the Black Starburst Badge */}
-                    <svg
-                      className="w-8 h-8 flex-shrink-0"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg">
-                      <path
-                        d="M12 2L14.8 4.7L18.7 4.2L19.9 8L23.4 9.9L21.8 13.5L23.4 17.1L19.9 19L18.7 22.8L14.8 22.3L12 25L9.2 22.3L5.3 22.8L4.1 19L0.6 17.1L2.2 13.5L0.6 9.9L4.1 8L5.3 4.2L9.2 4.7L12 2Z"
-                        fill="black"
-                      />
-                      <text
-                        x="12"
-                        y="16.5"
-                        fill="white"
-                        fontSize="10"
-                        fontWeight="bold"
-                        textAnchor="middle">
-                        %
-                      </text>
-                    </svg>
-                    <div>
-                      <p className="text-[14px] font-bold text-gray-900">
-                        Buy 3 Get 15% off
-                      </p>
-                      <p className="text-[13px] text-gray-500 mt-0.5">
-                        Use Code: BUY3GET15
-                      </p>
-                    </div>
+              {/* ── 5. Available Offers (Dynamic) ── */}
+              {product.offers && product.offers.length > 0 && (
+                <div className="mb-8">
+                  <h3 className="text-[15px] text-gray-700 mb-3">
+                    Available Offers
+                  </h3>
+                  <div className="flex flex-col gap-3">
+                    {product.offers.map((offer, idx) => (
+                      <div key={idx} className="bg-[#f8f8f8] px-4 py-3.5 rounded flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-4">
+                          <svg
+                            className="w-8 h-8 flex-shrink-0"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg">
+                            <path
+                              d="M12 2L14.8 4.7L18.7 4.2L19.9 8L23.4 9.9L21.8 13.5L23.4 17.1L19.9 19L18.7 22.8L14.8 22.3L12 25L9.2 22.3L5.3 22.8L4.1 19L0.6 17.1L2.2 13.5L0.6 9.9L4.1 8L5.3 4.2L9.2 4.7L12 2Z"
+                              fill="black"
+                            />
+                            <text
+                              x="12"
+                              y="16.5"
+                              fill="white"
+                              fontSize="10"
+                              fontWeight="bold"
+                              textAnchor="middle">
+                              %
+                            </text>
+                          </svg>
+                          <div>
+                            <p className="text-[14px] font-bold text-gray-900">
+                              {offer.title}
+                            </p>
+                            <p className="text-[13px] text-gray-500 mt-0.5">
+                              {offer.description}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <span className="text-[14px] text-gray-500 font-medium hidden sm:block">
-                    3 / 3
-                  </span>
                 </div>
-              </div>
+              )}
 
               {/* ── 6. Color Variants ── */}
               {product.colors?.length > 0 && (
@@ -654,8 +666,31 @@ const ProductDetailsPage = () => {
                 </button>
               </div>
 
+              {/* ── 9.5 PRODUCT HIGHLIGHTS (Dynamic) ── */}
+              {product.highlights && product.highlights.length > 0 && (
+                <div className="mt-8 mb-8">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                    {product.highlights.map((hl, idx) => (
+                      <div key={idx} className="flex flex-col items-center text-center p-3 bg-gray-50 rounded-lg">
+                        {hl.icon ? (
+                          typeof hl.icon === "string" && hl.icon.startsWith("http") ? (
+                            <img src={hl.icon} alt={hl.title} className="w-8 h-8 mb-2 opacity-80" />
+                          ) : (
+                            <span className="text-2xl mb-1">{hl.icon}</span> // e.g., emoji or mapped icon
+                          )
+                        ) : (
+                          <StarSolid className="w-6 h-6 text-[#da127d] mb-2 opacity-80" />
+                        )}
+                        <span className="text-[13px] font-bold text-gray-900 leading-tight mb-1">{hl.title}</span>
+                        <span className="text-[11px] text-gray-500 leading-tight">{hl.description}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* ── 10. PRODUCT INFORMATION ACCORDIONS (Matches Pink Design) ── */}
-              <div className="mt-10">
+              <div className="mt-8">
                 <h2 className="text-[18px] sm:text-[20px] font-medium text-gray-900 mb-5">
                   Product Information
                 </h2>
@@ -688,25 +723,29 @@ const ProductDetailsPage = () => {
 
                     {openSection === "Description" && (
                       <div className="pb-6 pl-[54px] pr-4 text-[14px] text-gray-700 leading-relaxed animate-in slide-in-from-top-2 fade-in duration-200">
-                        <p className="mb-5">
-                          {product.details?.description ||
-                            "Detailed product description goes here. This beautiful piece is crafted with care and designed to make you stand out."}
-                        </p>
-                        {product.details?.specifications && (
-                          <div>
+                        {product.description ? (
+                          <div 
+                            className="product-description-html"
+                            dangerouslySetInnerHTML={{ __html: product.description }} 
+                          />
+                        ) : (
+                          <p className="mb-5 whitespace-pre-wrap">
+                            Detailed product description goes here. This beautiful piece is crafted with care and designed to make you stand out.
+                          </p>
+                        )}
+                        {product.specifications && product.specifications.length > 0 && (
+                          <div className="mt-6">
                             <h4 className="font-bold text-gray-900 mb-3 text-[14px]">
                               Specifications
                             </h4>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-8">
-                              {Object.entries(
-                                product.details.specifications,
-                              ).map(([key, value]) => (
-                                <div key={key} className="flex flex-col">
+                              {product.specifications.map((spec, idx) => (
+                                <div key={idx} className="flex flex-col border-b border-gray-100 pb-2">
                                   <span className="text-gray-400 text-[12px] uppercase tracking-wider mb-0.5">
-                                    {key}
+                                    {spec.label}
                                   </span>
                                   <span className="font-medium text-gray-900">
-                                    {value}
+                                    {spec.value}
                                   </span>
                                 </div>
                               ))}
@@ -746,18 +785,18 @@ const ProductDetailsPage = () => {
                     {openSection === "Fabric" && (
                       <div className="pb-6 pl-[54px] pr-4 text-[14px] text-gray-700 leading-relaxed animate-in slide-in-from-top-2 fade-in duration-200">
                         <ul className="list-disc pl-4 space-y-1.5 marker:text-gray-400">
-                          {product.details?.materialCare ? (
-                            product.details.materialCare
-                              .split("\n")
-                              .filter(Boolean)
-                              .map((line, idx) => <li key={idx}>{line}</li>)
-                          ) : (
-                            <>
-                              <li>Machine wash cold with like colors.</li>
-                              <li>Do not bleach or tumble dry.</li>
-                              <li>Warm iron if needed.</li>
-                            </>
-                          )}
+                          <li>Handloom-cotton (100% Cotton)</li>
+                          <li>Hand wash in cold water</li>
+                          <li>Use mild detergent</li>
+                          <li>Wash light colors together</li>
+                          <li>Dark colors may bleed; wash separately for the first few washes</li>
+                          <li>Hand-dyed (tie-dye) products might bleed during the first few washes. Kindly wash them separately</li>
+                          <li>Do not soak or wring</li>
+                          <li>Dry in shade; avoid direct sunlight to prevent fading</li>
+                          <li>Avoid ironing on embroidery</li>
+                          <li>Iron on low heat if needed</li>
+                          <li>No machine wash or dry clean</li>
+                          <li>Avoid strong detergents or fabric softeners to preserve fabric quality</li>
                         </ul>
                       </div>
                     )}
@@ -789,28 +828,27 @@ const ProductDetailsPage = () => {
                       </div>
                     </button>
 
-                    {openSection === "Return" && (
-                      <div className="pb-6 pl-[54px] pr-4 text-[14px] text-gray-700 leading-relaxed animate-in slide-in-from-top-2 fade-in duration-200">
-                        {product.details?.returnPolicy ? (
-                          <p>{product.details.returnPolicy}</p>
-                        ) : (
-                          <ul className="list-disc pl-4 space-y-2 marker:text-gray-400">
-                            <li>
-                              Return/exchange must be raised within 7 days of
-                              delivery.
-                            </li>
-                            <li>Original packaging and tags must be intact.</li>
-                            <li>
-                              Exchanges are free and available for both size and
-                              design.
-                            </li>
-                            <li>
-                              <strong>Refunds take 7–10 working days.</strong>
-                            </li>
-                          </ul>
-                        )}
+                      <div className="pb-6 pl-[54px] pr-4 text-[13px] text-gray-700 leading-relaxed animate-in slide-in-from-top-2 fade-in duration-200">
+                        <p className="font-semibold mb-3">NOTE FOR RETURN & EXCHANGE :</p>
+                        <ul className="list-disc pl-4 space-y-1.5 marker:text-gray-400 mb-6">
+                          <li>All 'Black Friday Sale', 'Birthday Sale' or 'Buy 2 Get 1 free' purchases are final and not eligible for return or exchange.</li>
+                          <li>The items should be unused and unwashed for hygiene reasons.</li>
+                          <li>We do not offer cashback. Refunds are only made in terms of a Store Credit.</li>
+                          <li>Items purchased for FREE during an offer, will not be accepted for returns.</li>
+                          <li>The product should have the original packaging and tags in place. Items without the original tags will not be accepted.</li>
+                          <li>Return/Exchange requests that are not raised within 7 DAYS of receiving the product would not be accepted.</li>
+                          <li>The product would be picked in 3-5 days after the return or exchange request is approved.</li>
+                          <li>Return charges would have to be borne by the customer.( Rs150/-)</li>
+                          <li>There are no charges for exchange. Exchanges are for size & design both, subject to availability.</li>
+                          <li>'On Sale' Products are not eligible for Return/Exchange.</li>
+                          <li>The credit note issued, will be valid for 1 year from the date of issuance.</li>
+                          <li>Misprints and colour differences from website images are not considered damaged products. We only sell handcrafted products and these are all signs of authenticity.</li>
+                          <li>Each order is eligible for a return/exchange only once.</li>
+                          <li>The company holds the authority to make the final decision in any case.</li>
+                          <li>Please note, products from our brand bought from other stores or marketplaces like Myntra are not eligible for any return or exchange at our store or on the website.</li>
+                        </ul>
+                        <p className="mb-6 uppercase"><strong>REFUNDS WILL TAKE 7-10 WORKING DAYS.</strong> Please Note: We only do money refunds in case of Wrong or Damaged products being delivered. In any other case, a refund is made only is terms of STORE CREDIT.</p>
                       </div>
-                    )}
                   </div>
 
                   {/* Shipping Accordion */}
@@ -840,18 +878,14 @@ const ProductDetailsPage = () => {
                     </button>
 
                     {openSection === "Shipping" && (
-                      <div className="pb-6 pl-[54px] pr-4 text-[14px] text-gray-700 leading-relaxed animate-in slide-in-from-top-2 fade-in duration-200">
-                        {product.details?.shippingPolicy ? (
-                          <p>{product.details.shippingPolicy}</p>
-                        ) : (
-                          <ul className="list-disc pl-4 space-y-2 marker:text-gray-400">
-                            <li>Orders dispatched within 24–48 hours.</li>
-                            <li>Delivery in 3–7 business days.</li>
-                            <li>
-                              Tracking link sent via email and SMS once shipped.
-                            </li>
-                          </ul>
-                        )}
+                      <div className="pb-6 pl-[54px] pr-4 text-[13px] text-gray-700 leading-relaxed animate-in slide-in-from-top-2 fade-in duration-200">
+                        <ul className="list-disc pl-4 space-y-1.5 marker:text-gray-400">
+                          <li>Babli offers <strong>FREE PAN India shipping</strong> on all orders above 1000/-.</li>
+                          <li>For all orders below 1000/-, it's just a nominal charge of Rs.150/-.</li>
+                          <li>For COD orders, we charge Rs.50/- for COD charges.</li>
+                          <li>Your orders are our priority! We dispatch them within 3-4 working days and you can expect the delivery within 7-10 days.</li>
+                          <li>You'll receive tracking details on registered mail id and whatsapp to keep tabs on your parcel once it's on its way.</li>
+                        </ul>
                       </div>
                     )}
                   </div>
@@ -863,7 +897,9 @@ const ProductDetailsPage = () => {
         </div>
 
         {/* ── Customer Reviews ── */}
-        <CustomerReviews />
+        <div className="border-t border-gray-200 mt-12 pt-12 bg-white">
+          <CustomerReviews product={product} />
+        </div>
 
         {/* ── Related Products ── */}
         {relatedProducts.length > 0 && (

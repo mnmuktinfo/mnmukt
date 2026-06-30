@@ -12,7 +12,7 @@ const getStatusStyle = (status) => {
 // ─── ORDER SUMMARY ───
 const OrderSummaryCard = ({ order }) => {
   // Fallbacks just in case data is missing
-  const status = order.status || "Processing";
+  const status = order.orderStatus || order.status || "Processing";
   const itemCount = order.items?.length || 1;
 
   return (
@@ -52,11 +52,11 @@ const OrderSummaryCard = ({ order }) => {
               Total Amount
             </p>
             <p className="text-[18px] font-bold text-[#282C3F]">
-              ₹{order.totalAmount?.toLocaleString("en-IN") || "0"}
+              ₹{(order.pricing?.total ?? order.totalAmount)?.toLocaleString("en-IN") || "0"}
             </p>
             {/* Added a payment status indicator which is common in Indian e-commerce */}
             <p className="text-[12px] text-gray-500 mt-1">
-              {order.paymentMode === "COD" ? "Cash on Delivery" : "Paid Online"}
+              {(order.payment?.method ?? order.paymentMode)?.toUpperCase() === "COD" ? "Cash on Delivery" : "Paid Online"}
             </p>
           </div>
         </div>

@@ -1,24 +1,26 @@
-import React from "react";
+// 1. IMPORT useState
+import React, { useState } from "react";
 import DesktopNavbar from "./DesktopNavbarDesign";
 import MobileTopbar from "./MobileNavbarDesign";
 import promoData from "../../data/promoData.json";
-
 import { categoryMenuItems } from "../../data/categoryMenuItems";
 
-// 1. Import your custom hooks (adjust the paths to your actual context files)
 import { useCart } from "../../../../features/cart/context/CartContext";
 import { useWishlist } from "../../../../features/wishList/context/WishlistContext";
+import CartDrawer from "../../../../components/cards/CartDrawer";
 
 const UserNavbar = () => {
-  // 2. Extract values from context
-  // Destructuring based on your commented-out code
   const { cart } = useCart();
   const { wishlist } = useWishlist();
 
-  // 3. Calculate counts (assuming items are stored in an array)
+  const [isCartOpen, setIsCartOpen] = useState(false);
+
   const cartCount = cart?.length || 0;
   const wishlistCount = wishlist?.length || 0;
-  // console.log(cartCount);
+
+  // Function to open the cart
+  const handleOpenCart = () => setIsCartOpen(true);
+
   return (
     <>
       {/* Desktop View */}
@@ -28,6 +30,7 @@ const UserNavbar = () => {
           wishlistCount={wishlistCount}
           promoData={promoData}
           categoryMenuItems={categoryMenuItems}
+          onCartClick={handleOpenCart} // 👈 Pass down the open function
         />
       </div>
 
@@ -37,8 +40,14 @@ const UserNavbar = () => {
           promoData={promoData}
           cartCount={cartCount}
           wishlistCount={wishlistCount}
+          onCartClick={handleOpenCart} // 👈 Pass down the open function
         />
       </div>
+
+      {/* Render CartDrawer OUTSIDE the hidden divs 
+        so it works for both Desktop and Mobile!
+      */}
+      <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
     </>
   );
 };

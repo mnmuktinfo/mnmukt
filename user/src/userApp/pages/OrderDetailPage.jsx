@@ -200,10 +200,10 @@ const ItemCard = ({ item, orderStatus, address, index }) => {
               </p>
               {address ? (
                 <div className="text-[13px] text-gray-700 leading-relaxed space-y-0.5">
-                  <p className="font-semibold text-gray-900">{address.name}</p>
-                  {address.line1 && <p>{address.line1}</p>}
+                  <p className="font-semibold text-gray-900">{address.fullName || address.name}</p>
+                  {(address.addressLine1 || address.line1) && <p>{address.addressLine1 || address.line1}</p>}
                   <p>
-                    {[address.city, address.state, address.pincode]
+                    {[address.city, address.state, address.postalCode || address.pincode]
                       .filter(Boolean)
                       .join(", ")}
                   </p>
@@ -253,7 +253,7 @@ const ItemCard = ({ item, orderStatus, address, index }) => {
 ───────────────────────────────────── */
 const BillingFooter = ({ order }) => {
   const p = order?.pricing ?? {};
-  const address = order?.addressSnapshot;
+  const address = order?.shippingAddress || order?.addressSnapshot;
 
   const priceRows = [
     {
@@ -262,20 +262,24 @@ const BillingFooter = ({ order }) => {
     },
     {
       label: "Shipping",
-      value: p.deliveryCharge ?? p.deliveryFee ?? 0,
-      free: (p.deliveryCharge ?? p.deliveryFee ?? 0) === 0,
+      value: p.shippingCharge ?? p.deliveryCharge ?? p.deliveryFee ?? 0,
+      free: (p.shippingCharge ?? p.deliveryCharge ?? p.deliveryFee ?? 0) === 0,
     },
-    p.discount > 0 && { label: "Discount", value: -p.discount, green: true },
+    (p.itemDiscount > 0 || p.discount > 0) && { 
+      label: "Discount", 
+      value: -(p.itemDiscount ?? p.discount), 
+      green: true 
+    },
     p.couponDiscount > 0 && {
       label: "Coupon",
       value: -p.couponDiscount,
       green: true,
     },
     p.platformFee > 0 && { label: "Platform fee", value: p.platformFee },
-    p.gstAmount > 0 && { label: "Tax", value: p.gstAmount },
+    (p.taxAmount > 0 || p.gstAmount > 0) && { label: "Tax", value: p.taxAmount ?? p.gstAmount },
   ].filter(Boolean);
 
-  const total = p.totalPayable ?? p.totalAmount ?? order?.totalAmount ?? 0;
+  const total = p.total ?? p.totalPayable ?? p.totalAmount ?? order?.totalAmount ?? 0;
 
   return (
     <div className="border-t border-gray-200 mt-4 pt-10 pb-16">
@@ -287,10 +291,10 @@ const BillingFooter = ({ order }) => {
           </p>
           {address ? (
             <div className="text-[13px] text-gray-700 leading-relaxed space-y-0.5">
-              <p className="font-semibold text-gray-900">{address.name}</p>
-              {address.line1 && <p>{address.line1}</p>}
+              <p className="font-semibold text-gray-900">{address.fullName || address.name}</p>
+              {(address.addressLine1 || address.line1) && <p>{address.addressLine1 || address.line1}</p>}
               <p>
-                {[address.city, address.state, address.pincode]
+                {[address.city, address.state, address.postalCode || address.pincode]
                   .filter(Boolean)
                   .join(", ")}
               </p>
@@ -441,7 +445,7 @@ const OrderDetailPage = () => {
     );
 
   const items = order.items ?? [];
-  const address = order.addressSnapshot;
+  const address = order.shippingAddress || order.addressSnapshot;
 
   return (
     <>

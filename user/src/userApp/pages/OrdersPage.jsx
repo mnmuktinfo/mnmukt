@@ -71,8 +71,8 @@ const OrdersPage = () => {
     queryKey: ordersKeys.all(userId),
     queryFn: async () => {
       if (!userId) return { orders: [] };
-      const res = await orderService.getUserOrders(userId);
-      return { orders: res.orders ?? [] };
+      const res = await orderService.getUserOrders();
+      return { orders: Array.isArray(res) ? res : [] };
     },
     enabled: !!userId && isLoggedIn,
     staleTime: 3 * 60 * 1000,
@@ -81,8 +81,8 @@ const OrdersPage = () => {
     refetchOnReconnect: true,
   });
 
-  // Use real orders if available, DUMMY_ORDERS only as dev preview fallback
-  const orders = data?.orders?.length ? data.orders : DUMMY_ORDERS;
+  // Use real orders if available, fallback to empty array
+  const orders = data?.orders ?? [];
 
   /* ── Tab buckets ── */
   const { allOrders, activeOrders, cancelledOrders } = useMemo(() => {
@@ -130,7 +130,7 @@ const OrdersPage = () => {
       return { orders: copy };
     });
   };
-
+  console.log("📊 FINAL ORDERS IN UI:", orders);
   /* ── Tabs config ── */
   const tabs = [
     { key: "all", label: "All Orders", count: allOrders.length },

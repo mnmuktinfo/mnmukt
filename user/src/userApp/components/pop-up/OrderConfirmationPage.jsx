@@ -76,13 +76,11 @@ const OrderConfirmationPage = () => {
     );
 
   const orderStatus = orderData.orderStatus ?? "placed";
-  const address = orderData.addressSnapshot ?? {};
+  const address = orderData.shippingAddress ?? orderData.addressSnapshot ?? {};
   const pricing = orderData.pricing ?? {};
 
-  // FIX 1: Read paymentMethod and paymentStatus as flat root fields —
-  // orderService never writes a nested payment:{} object to the root doc.
-  const paymentMethod = orderData.paymentMethod ?? "";
-  const paymentStatus = orderData.paymentStatus ?? "pending";
+  const paymentMethod = orderData.payment?.method ?? orderData.paymentMethod ?? "";
+  const paymentStatus = orderData.payment?.status ?? orderData.paymentStatus ?? "pending";
 
   const items = orderData.items ?? [];
   const displayOrderId =
@@ -95,7 +93,7 @@ const OrderConfirmationPage = () => {
   ).toLocaleString("en-IN");
 
   // FIX 5: Strip any existing country prefix before prepending +91
-  const cleanPhone = address.phone?.replace(/^(\+91|91|0)/, "") ?? "";
+  const cleanPhone = (address.phone ?? "").replace(/^(\+91|91|0)/, "") ?? "";
 
   const handleConfirmOnWhatsApp = () => {
     const message = encodeURIComponent(
@@ -242,15 +240,15 @@ const OrderConfirmationPage = () => {
                 Delivery Address
               </p>
               <p className="text-sm font-semibold text-gray-800">
-                {address.name}
+                {address.fullName || address.name}
               </p>
               <p className="text-[12px] text-gray-600 mt-0.5">
-                {[address.line1, address.city, address.state]
+                {[address.addressLine1 || address.line1, address.city, address.state]
                   .filter(Boolean)
                   .join(", ")}{" "}
-                {address.pincode && (
+                {(address.postalCode || address.pincode) && (
                   <>
-                    – <span className="font-semibold">{address.pincode}</span>
+                    – <span className="font-semibold">{address.postalCode || address.pincode}</span>
                   </>
                 )}
               </p>

@@ -1,0 +1,457 @@
+[2026-06-29T11:21:41.288Z] [INFO] ========================================
+[2026-06-29T11:21:41.295Z] [INFO] 🔧 Initializing Server
+[2026-06-29T11:21:41.297Z] [INFO] ========================================
+[2026-06-29T11:21:41.300Z] [INFO] 📋 Configuration Loaded:
+{
+  "PORT": "5000",
+  "NODE_ENV": "development",
+  "HOSTNAME": "localhost",
+  "MONGODB_URI": "✓ Set"
+}
+[2026-06-29T11:21:41.304Z] [INFO] 🔗 Connecting to MongoDB...
+[2026-06-29T11:21:44.524Z] [INFO] ✅ MongoDB Connected Successfully
+[2026-06-29T11:21:44.531Z] [INFO] ========================================
+[2026-06-29T11:21:44.533Z] [INFO] ✅ 🚀 Server Running Successfully
+[2026-06-29T11:21:44.535Z] [INFO] 📍 URL         : http://localhost:5000
+[2026-06-29T11:21:44.540Z] [INFO] 🌍 Environment : development
+[2026-06-29T11:21:44.543Z] [INFO] 📦 Protocol    : HTTP
+[2026-06-29T11:21:44.545Z] [INFO] 🗄️  Database    : Connected
+[2026-06-29T11:21:44.548Z] [INFO] ========================================
+[2026-06-29T11:22:38.030Z] [INFO] ========================================
+[2026-06-29T11:22:38.033Z] [INFO] 🔧 Initializing Server
+[2026-06-29T11:22:38.034Z] [INFO] ========================================
+[2026-06-29T11:22:38.036Z] [INFO] 📋 Configuration Loaded:
+{
+  "PORT": "5000",
+  "NODE_ENV": "development",
+  "HOSTNAME": "localhost",
+  "MONGODB_URI": "✓ Set"
+}
+[2026-06-29T11:22:38.037Z] [INFO] 🔗 Connecting to MongoDB...
+[2026-06-29T11:22:40.171Z] [INFO] ✅ MongoDB Connected Successfully
+[2026-06-29T11:22:40.191Z] [INFO] ========================================
+[2026-06-29T11:22:40.199Z] [INFO] ✅ 🚀 Server Running Successfully
+[2026-06-29T11:22:40.216Z] [INFO] 📍 URL         : http://localhost:5000
+[2026-06-29T11:22:40.233Z] [INFO] 🌍 Environment : development
+[2026-06-29T11:22:40.244Z] [INFO] 📦 Protocol    : HTTP
+[2026-06-29T11:22:40.256Z] [INFO] 🗄️  Database    : Connected
+[2026-06-29T11:22:40.264Z] [INFO] ========================================
+[2026-06-29T11:22:52.767Z] [INFO] ========================================
+[2026-06-29T11:22:52.771Z] [INFO] 🔧 Initializing Server
+[2026-06-29T11:22:52.773Z] [INFO] ========================================
+[2026-06-29T11:22:52.774Z] [INFO] 📋 Configuration Loaded:
+{
+  "PORT": "5000",
+  "NODE_ENV": "development",
+  "HOSTNAME": "localhost",
+  "MONGODB_URI": "✓ Set"
+}
+[2026-06-29T11:22:52.776Z] [INFO] 🔗 Connecting to MongoDB...
+[2026-06-29T11:22:53.594Z] [INFO] ✅ MongoDB Connected Successfully
+[2026-06-29T11:22:53.606Z] [INFO] ========================================
+[2026-06-29T11:22:53.608Z] [INFO] ✅ 🚀 Server Running Successfully
+[2026-06-29T11:22:53.612Z] [INFO] 📍 URL         : http://localhost:5000
+[2026-06-29T11:22:53.615Z] [INFO] 🌍 Environment : development
+[2026-06-29T11:22:53.618Z] [INFO] 📦 Protocol    : HTTP
+[2026-06-29T11:22:53.621Z] [INFO] 🗄️  Database    : Connected
+[2026-06-29T11:22:53.624Z] [INFO] ========================================
+[2026-06-29T11:26:10.881Z] [INFO] ========================================
+[2026-06-29T11:26:10.888Z] [INFO] 🔧 Initializing Server
+[2026-06-29T11:26:10.890Z] [INFO] ========================================
+[2026-06-29T11:26:10.892Z] [INFO] 📋 Configuration Loaded:
+{
+  "PORT": "5000",
+  "NODE_ENV": "development",
+  "HOSTNAME": "localhost",
+  "MONGODB_URI": "✓ Set"
+}
+[2026-06-29T11:26:10.893Z] [INFO] 🔗 Connecting to MongoDB...
+[2026-06-29T11:26:11.811Z] [INFO] ✅ MongoDB Connected Successfully
+[2026-06-29T11:26:11.822Z] [INFO] ========================================
+[2026-06-29T11:26:11.824Z] [INFO] ✅ 🚀 Server Running Successfully
+[2026-06-29T11:26:11.826Z] [INFO] 📍 URL         : http://localhost:5000
+[2026-06-29T11:26:11.828Z] [INFO] 🌍 Environment : development
+[2026-06-29T11:26:11.830Z] [INFO] 📦 Protocol    : HTTP
+[2026-06-29T11:26:11.832Z] [INFO] 🗄️  Database    : Connected
+[2026-06-29T11:26:11.833Z] [INFO] ========================================
+[2026-06-29T11:27:18.403Z] [INFO] ========================================
+[2026-06-29T11:27:18.405Z] [INFO] 🔧 Initializing Server
+[2026-06-29T11:27:18.406Z] [INFO] ========================================
+[2026-06-29T11:27:18.407Z] [INFO] 📋 Configuration Loaded:
+{
+  "PORT": "5000",
+  "NODE_ENV": "development",
+  "HOSTNAME": "localhost",
+  "MONGODB_URI": "✓ Set"
+}
+[2026-06-29T11:27:18.408Z] [INFO] 🔗 Connecting to MongoDB...
+[2026-06-29T11:27:25.489Z] [INFO] ========================================
+[2026-06-29T11:27:25.491Z] [INFO] 🔧 Initializing Server
+[2026-06-29T11:27:25.492Z] [INFO] ========================================
+[2026-06-29T11:27:25.492Z] [INFO] 📋 Configuration Loaded:
+{
+  "PORT": "5000",
+  "NODE_ENV": "development",
+  "HOSTNAME": "localhost",
+  "MONGODB_URI": "✓ Set"
+}
+[2026-06-29T11:27:25.494Z] [INFO] 🔗 Connecting to MongoDB...
+[2026-06-29T11:28:29.043Z] [INFO] ✅ MongoDB Connected Successfully
+[2026-06-29T11:28:29.060Z] [INFO] ========================================
+[2026-06-29T11:28:29.068Z] [INFO] ✅ 🚀 Server Running Successfully
+[2026-06-29T11:28:29.087Z] [INFO] 📍 URL         : http://localhost:5000
+[2026-06-29T11:28:29.102Z] [INFO] 🌍 Environment : development
+[2026-06-29T11:28:29.133Z] [INFO] 📦 Protocol    : HTTP
+[2026-06-29T11:28:29.162Z] [INFO] 🗄️  Database    : Connected
+[2026-06-29T11:28:29.209Z] [INFO] ========================================
+[2026-06-29T13:29:55.680Z] [INFO] ========================================
+[2026-06-29T13:29:55.693Z] [INFO] 🔧 Initializing Server
+[2026-06-29T13:29:55.695Z] [INFO] ========================================
+[2026-06-29T13:29:55.697Z] [INFO] 📋 Configuration Loaded:
+{
+  "PORT": "5000",
+  "NODE_ENV": "development",
+  "HOSTNAME": "localhost",
+  "MONGODB_URI": "✓ Set"
+}
+[2026-06-29T13:29:55.700Z] [INFO] 🔗 Connecting to MongoDB...
+[2026-06-29T13:30:11.481Z] [INFO] ========================================
+[2026-06-29T13:30:11.483Z] [INFO] 🔧 Initializing Server
+[2026-06-29T13:30:11.484Z] [INFO] ========================================
+[2026-06-29T13:30:11.485Z] [INFO] 📋 Configuration Loaded:
+{
+  "PORT": "5000",
+  "NODE_ENV": "development",
+  "HOSTNAME": "localhost",
+  "MONGODB_URI": "✓ Set"
+}
+[2026-06-29T13:30:11.487Z] [INFO] 🔗 Connecting to MongoDB...
+[2026-06-29T15:04:13.155Z] [INFO] ========================================
+[2026-06-29T15:04:13.166Z] [INFO] 🔧 Initializing Server
+[2026-06-29T15:04:13.167Z] [INFO] ========================================
+[2026-06-29T15:04:13.169Z] [INFO] 📋 Configuration Loaded:
+{
+  "PORT": "5000",
+  "NODE_ENV": "development",
+  "HOSTNAME": "localhost",
+  "MONGODB_URI": "✓ Set"
+}
+[2026-06-29T15:04:13.172Z] [INFO] 🔗 Connecting to MongoDB...
+[2026-06-29T15:05:20.564Z] [INFO] ========================================
+[2026-06-29T15:05:20.571Z] [INFO] 🔧 Initializing Server
+[2026-06-29T15:05:20.572Z] [INFO] ========================================
+[2026-06-29T15:05:20.574Z] [INFO] 📋 Configuration Loaded:
+{
+  "PORT": "5000",
+  "NODE_ENV": "development",
+  "HOSTNAME": "localhost",
+  "MONGODB_URI": "✓ Set"
+}
+[2026-06-29T15:05:20.576Z] [INFO] 🔗 Connecting to MongoDB...
+[2026-06-29T15:09:31.891Z] [INFO] ========================================
+[2026-06-29T15:09:31.895Z] [INFO] 🔧 Initializing Server
+[2026-06-29T15:09:31.901Z] [INFO] ========================================
+[2026-06-29T15:09:31.906Z] [INFO] 📋 Configuration Loaded:
+{
+  "PORT": "5000",
+  "NODE_ENV": "development",
+  "HOSTNAME": "localhost",
+  "MONGODB_URI": "✓ Set"
+}
+[2026-06-29T15:09:31.912Z] [INFO] 🔗 Connecting to MongoDB...
+[2026-06-29T15:11:33.993Z] [INFO] ========================================
+[2026-06-29T15:11:33.998Z] [INFO] 🔧 Initializing Server
+[2026-06-29T15:11:34.000Z] [INFO] ========================================
+[2026-06-29T15:11:34.003Z] [INFO] 📋 Configuration Loaded:
+{
+  "PORT": "5000",
+  "NODE_ENV": "development",
+  "HOSTNAME": "localhost",
+  "MONGODB_URI": "✓ Set"
+}
+[2026-06-29T15:11:34.006Z] [INFO] 🔗 Connecting to MongoDB...
+[2026-06-29T15:12:09.130Z] [INFO] ========================================
+[2026-06-29T15:12:09.133Z] [INFO] 🔧 Initializing Server
+[2026-06-29T15:12:09.134Z] [INFO] ========================================
+[2026-06-29T15:12:09.136Z] [INFO] 📋 Configuration Loaded:
+{
+  "PORT": "5000",
+  "NODE_ENV": "development",
+  "HOSTNAME": "localhost",
+  "MONGODB_URI": "✓ Set"
+}
+[2026-06-29T15:12:09.138Z] [INFO] 🔗 Connecting to MongoDB...
+[2026-06-29T15:12:10.920Z] [INFO] ✅ MongoDB Connected Successfully
+[2026-06-29T15:12:10.932Z] [INFO] ========================================
+[2026-06-29T15:12:10.934Z] [INFO] ✅ 🚀 Server Running Successfully
+[2026-06-29T15:12:10.935Z] [INFO] 📍 URL         : http://localhost:5000
+[2026-06-29T15:12:10.937Z] [INFO] 🌍 Environment : development
+[2026-06-29T15:12:10.938Z] [INFO] 📦 Protocol    : HTTP
+[2026-06-29T15:12:10.939Z] [INFO] 🗄️  Database    : Connected
+[2026-06-29T15:12:10.941Z] [INFO] ========================================
+[2026-06-29T15:19:04.014Z] [INFO] ========================================
+[2026-06-29T15:19:04.022Z] [INFO] 🔧 Initializing Server
+[2026-06-29T15:19:04.028Z] [INFO] ========================================
+[2026-06-29T15:19:04.032Z] [INFO] 📋 Configuration Loaded:
+{
+  "PORT": "5000",
+  "NODE_ENV": "development",
+  "HOSTNAME": "localhost",
+  "MONGODB_URI": "✓ Set"
+}
+[2026-06-29T15:19:04.041Z] [INFO] 🔗 Connecting to MongoDB...
+[2026-06-29T15:19:06.324Z] [INFO] ✅ MongoDB Connected Successfully
+[2026-06-29T15:19:06.345Z] [INFO] ========================================
+[2026-06-29T15:19:06.348Z] [INFO] ✅ 🚀 Server Running Successfully
+[2026-06-29T15:19:06.351Z] [INFO] 📍 URL         : http://localhost:5000
+[2026-06-29T15:19:06.353Z] [INFO] 🌍 Environment : development
+[2026-06-29T15:19:06.356Z] [INFO] 📦 Protocol    : HTTP
+[2026-06-29T15:19:06.358Z] [INFO] 🗄️  Database    : Connected
+[2026-06-29T15:19:06.361Z] [INFO] ========================================
+[2026-06-29T15:27:44.034Z] [INFO] ========================================
+[2026-06-29T15:27:44.036Z] [INFO] 🔧 Initializing Server
+[2026-06-29T15:27:44.037Z] [INFO] ========================================
+[2026-06-29T15:27:44.038Z] [INFO] 📋 Configuration Loaded:
+{
+  "PORT": "5000",
+  "NODE_ENV": "development",
+  "HOSTNAME": "localhost",
+  "MONGODB_URI": "✓ Set"
+}
+[2026-06-29T15:27:44.039Z] [INFO] 🔗 Connecting to MongoDB...
+[2026-06-29T15:27:51.976Z] [INFO] ✅ MongoDB Connected Successfully
+[2026-06-29T15:27:51.997Z] [INFO] ========================================
+[2026-06-29T15:27:52.001Z] [INFO] ✅ 🚀 Server Running Successfully
+[2026-06-29T15:27:52.003Z] [INFO] 📍 URL         : http://localhost:5000
+[2026-06-29T15:27:52.011Z] [INFO] 🌍 Environment : development
+[2026-06-29T15:27:52.017Z] [INFO] 📦 Protocol    : HTTP
+[2026-06-29T15:27:52.023Z] [INFO] 🗄️  Database    : Connected
+[2026-06-29T15:27:52.027Z] [INFO] ========================================
+[2026-06-29T15:31:15.669Z] [INFO] ========================================
+[2026-06-29T15:31:15.671Z] [INFO] 🔧 Initializing Server
+[2026-06-29T15:31:15.672Z] [INFO] ========================================
+[2026-06-29T15:31:15.673Z] [INFO] 📋 Configuration Loaded:
+{
+  "PORT": "5000",
+  "NODE_ENV": "development",
+  "HOSTNAME": "localhost",
+  "MONGODB_URI": "✓ Set"
+}
+[2026-06-29T15:31:15.675Z] [INFO] 🔗 Connecting to MongoDB...
+[2026-06-29T15:31:17.226Z] [INFO] ✅ MongoDB Connected Successfully
+[2026-06-29T15:31:17.301Z] [INFO] ========================================
+[2026-06-29T15:31:17.304Z] [INFO] ✅ 🚀 Server Running Successfully
+[2026-06-29T15:31:17.309Z] [INFO] 📍 URL         : http://localhost:5000
+[2026-06-29T15:31:17.325Z] [INFO] 🌍 Environment : development
+[2026-06-29T15:31:17.333Z] [INFO] 📦 Protocol    : HTTP
+[2026-06-29T15:31:17.341Z] [INFO] 🗄️  Database    : Connected
+[2026-06-29T15:31:17.351Z] [INFO] ========================================
+[2026-06-29T15:40:27.278Z] [INFO] ========================================
+[2026-06-29T15:40:27.283Z] [INFO] 🔧 Initializing Server
+[2026-06-29T15:40:27.286Z] [INFO] ========================================
+[2026-06-29T15:40:27.290Z] [INFO] 📋 Configuration Loaded:
+{
+  "PORT": "5000",
+  "NODE_ENV": "development",
+  "HOSTNAME": "localhost",
+  "MONGODB_URI": "✓ Set"
+}
+[2026-06-29T15:40:27.296Z] [INFO] 🔗 Connecting to MongoDB...
+[2026-06-29T15:40:29.602Z] [INFO] ✅ MongoDB Connected Successfully
+[2026-06-29T15:40:29.677Z] [INFO] ========================================
+[2026-06-29T15:40:29.678Z] [INFO] ✅ 🚀 Server Running Successfully
+[2026-06-29T15:40:29.680Z] [INFO] 📍 URL         : http://localhost:5000
+[2026-06-29T15:40:29.683Z] [INFO] 🌍 Environment : development
+[2026-06-29T15:40:29.688Z] [INFO] 📦 Protocol    : HTTP
+[2026-06-29T15:40:29.694Z] [INFO] 🗄️  Database    : Connected
+[2026-06-29T15:40:29.701Z] [INFO] ========================================
+[2026-06-29T15:41:11.534Z] [INFO] ========================================
+[2026-06-29T15:41:11.544Z] [INFO] 🔧 Initializing Server
+[2026-06-29T15:41:11.550Z] [INFO] ========================================
+[2026-06-29T15:41:11.561Z] [INFO] 📋 Configuration Loaded:
+{
+  "PORT": "5000",
+  "NODE_ENV": "development",
+  "HOSTNAME": "localhost",
+  "MONGODB_URI": "✓ Set"
+}
+[2026-06-29T15:41:11.580Z] [INFO] 🔗 Connecting to MongoDB...
+[2026-06-29T15:41:12.828Z] [INFO] ✅ MongoDB Connected Successfully
+[2026-06-29T15:41:12.851Z] [INFO] ========================================
+[2026-06-29T15:41:12.854Z] [INFO] ✅ 🚀 Server Running Successfully
+[2026-06-29T15:41:12.855Z] [INFO] 📍 URL         : http://localhost:5000
+[2026-06-29T15:41:12.857Z] [INFO] 🌍 Environment : development
+[2026-06-29T15:41:12.859Z] [INFO] 📦 Protocol    : HTTP
+[2026-06-29T15:41:12.862Z] [INFO] 🗄️  Database    : Connected
+[2026-06-29T15:41:12.866Z] [INFO] ========================================
+[2026-06-29T15:42:44.190Z] [INFO] ========================================
+[2026-06-29T15:42:44.195Z] [INFO] 🔧 Initializing Server
+[2026-06-29T15:42:44.197Z] [INFO] ========================================
+[2026-06-29T15:42:44.199Z] [INFO] 📋 Configuration Loaded:
+{
+  "PORT": "5000",
+  "NODE_ENV": "development",
+  "HOSTNAME": "localhost",
+  "MONGODB_URI": "✓ Set"
+}
+[2026-06-29T15:42:44.201Z] [INFO] 🔗 Connecting to MongoDB...
+[2026-06-29T15:42:45.468Z] [INFO] ✅ MongoDB Connected Successfully
+[2026-06-29T15:42:45.495Z] [INFO] ========================================
+[2026-06-29T15:42:45.497Z] [INFO] ✅ 🚀 Server Running Successfully
+[2026-06-29T15:42:45.499Z] [INFO] 📍 URL         : http://localhost:5000
+[2026-06-29T15:42:45.502Z] [INFO] 🌍 Environment : development
+[2026-06-29T15:42:45.504Z] [INFO] 📦 Protocol    : HTTP
+[2026-06-29T15:42:45.506Z] [INFO] 🗄️  Database    : Connected
+[2026-06-29T15:42:45.508Z] [INFO] ========================================
+[2026-06-29T15:43:03.603Z] [INFO] ========================================
+[2026-06-29T15:43:03.617Z] [INFO] 🔧 Initializing Server
+[2026-06-29T15:43:03.640Z] [INFO] ========================================
+[2026-06-29T15:43:03.647Z] [INFO] 📋 Configuration Loaded:
+{
+  "PORT": "5000",
+  "NODE_ENV": "development",
+  "HOSTNAME": "localhost",
+  "MONGODB_URI": "✓ Set"
+}
+[2026-06-29T15:43:03.651Z] [INFO] 🔗 Connecting to MongoDB...
+[2026-06-29T15:43:06.182Z] [INFO] ✅ MongoDB Connected Successfully
+[2026-06-29T15:43:06.228Z] [INFO] ========================================
+[2026-06-29T15:43:06.233Z] [INFO] ✅ 🚀 Server Running Successfully
+[2026-06-29T15:43:06.237Z] [INFO] 📍 URL         : http://localhost:5000
+[2026-06-29T15:43:06.243Z] [INFO] 🌍 Environment : development
+[2026-06-29T15:43:06.252Z] [INFO] 📦 Protocol    : HTTP
+[2026-06-29T15:43:06.259Z] [INFO] 🗄️  Database    : Connected
+[2026-06-29T15:43:06.271Z] [INFO] ========================================
+[2026-06-29T15:43:32.133Z] [INFO] ========================================
+[2026-06-29T15:43:32.152Z] [INFO] 🔧 Initializing Server
+[2026-06-29T15:43:32.168Z] [INFO] ========================================
+[2026-06-29T15:43:32.178Z] [INFO] 📋 Configuration Loaded:
+{
+  "PORT": "5000",
+  "NODE_ENV": "development",
+  "HOSTNAME": "localhost",
+  "MONGODB_URI": "✓ Set"
+}
+[2026-06-29T15:43:32.193Z] [INFO] 🔗 Connecting to MongoDB...
+[2026-06-29T15:43:33.481Z] [INFO] ✅ MongoDB Connected Successfully
+[2026-06-29T15:43:33.518Z] [INFO] ========================================
+[2026-06-29T15:43:33.523Z] [INFO] ✅ 🚀 Server Running Successfully
+[2026-06-29T15:43:33.529Z] [INFO] 📍 URL         : http://localhost:5000
+[2026-06-29T15:43:33.534Z] [INFO] 🌍 Environment : development
+[2026-06-29T15:43:33.551Z] [INFO] 📦 Protocol    : HTTP
+[2026-06-29T15:43:33.559Z] [INFO] 🗄️  Database    : Connected
+[2026-06-29T15:43:33.580Z] [INFO] ========================================
+[2026-06-29T15:44:00.903Z] [INFO] ========================================
+[2026-06-29T15:44:00.905Z] [INFO] 🔧 Initializing Server
+[2026-06-29T15:44:00.907Z] [INFO] ========================================
+[2026-06-29T15:44:00.909Z] [INFO] 📋 Configuration Loaded:
+{
+  "PORT": "5000",
+  "NODE_ENV": "development",
+  "HOSTNAME": "localhost",
+  "MONGODB_URI": "✓ Set"
+}
+[2026-06-29T15:44:00.910Z] [INFO] 🔗 Connecting to MongoDB...
+[2026-06-29T15:44:01.947Z] [INFO] ✅ MongoDB Connected Successfully
+[2026-06-29T15:44:01.957Z] [INFO] ========================================
+[2026-06-29T15:44:01.959Z] [INFO] ✅ 🚀 Server Running Successfully
+[2026-06-29T15:44:01.960Z] [INFO] 📍 URL         : http://localhost:5000
+[2026-06-29T15:44:01.960Z] [INFO] 🌍 Environment : development
+[2026-06-29T15:44:01.961Z] [INFO] 📦 Protocol    : HTTP
+[2026-06-29T15:44:01.962Z] [INFO] 🗄️  Database    : Connected
+[2026-06-29T15:44:01.963Z] [INFO] ========================================
+[2026-06-29T15:45:04.328Z] [INFO] ========================================
+[2026-06-29T15:45:04.331Z] [INFO] 🔧 Initializing Server
+[2026-06-29T15:45:04.332Z] [INFO] ========================================
+[2026-06-29T15:45:04.333Z] [INFO] 📋 Configuration Loaded:
+{
+  "PORT": "5000",
+  "NODE_ENV": "development",
+  "HOSTNAME": "localhost",
+  "MONGODB_URI": "✓ Set"
+}
+[2026-06-29T15:45:04.335Z] [INFO] 🔗 Connecting to MongoDB...
+[2026-06-29T15:45:07.636Z] [INFO] ✅ MongoDB Connected Successfully
+[2026-06-29T15:45:07.664Z] [INFO] ========================================
+[2026-06-29T15:45:07.669Z] [INFO] ✅ 🚀 Server Running Successfully
+[2026-06-29T15:45:07.674Z] [INFO] 📍 URL         : http://localhost:5000
+[2026-06-29T15:45:07.680Z] [INFO] 🌍 Environment : development
+[2026-06-29T15:45:07.691Z] [INFO] 📦 Protocol    : HTTP
+[2026-06-29T15:45:07.700Z] [INFO] 🗄️  Database    : Connected
+[2026-06-29T15:45:07.707Z] [INFO] ========================================
+[2026-06-29T15:45:46.158Z] [INFO] ========================================
+[2026-06-29T15:45:46.175Z] [INFO] 🔧 Initializing Server
+[2026-06-29T15:45:46.179Z] [INFO] ========================================
+[2026-06-29T15:45:46.183Z] [INFO] 📋 Configuration Loaded:
+{
+  "PORT": "5000",
+  "NODE_ENV": "development",
+  "HOSTNAME": "localhost",
+  "MONGODB_URI": "✓ Set"
+}
+[2026-06-29T15:45:46.196Z] [INFO] 🔗 Connecting to MongoDB...
+[2026-06-29T15:45:47.716Z] [INFO] ✅ MongoDB Connected Successfully
+[2026-06-29T15:45:47.792Z] [INFO] ========================================
+[2026-06-29T15:45:47.796Z] [INFO] ✅ 🚀 Server Running Successfully
+[2026-06-29T15:45:47.801Z] [INFO] 📍 URL         : http://localhost:5000
+[2026-06-29T15:45:47.807Z] [INFO] 🌍 Environment : development
+[2026-06-29T15:45:47.814Z] [INFO] 📦 Protocol    : HTTP
+[2026-06-29T15:45:47.826Z] [INFO] 🗄️  Database    : Connected
+[2026-06-29T15:45:47.835Z] [INFO] ========================================
+[2026-06-29T15:50:29.646Z] [INFO] ========================================
+[2026-06-29T15:50:29.648Z] [INFO] 🔧 Initializing Server
+[2026-06-29T15:50:29.649Z] [INFO] ========================================
+[2026-06-29T15:50:29.651Z] [INFO] 📋 Configuration Loaded:
+{
+  "PORT": "5000",
+  "NODE_ENV": "development",
+  "HOSTNAME": "localhost",
+  "MONGODB_URI": "✓ Set"
+}
+[2026-06-29T15:50:29.653Z] [INFO] 🔗 Connecting to MongoDB...
+[2026-06-29T15:50:30.978Z] [INFO] ✅ MongoDB Connected Successfully
+[2026-06-29T15:50:30.990Z] [INFO] ========================================
+[2026-06-29T15:50:30.992Z] [INFO] ✅ 🚀 Server Running Successfully
+[2026-06-29T15:50:30.994Z] [INFO] 📍 URL         : http://localhost:5000
+[2026-06-29T15:50:30.996Z] [INFO] 🌍 Environment : development
+[2026-06-29T15:50:30.999Z] [INFO] 📦 Protocol    : HTTP
+[2026-06-29T15:50:31.002Z] [INFO] 🗄️  Database    : Connected
+[2026-06-29T15:50:31.004Z] [INFO] ========================================
+[2026-06-29T15:56:32.429Z] [INFO] ========================================
+[2026-06-29T15:56:32.432Z] [INFO] 🔧 Initializing Server
+[2026-06-29T15:56:32.438Z] [INFO] ========================================
+[2026-06-29T15:56:32.440Z] [INFO] 📋 Configuration Loaded:
+{
+  "PORT": "5000",
+  "NODE_ENV": "development",
+  "HOSTNAME": "localhost",
+  "MONGODB_URI": "✓ Set"
+}
+[2026-06-29T15:56:32.442Z] [INFO] 🔗 Connecting to MongoDB...
+[2026-06-29T15:56:41.109Z] [INFO] ✅ MongoDB Connected Successfully
+[2026-06-29T15:56:41.117Z] [INFO] ========================================
+[2026-06-29T15:56:41.118Z] [INFO] ✅ 🚀 Server Running Successfully
+[2026-06-29T15:56:41.120Z] [INFO] 📍 URL         : http://localhost:5000
+[2026-06-29T15:56:41.122Z] [INFO] 🌍 Environment : development
+[2026-06-29T15:56:41.123Z] [INFO] 📦 Protocol    : HTTP
+[2026-06-29T15:56:41.125Z] [INFO] 🗄️  Database    : Connected
+[2026-06-29T15:56:41.127Z] [INFO] ========================================
+[2026-06-29T16:07:43.528Z] [INFO] ========================================
+[2026-06-29T16:07:43.531Z] [INFO] 🔧 Initializing Server
+[2026-06-29T16:07:43.532Z] [INFO] ========================================
+[2026-06-29T16:07:43.533Z] [INFO] 📋 Configuration Loaded:
+{
+  "PORT": "5000",
+  "NODE_ENV": "development",
+  "HOSTNAME": "localhost",
+  "MONGODB_URI": "✓ Set"
+}
+[2026-06-29T16:07:43.534Z] [INFO] 🔗 Connecting to MongoDB...
+[2026-06-29T16:07:48.983Z] [INFO] ✅ MongoDB Connected Successfully
+[2026-06-29T16:07:49.003Z] [INFO] ========================================
+[2026-06-29T16:07:49.009Z] [INFO] ✅ 🚀 Server Running Successfully
+[2026-06-29T16:07:49.017Z] [INFO] 📍 URL         : http://localhost:5000
+[2026-06-29T16:07:49.034Z] [INFO] 🌍 Environment : development
+[2026-06-29T16:07:49.051Z] [INFO] 📦 Protocol    : HTTP
+[2026-06-29T16:07:49.060Z] [INFO] 🗄️  Database    : Connected
+[2026-06-29T16:07:49.073Z] [INFO] ========================================

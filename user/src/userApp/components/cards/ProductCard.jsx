@@ -1,14 +1,18 @@
-import React, { useState, useMemo, useCallback } from "react";
-import { Heart, ShoppingBag, Check } from "lucide-react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
+import { Heart, Check, X, Minus, Plus } from "lucide-react";
 import { useWishlist } from "../../features/wishList/context/WishlistContext";
 import { useCart } from "../../features/cart/context/CartContext";
 import { useNavigate } from "react-router-dom";
 import NotificationProduct from "./NotificationProduct";
+import QuickShopModal from "./QuickShopModal";
 
-/* formatter created once */
 const priceFormatter = new Intl.NumberFormat("en-IN");
 
+/* =========================================================
+   PRODUCT CARD - WITH COMPLETE DATA VALIDATION
+========================================================= */
 const ProductCard = ({ product }) => {
+  const [isQuickShopOpen, setIsQuickShopOpen] = useState(false);
   const [isAdded, setIsAdded] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
   const [notification, setNotification] = useState({
@@ -17,96 +21,203 @@ const ProductCard = ({ product }) => {
     type: "",
   });
 
+  // ✅ Validate product data on mount
+  const validatedProduct = useMemo(() => {
+    if (!product?.id) {
+      console.warn("⚠️ ProductCard: Missing product.id");
+      return null;
+    }
+
+    return {
+      id: product.id,
+      name: product.name || "Unnamed Product",
+      slug: product.slug || product.id,
+      price: product.price ?? 0,
+      originalPrice: product.originalPrice ?? product.price ?? 0,
+      category: product.category || "General",
+      sku: product.sku || `SKU-${product.id}`, // ✅ Generate if missing
+      banner: product.banner || product.images?.[0],
+      images: product.images || [],
+      badge: product.badge || null,
+    };
+  }, [product]);
+
+  // If product data is invalid, don't render
+  if (!validatedProduct) {
+    return (
+      <div className="w-full aspect-[3/4] bg-gray-100 flex items-center justify-center">
+        <p className="text-xs text-gray-500">Product unavailable</p>
+      </div>
+    );
+  }
+
   const {
     isWishlisted,
     toggleWishlist,
     loading: wishlistLoading,
   } = useWishlist();
-
   const { addToCart, syncing: cartSyncing } = useCart();
   const navigate = useNavigate();
 
-  /* memoized liked state */
   const isLiked = useMemo(
-    () => isWishlisted(product.id),
-    [isWishlisted, product.id],
+    () => isWishlisted(validatedProduct.id),
+    [isWishlisted, validatedProduct.id],
   );
 
-  const mainImage = product.banner || product.images?.[0];
-  const hoverImage = product.images?.[1] || mainImage;
+  const mainImage = validatedProduct.banner || "/placeholder-image.jpg";
+  const hoverImage = validatedProduct.images[1] || mainImage;
 
   const discount = useMemo(() => {
-    if (!product.originalPrice || !product.price) return 0;
+    if (validatedProduct.originalPrice <= validatedProduct.price) return 0;
     return Math.round(
-      ((product.originalPrice - product.price) / product.originalPrice) * 100,
+      ((validatedProduct.originalPrice - validatedProduct.price) /
+        validatedProduct.originalPrice) *
+        100,
     );
-  }, [product.originalPrice, product.price]);
+  }, [validatedProduct.originalPrice, validatedProduct.price]);
 
-  const formatPrice = (price) => priceFormatter.format(price);
+  const formatPrice = (price) => priceFormatter.format(price || 0);
 
-  /* navigation handler */
   const handleNavigate = useCallback(() => {
-    navigate(`/product/${product.slug || product.id}`);
-  }, [navigate, product.slug, product.id]);
+    navigate(`/product/${validatedProduct.slug}`);
+  }, [navigate, validatedProduct.slug]);
 
-  /* add to cart */
-  const handleAddToCart = async (e) => {
-    e.stopPropagation();
-
+  /* ✅ ADD TO CART - COMPLETE DATA ONLY */
+  const executeAddToCart = async (selectedData) => {
     try {
-      await addToCart({
-        id: product.id,
-        selectedSize: "",
-        selectedQuantity: 1,
-      });
+      // ✅ Ensure all required fields exist before adding to cart
+      const cartItem = {
+        productId: validatedProduct.id,
+        name: validatedProduct.name,
+        unitPrice: validatedProduct.price,
+        originalPrice: validatedProduct.originalPrice,
+        image: mainImage,
+        category: validatedProduct.category,
+        slug: validatedProduct.slug,
+        sku: validatedProduct.sku,
+        selectedSize: selectedData.size || "onesize",
+        quantity: selectedData.quantity || 1,
+      };
 
+      // Validate required fields
+      const requiredFields = [
+        "productId",
+        "name",
+        "unitPrice",
+        "image",
+        "slug",
+        "sku",
+      ];
+      const missingFields = requiredFields.filter((field) => !cartItem[field]);
+
+      if (missingFields.length > 0) {
+        console.error("❌ Missing required fields:", missingFields, cartItem);
+        setNotification({
+          show: true,
+          message: "Product data incomplete. Try refreshing.",
+          type: "error",
+        });
+        return;
+      }
+
+      await addToCart(cartItem);
+
+      setIsQuickShopOpen(false);
       setIsAdded(true);
-
-      // Trigger the premium notification
       setNotification({
         show: true,
-        message: product.name, // Will show the product name in the alert
-        type: "cart", // Uses the pink Shopping Bag theme
+        message: validatedProduct.name,
+        type: "cart",
       });
-
-      // Reset the button checkmark after 2 seconds
       setTimeout(() => setIsAdded(false), 2000);
-    } catch {
+    } catch (error) {
+      console.error("Add to cart error:", error);
       setNotification({
         show: true,
         message: "Could not add to bag",
-        type: "error", // Uses the red alert theme
+        type: "error",
       });
     }
   };
 
-  /* wishlist toggle */
+  /* ✅ BUY NOW - COMPLETE DATA ONLY */
+  const executeBuyNow = (selectedData) => {
+    try {
+      const qty = selectedData.quantity || 1;
+      const variant = selectedData.size || "onesize";
+
+      // ✅ Wrap in items array for consistency
+      const checkoutItems = [
+        {
+          productId: validatedProduct.id,
+          name: validatedProduct.name,
+          unitPrice: validatedProduct.price,
+          originalPrice: validatedProduct.originalPrice,
+          image: mainImage,
+          category: validatedProduct.category,
+          slug: validatedProduct.slug,
+          sku: validatedProduct.sku,
+          quantity: qty,
+          selectedSize: variant,
+        },
+      ];
+
+      setIsQuickShopOpen(false);
+
+      navigate(
+        `/${validatedProduct.slug}?variant=${encodeURIComponent(variant)}&qty=${qty}`,
+        {
+          state: { items: checkoutItems },
+        },
+      );
+    } catch (error) {
+      console.error("Buy now error:", error);
+      setNotification({
+        show: true,
+        message: "Could not proceed to checkout",
+        type: "error",
+      });
+    }
+  };
+
   const handleWishlist = (e) => {
     e.stopPropagation();
     if (wishlistLoading) return;
-    toggleWishlist(product.id);
+    toggleWishlist(validatedProduct.id);
   };
 
   return (
     <>
-      {/* Premium Notification Wrapper */}
+      {/* Quick Shop Modal Portal */}
+      {isQuickShopOpen && (
+        <QuickShopModal
+          product={validatedProduct}
+          image={mainImage}
+          formatPrice={formatPrice}
+          onClose={() => setIsQuickShopOpen(false)}
+          onAddToCart={(data) => executeAddToCart(data)}
+          onBuyNow={(data) => executeBuyNow(data)}
+          cartSyncing={cartSyncing}
+          isLiked={isLiked}
+          onToggleWishlist={handleWishlist}
+          onViewDetails={() => {
+            setIsQuickShopOpen(false);
+            handleNavigate();
+          }}
+        />
+      )}
+
+      {/* Notifications */}
       {notification.show && (
         <NotificationProduct
           message={notification.message}
           type={notification.type}
-          // Pass the product details so the image and price render in the toast
           product={{
             img: mainImage,
-            name: product.name,
-            price: formatPrice(product.price),
+            name: validatedProduct.name,
+            price: formatPrice(validatedProduct.price),
           }}
-          // Let the notification close itself after its animation
-          onClose={() =>
-            setNotification((prev) => ({
-              ...prev,
-              show: false,
-            }))
-          }
+          onClose={() => setNotification((prev) => ({ ...prev, show: false }))}
         />
       )}
 
@@ -114,44 +225,38 @@ const ProductCard = ({ product }) => {
       <div
         className="group flex flex-col w-full font-sans cursor-pointer relative"
         onClick={handleNavigate}>
-        {/* Image Container */}
         <div className="relative w-full aspect-[3/4] bg-[#F9F5F6] overflow-hidden border border-gray-100/50">
-          {/* Skeleton */}
           {!imgLoaded && (
             <div className="absolute inset-0 bg-gray-100 animate-pulse z-0" />
           )}
 
-          {/* Main Image */}
           <img
             src={mainImage}
-            alt={product.name}
+            alt={validatedProduct.name}
             loading="lazy"
             decoding="async"
             onLoad={() => setImgLoaded(true)}
             className="w-full h-full object-cover transition-transform duration-1000 ease-out group-hover:scale-105"
           />
 
-          {/* Hover Image */}
           <img
             src={hoverImage}
-            alt={`${product.name} alternate`}
+            alt={`${validatedProduct.name} alternate`}
             loading="lazy"
             decoding="async"
             className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700 opacity-0 group-hover:opacity-100"
           />
 
-          {/* Badge */}
-          {(product.badge || product.fit) && (
+          {validatedProduct.badge && (
             <div className="absolute top-3 left-3 text-[9px] sm:text-[10px] font-bold text-white bg-[#da127d] uppercase tracking-[0.15em] px-2.5 py-1.5 shadow-sm z-10">
-              {product.badge || product.fit}
+              {validatedProduct.badge}
             </div>
           )}
 
-          {/* Wishlist */}
           <button
             onClick={handleWishlist}
             disabled={wishlistLoading}
-            aria-label="Toggle wishlist"
+            aria-label={isLiked ? "Remove from wishlist" : "Add to wishlist"}
             className="absolute top-3 right-3 w-8 h-8 sm:w-9 sm:h-9 bg-white/95 backdrop-blur-sm flex items-center justify-center hover:bg-[#da127d] transition-colors duration-300 z-10 disabled:opacity-60 shadow-sm group/heart">
             <Heart
               size={16}
@@ -164,11 +269,15 @@ const ProductCard = ({ product }) => {
             />
           </button>
 
-          {/* Quick Add */}
+          {/* Quick Shop Button */}
           <div className="absolute bottom-3 right-3 z-10">
             <button
-              onClick={handleAddToCart}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsQuickShopOpen(true);
+              }}
               disabled={cartSyncing || isAdded}
+              aria-label="Quick Shop"
               className={`w-9 h-9 flex items-center justify-center rounded-full shadow-md transition-all duration-300 ${
                 isAdded
                   ? "bg-[#da127d] text-white"
@@ -183,30 +292,22 @@ const ProductCard = ({ product }) => {
           </div>
         </div>
 
-        {/* Product Info */}
         <div className="pt-4 pb-3 flex flex-col items-center text-center px-1">
-          {/* Product Name */}
           <h3 className="text-[12px] sm:text-[13px] font-semibold text-gray-900 uppercase tracking-widest truncate w-full transition-colors duration-300 group-hover:text-[#da127d]">
-            {product.name}
+            {validatedProduct.name}
           </h3>
-
-          {/* Category */}
           <p className="text-[11px] sm:text-[12px] text-gray-500 italic font-serif mt-1.5 truncate w-full">
-            {product.category || "Premium Collection"}
+            {validatedProduct.category}
           </p>
-
-          {/* Price Row */}
           <div className="flex items-center justify-center gap-2 mt-2.5">
             <span className="text-[14px] font-semibold text-gray-900">
-              ₹{formatPrice(product.price)}
+              ₹{formatPrice(validatedProduct.price)}
             </span>
-
             {discount > 0 && (
               <>
                 <span className="text-[12px] text-gray-400 line-through">
-                  ₹{formatPrice(product.originalPrice)}
+                  ₹{formatPrice(validatedProduct.originalPrice)}
                 </span>
-
                 <span className="text-[11px] font-semibold text-[#da127d]">
                   {discount}% OFF
                 </span>

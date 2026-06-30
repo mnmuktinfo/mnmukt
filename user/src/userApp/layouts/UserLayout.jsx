@@ -6,6 +6,8 @@ import BottomNavbar from "../features/account/components/bars/BottomHomeNavbar";
 import Footer from "../components/footer/Footer";
 import UnverifiedEmailPopup from "../features/auth/pages/UnverifiedEmailPopup";
 import WhatsAppButton from "../../shared/components/WhatsAppButton";
+import NewsletterPopup from "../components/pop-up/NewsletterPopup";
+import SalesNotification from "../components/pop-up/SalesNotification";
 
 const UserLayout = () => {
   const location = useLocation();
@@ -19,7 +21,7 @@ const UserLayout = () => {
   return (
     <div className="relative min-h-screen flex flex-col bg-white font-sans selection:bg-[#ff3f6c] selection:text-white">
       {/* ── TOP NAVBAR ── */}
-      <header className="fixed top-0 left-0 right-0 z-[101] bg-white w-full shadow-sm">
+      <header className="fixed top-0 left-0 right-0 z-[101] bg-white w-full ">
         <UserNavbar />
       </header>
       {/* ── MAIN CONTENT ── */}
@@ -35,6 +37,8 @@ const UserLayout = () => {
           <Outlet />
         </div>
       </main>
+      <NewsletterPopup />
+      <SalesNotification />
       {/* ── UNVERIFIED EMAIL POPUP ── */}
       <div className="z-[102]">
         <UnverifiedEmailPopup />

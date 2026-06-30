@@ -1,92 +1,127 @@
-import React, { Suspense, lazy } from "react";
-import { Routes, Route } from "react-router-dom";
-import { ProtectedRoute } from "./routes/ProtectedRoute";
+import React, { Suspense, lazy, useEffect } from "react";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { AdminAuthProvider } from "./context/AdminAuthContext";
+import ErrorBoundary from "./components/ErrorBoundary";
 
-/* ---------------- LAZY ROUTES ---------------- */
-// Lazy loading splits your code into smaller chunks, speeding up initial load
+/* ── Components ── */
+const ProtectedRoute = lazy(() => import("./routes/ProtectedRoute"));
+const AdminAuthPage = lazy(() => import("./pages/AdminAuthPage"));
+
+/* ── Lazy Routes ── */
 const AdminInquiryRoutes = lazy(() => import("./routes/AdminInquiryRoutes"));
 const AdminLayoutRoutes = lazy(() => import("./routes/AdminLayoutRoutes"));
 const TaruvedaRoutes = lazy(() => import("./routes/TaruvedaRoutes"));
-const AdminSignupPage = lazy(() => import("./pages/AdminSignUpPage"));
-const AdminAuthPage = lazy(() => import("./pages/AdminAuthPage"));
 
-/* ---------------- ULTRA-FAST SYSTEM LOADER ---------------- */
-// Removed external icon libraries here. Using pure CSS/Tailwind for instant rendering.
-const InitializingSystem = () => (
-  <div className="min-h-screen flex flex-col items-center justify-center bg-[#f1f3f6] antialiased fixed inset-0 z-[9999]">
+/* ── Ultra-Fast Loading Screen ── */
+const LoadingScreen = () => (
+  <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 antialiased fixed inset-0 z-[9999]">
     <div className="flex flex-col items-center animate-in fade-in zoom-in-95 duration-300 ease-out">
-      {/* Brand Logo Box (Flipkart Style) */}
+      {/* Brand Logo */}
       <div className="flex items-center gap-3 mb-8">
-        <div className="w-12 h-12 bg-[#2874f0] rounded-sm flex items-center justify-center shadow-[0_2px_4px_rgba(0,0,0,0.15)] relative overflow-hidden">
-          <span className="text-white font-bold text-2xl italic tracking-tighter pr-1">
-            M
-          </span>
-          {/* Signature Yellow Accent */}
-          <div className="absolute bottom-2 right-2 w-1.5 h-1.5 bg-[#ffe500] rounded-full"></div>
+        <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg relative overflow-hidden">
+          <span className="text-white font-bold text-2xl">M</span>
+          <div className="absolute bottom-1.5 right-1.5 w-2 h-2 bg-yellow-400 rounded-full" />
         </div>
         <div className="flex flex-col">
-          <span className="text-2xl font-bold italic tracking-tight text-[#212121] leading-none">
-            Mnmukt
-          </span>
-          <span className="text-[10px] font-bold text-[#878787] uppercase tracking-widest mt-1">
+          <span className="text-2xl font-bold text-white">Mnmukt</span>
+          <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">
             Seller Hub
           </span>
         </div>
       </div>
 
-      {/* Pure CSS Loading Indicator (Zero Dependencies) */}
-      <div className="flex flex-col items-center gap-4 bg-white px-8 py-5 rounded-sm border border-gray-200 shadow-[0_1px_2px_0_rgba(0,0,0,0.05)]">
-        {/* Tailwind CSS Spinner */}
-        <div className="w-7 h-7 border-[3px] border-[#e0e0e0] border-t-[#2874f0] rounded-full animate-spin"></div>
-        <span className="text-[13px] font-medium text-[#878787] tracking-wide">
-          Securely connecting to workspace...
+      {/* Loading Indicator */}
+      <div className="flex flex-col items-center gap-4 bg-white/10 backdrop-blur-sm px-8 py-6 rounded-xl border border-white/20">
+        <div className="w-7 h-7 border-3 border-white/30 border-t-white rounded-full animate-spin" />
+        <span className="text-sm font-medium text-white/80 tracking-wide">
+          Securing your workspace...
         </span>
       </div>
     </div>
   </div>
 );
 
-/* ---------------- APP ENTRY POINT ---------------- */
-const App = () => {
-  return (
-    <div className="min-h-screen bg-[#f1f3f6] font-sans text-[#212121] selection:bg-[#2874f0] selection:text-white antialiased">
-      <main>
-        <Suspense fallback={<InitializingSystem />}>
-          <Routes>
-            {/* PUBLIC AUTH ROUTES */}
-            <Route path="/auth" element={<AdminAuthPage />} />
-            <Route path="/signup" element={<AdminSignupPage />} />
-
-            {/* PROTECTED ADMIN ROUTES */}
-            <Route
-              path="/customers/*"
-              element={
-                <ProtectedRoute>
-                  <AdminInquiryRoutes />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/taruveda/*"
-              element={
-                <ProtectedRoute>
-                  <TaruvedaRoutes />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/*"
-              element={
-                <ProtectedRoute>
-                  <AdminLayoutRoutes />
-                </ProtectedRoute>
-              }
-            />
-          </Routes>
-        </Suspense>
-      </main>
+/* ── Page Not Found ── */
+const NotFoundPage = () => (
+  <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
+    <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-8 text-center border border-gray-200">
+      <h1 className="text-4xl font-bold text-gray-900 mb-2">404</h1>
+      <p className="text-gray-600 mb-6">
+        The page you're looking for doesn't exist.
+      </p>
+      <a
+        href="/"
+        className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors">
+        Go to Dashboard
+      </a>
     </div>
+  </div>
+);
+
+/* ── Main App Component ── */
+function App() {
+  const location = useLocation();
+
+  // Log navigation
+  useEffect(() => {
+    console.debug(`Navigated to: ${location.pathname}`);
+  }, [location.pathname]);
+
+  return (
+    <ErrorBoundary>
+      <div className="min-h-screen bg-slate-50 font-sans text-gray-900 selection:bg-blue-600 selection:text-white antialiased">
+        <AdminAuthProvider>
+          <main className="relative">
+            <Suspense fallback={<LoadingScreen />}>
+              <Routes>
+                {/* Public Auth Routes */}
+                <Route path="/auth" element={<AdminAuthPage />} />
+
+                {/* Protected Admin Routes */}
+                <Route
+                  path="/customers/*"
+                  element={
+                    <Suspense fallback={<LoadingScreen />}>
+                      <ProtectedRoute>
+                        <AdminInquiryRoutes />
+                      </ProtectedRoute>
+                    </Suspense>
+                  }
+                />
+
+                <Route
+                  path="/taruveda/*"
+                  element={
+                    <Suspense fallback={<LoadingScreen />}>
+                      <ProtectedRoute>
+                        <TaruvedaRoutes />
+                      </ProtectedRoute>
+                    </Suspense>
+                  }
+                />
+
+                {/* Protected Dashboard Routes */}
+                <Route
+                  path="/*"
+                  element={
+                    <Suspense fallback={<LoadingScreen />}>
+                      <ProtectedRoute>
+                        <AdminLayoutRoutes />
+                      </ProtectedRoute>
+                    </Suspense>
+                  }
+                />
+
+                {/* Fallback Routes */}
+                <Route path="/not-found" element={<NotFoundPage />} />
+                <Route path="*" element={<NotFoundPage />} />
+              </Routes>
+            </Suspense>
+          </main>
+        </AdminAuthProvider>
+      </div>
+    </ErrorBoundary>
   );
-};
+}
 
 export default App;

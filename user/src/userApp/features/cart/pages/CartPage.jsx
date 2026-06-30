@@ -27,15 +27,13 @@ const CartPage = () => {
   const [loadingDetails, setLoadingDetails] = useState(true);
   const [selected, setSelected] = useState([]);
 
-  /*
-  ────────────────────────────────────────
-  Stable Product ID Signature
-  ────────────────────────────────────────
-  */
+  /* ========================================
+     STABLE PRODUCT ID SIGNATURE
+     ======================================== */
   const cartIds = useMemo(
     () =>
       cart
-        .map((i) => String(i.id))
+        .map((i) => String(i.productId)) // ✅ FIXED: was i.id
         .sort()
         .join(","),
     [cart],
@@ -43,11 +41,9 @@ const CartPage = () => {
 
   const prevCartIds = useRef("");
 
-  /*
-  ────────────────────────────────────────
-  Fetch Product Details
-  ────────────────────────────────────────
-  */
+  /* ========================================
+     FETCH PRODUCT DETAILS
+     ======================================== */
   useEffect(() => {
     if (!cart.length) {
       setProducts([]);
@@ -105,45 +101,46 @@ const CartPage = () => {
     };
   }, [cartIds, cart.length, getProductsByIds, queryClient]);
 
-  /*
-  ────────────────────────────────────────
-  Product Map (O(1) lookup)
-  ────────────────────────────────────────
-  */
+  /* ========================================
+     PRODUCT MAP (O(1) LOOKUP)
+     ======================================== */
   const productMap = useMemo(() => {
     const map = new Map();
     products.forEach((p) => map.set(String(p.id), p));
     return map;
   }, [products]);
 
-  /*
-  ────────────────────────────────────────
-  Merge Cart + Product Data
-  ────────────────────────────────────────
-  */
+  /* ========================================
+     MERGE CART + PRODUCT DATA
+     ======================================== */
   const mergedCart = useMemo(() => {
     return cart
       .map((cartItem) => {
-        const id = String(cartItem.id);
+        const id = String(cartItem.productId); // ✅ FIXED: was cartItem.id
         const product = productMap.get(id);
 
         if (!product) return null;
 
         return {
-          ...product,
+          ...product, // Product details from DB
           cartKey: cartItem.cartKey,
-          selectedQuantity: cartItem.selectedQuantity || 1,
+          productId: cartItem.productId, // ✅ Ensure productId exists
+          unitPrice: cartItem.unitPrice, // ✅ From CartContext
+          originalPrice: cartItem.originalPrice, // ✅ From CartContext
+          quantity: cartItem.quantity, // ✅ FIXED: was selectedQuantity
           selectedSize: cartItem.selectedSize || "",
+          selectedColor: cartItem.selectedColor || "",
+          category: cartItem.category, // ✅ From CartContext
+          slug: cartItem.slug, // ✅ From CartContext
+          price: cartItem.unitPrice ?? product.price, // ✅ Fallback for older data
         };
       })
       .filter(Boolean);
   }, [cart, productMap]);
 
-  /*
-  ────────────────────────────────────────
-  Auto Select Items
-  ────────────────────────────────────────
-  */
+  /* ========================================
+     AUTO SELECT ITEMS
+     ======================================== */
   const hasAutoSelected = useRef(false);
 
   useEffect(() => {
@@ -153,11 +150,9 @@ const CartPage = () => {
     }
   }, [mergedCart]);
 
-  /*
-  ────────────────────────────────────────
-  Selection Handlers
-  ────────────────────────────────────────
-  */
+  /* ========================================
+     SELECTION HANDLERS
+     ======================================== */
   const handleSelectItem = (cartKey) =>
     setSelected((prev) =>
       prev.includes(cartKey)
@@ -177,51 +172,44 @@ const CartPage = () => {
     [mergedCart, selected],
   );
 
-  /*
-  ────────────────────────────────────────
-  Centralized Price Calculations
-  ────────────────────────────────────────
-  */
-
+  /* ========================================
+     PRICE CALCULATIONS
+     ======================================== */
   const pricing = useMemo(() => {
     let subtotal = 0;
     let originalTotalPrice = 0;
 
     selectedItems.forEach((item) => {
-      const qty = item.selectedQuantity || 1;
-      const price = item.price || 0;
-      // Note: Assuming your product object uses 'mrp' or 'originalPrice'.
-      // If it doesn't exist, it defaults to the standard price.
-      const mrp = item.mrp || item.originalPrice || price;
+      const qty = item.quantity || 1; // ✅ Use correct key
+      const price = item.unitPrice ?? item.price ?? 0; // ✅ Fallback chain
+      const mrp = item.originalPrice ?? price; // ✅ Fallback for MRP
 
       subtotal += price * qty;
       originalTotalPrice += mrp * qty;
     });
 
-    // 1. Calculate GST (Example: Flat 18% on subtotal)
-    // Adjust this math if your products have individual GST rates
+    // GST calculation (18% flat for India)
     const gstRate = 0.18;
     const gstAmount = Number((subtotal * gstRate).toFixed(2));
 
-    // 2. Calculate Platform/Shipping Fee (Example: Free over ₹999, else ₹50)
+    // Platform/Shipping Fee (Free over ₹999, else ₹50)
     const platformFee = subtotal > 0 && subtotal < 999 ? 50 : 0;
 
-    // 3. Final Total
+    // Final total
     const totalPayable = subtotal + platformFee;
 
     return {
-      subtotal,
-      originalTotalPrice,
+      subtotal: Math.round(subtotal),
+      originalTotalPrice: Math.round(originalTotalPrice),
+      gstAmount,
       platformFee,
-      totalPayable,
+      totalPayable: Math.round(totalPayable),
     };
   }, [selectedItems]);
 
-  /*
-  ────────────────────────────────────────
-  Checkout
-  ────────────────────────────────────────
-  */
+  /* ========================================
+     CHECKOUT
+     ======================================== */
   const handleCheckout = () => {
     if (!selectedItems.length) {
       alert("Please select at least one item to checkout.");
@@ -235,7 +223,7 @@ const CartPage = () => {
 
     navigate("/checkout/address", {
       state: {
-        items: selectedItems,
+        items: selectedItems, // ✅ Complete item objects
         pricing,
         totalAmount: pricing.totalPayable,
         totalItems: selectedItems.length,
@@ -243,23 +231,19 @@ const CartPage = () => {
     });
   };
 
-  /*
-  ────────────────────────────────────────
-  Guards
-  ────────────────────────────────────────
-  */
+  /* ========================================
+     GUARDS
+     ======================================== */
   if (loadingDetails && cart.length > 0) return <CartSkeleton />;
   if (!cart.length) return <EmptyCart />;
 
-  /*
-  ────────────────────────────────────────
-  UI
-  ────────────────────────────────────────
-  */
+  /* ========================================
+     UI
+     ======================================== */
   return (
     <div className="min-h-screen mt-5 pb-24 lg:pb-8 text-gray-800">
       {/* Breadcrumbs */}
-      <div className="hidden  md:flex text-gray-500 text-sm  flex-wrap gap-1 mb-4 px-4 md:px-0">
+      <div className="hidden md:flex text-gray-500 text-sm flex-wrap gap-1 mb-4 px-4 md:px-0">
         <Link to="/" className="hover:text-gray-800">
           Home
         </Link>
@@ -268,7 +252,7 @@ const CartPage = () => {
       </div>
 
       {/* Header */}
-      <header className="hidden  md:flex flex-col items-center text-center mb-16 px-4 md:px-0">
+      <header className="hidden md:flex flex-col items-center text-center mb-16 px-4 md:px-0">
         <span className="text-[#da127d] text-[10px] sm:text-xs uppercase tracking-widest font-semibold mb-2">
           Personal Edit
         </span>
@@ -293,14 +277,14 @@ const CartPage = () => {
               selectedItems={selected}
               onToggleSelect={handleSelectAll}
               onClearCart={clear}
-              totalPrice={pricing.totalPayable} // Updated to show final price
+              totalPrice={pricing.totalPayable}
             />
 
             <div className="divide-y divide-gray-100">
               {mergedCart.map((item) => (
                 <div
                   key={item.cartKey}
-                  className=" bg-white hover:bg-gray-50/50 transition-colors">
+                  className="bg-white hover:bg-gray-50/50 transition-colors">
                   <CartItemCard
                     product={item}
                     selected={selected.includes(item.cartKey)}
@@ -321,7 +305,6 @@ const CartPage = () => {
             <CartSummary
               subtotal={pricing.subtotal}
               originalTotalPrice={pricing.originalTotalPrice}
-              // gstAmount={pricing.gstAmount}
               platformFee={pricing.platformFee}
               selectedItems={selectedItems}
               onPlaceOrder={handleCheckout}
@@ -329,14 +312,6 @@ const CartPage = () => {
           </div>
         </div>
       </div>
-
-      {/* Mobile Checkout Bar
-      <CheckOutBottomBar
-        selectedItems={selectedItems}
-        totalPrice={pricing.totalPayable} // Updated to pass the final calculated total
-        onPlaceOrder={handleCheckout}
-        disabled={!selectedItems.length}
-      /> */}
 
       <LoginPopup isOpen={isLoginOpen} onClose={() => setIsLoginOpen(false)} />
     </div>

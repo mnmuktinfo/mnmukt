@@ -17,7 +17,7 @@ import { useAuth } from "../../../auth/context/UserContext";
 
 const NAV_ITEMS = [
   { label: "Home", icon: Home, path: "/" },
-  { label: "Explore", icon: LayoutGrid, path: "/categories" },
+  { label: "Explore", icon: LayoutGrid, path: "/collections/all" },
 ];
 
 const ACTIVITY_ITEMS = [

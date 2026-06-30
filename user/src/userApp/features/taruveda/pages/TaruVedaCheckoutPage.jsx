@@ -12,7 +12,7 @@ import {
 
 import { useAuth } from "../../auth/context/UserContext";
 import { useCart } from "../../../context/TaruvedaCartContext";
-import { createOrder, makeOrderId } from "../../orders/services/orderService";
+import { createOrder } from "../../orders/services/orderService";
 
 import AddressCard from "../../../components/cards/AddressCard";
 import AddressFormPopup from "../../../components/form/AddressFormPopup";
@@ -24,12 +24,15 @@ const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER ?? "";
 
 const EMPTY_FORM = {
   id: null,
-  name: "",
+  fullName: "",
   phone: "",
   addressLine1: "",
+  addressLine2: "",
   city: "",
   state: "",
-  pincode: "",
+  postalCode: "",
+  country: "India",
+  landmark: "",
   tag: "HOME",
 };
 
@@ -62,7 +65,14 @@ export default function TaruVedaCheckoutPage() {
   // ── Seed saved addresses from context ──
   const [addresses, setAddresses] = useState(() =>
     address
-      ? [{ ...address, addressLine1: address.line1 || address.addressLine1 }]
+      ? [{ 
+          ...address, 
+          fullName: address.fullName || address.name || "",
+          addressLine1: address.addressLine1 || address.line1 || "",
+          addressLine2: address.addressLine2 || "",
+          postalCode: address.postalCode || address.pincode || "",
+          landmark: address.landmark || "",
+        }]
       : [],
   );
 
@@ -94,28 +104,44 @@ export default function TaruVedaCheckoutPage() {
     e.preventDefault();
     setForm({
       ...addr,
-      addressLine1: addr.line1 || addr.addressLine1,
+      fullName: addr.fullName || addr.name || "",
+      phone: addr.phone || "",
+      addressLine1: addr.addressLine1 || addr.line1 || "",
+      addressLine2: addr.addressLine2 || "",
+      city: addr.city || "",
+      state: addr.state || "",
+      postalCode: addr.postalCode || addr.pincode || "",
+      landmark: addr.landmark || "",
       id: addr.id,
     });
     setPopupOpen(true);
   };
 
   /* ── Save address from popup ── */
-  const handleSaveAddress = async () => {
+  const handleSaveAddress = async (data) => {
     try {
       const saved = await saveAddress({
-        ...form,
-        line1: form.addressLine1,
+        ...data,
+        line1: data.addressLine1,
+        name: data.fullName,
+        pincode: data.postalCode,
       });
 
       const normalized = {
         ...saved,
-        addressLine1: saved.line1 || saved.addressLine1,
+        fullName: saved.fullName || saved.name || "",
+        phone: saved.phone || "",
+        addressLine1: saved.addressLine1 || saved.line1 || "",
+        addressLine2: saved.addressLine2 || "",
+        city: saved.city || "",
+        state: saved.state || "",
+        postalCode: saved.postalCode || saved.pincode || "",
+        landmark: saved.landmark || "",
       };
 
-      if (form.id) {
+      if (data.id) {
         setAddresses((prev) =>
-          prev.map((a) => (a.id === form.id ? normalized : a)),
+          prev.map((a) => (a.id === data.id ? normalized : a)),
         );
       } else {
         setAddresses((prev) => {
@@ -159,7 +185,7 @@ export default function TaruVedaCheckoutPage() {
       await createOrder({
         orderId: orderIdRef.current,
         user,
-        selectedAddress,
+        shippingAddress: selectedAddress,
         paymentMethod,
         items,
         pricing: orderPricing,
