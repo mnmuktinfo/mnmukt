@@ -14,12 +14,19 @@ import { useAuth } from "../../auth/context/UserContext";
 import { useCart } from "../../../context/TaruvedaCartContext";
 import { createOrder } from "../../orders/services/orderService";
 
+const makeOrderId = (name = "") => {
+  const prefix = name ? name.substring(0, 3).toUpperCase() : "MNM";
+  const random = Math.floor(100000 + Math.random() * 900000);
+  return `${prefix}-${random}`;
+};
+
+const BASE_URL = "/taruveda-organic-shampoo-oil";
+
 import AddressCard from "../../../components/cards/AddressCard";
 import AddressFormPopup from "../../../components/form/AddressFormPopup";
 import PaymentSelector from "../../../components/cards/PaymentComponent";
 import ConfirmOrderModal from "../../../components/cards/ConfirmOrderModal";
 
-const BASE_URL = "/taruveda-organic-shampoo-oil";
 const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER ?? "";
 
 const EMPTY_FORM = {
@@ -68,7 +75,7 @@ export default function TaruVedaCheckoutPage() {
       ? [{ 
           ...address, 
           fullName: address.fullName || address.name || "",
-          addressLine1: address.addressLine1 || address.line1 || "",
+          addressLine1: address.addressLine1 || "",
           addressLine2: address.addressLine2 || "",
           postalCode: address.postalCode || address.pincode || "",
           landmark: address.landmark || "",
@@ -106,7 +113,7 @@ export default function TaruVedaCheckoutPage() {
       ...addr,
       fullName: addr.fullName || addr.name || "",
       phone: addr.phone || "",
-      addressLine1: addr.addressLine1 || addr.line1 || "",
+      addressLine1: addr.addressLine1 || "",
       addressLine2: addr.addressLine2 || "",
       city: addr.city || "",
       state: addr.state || "",
@@ -122,7 +129,6 @@ export default function TaruVedaCheckoutPage() {
     try {
       const saved = await saveAddress({
         ...data,
-        line1: data.addressLine1,
         name: data.fullName,
         pincode: data.postalCode,
       });
@@ -131,7 +137,7 @@ export default function TaruVedaCheckoutPage() {
         ...saved,
         fullName: saved.fullName || saved.name || "",
         phone: saved.phone || "",
-        addressLine1: saved.addressLine1 || saved.line1 || "",
+        addressLine1: saved.addressLine1 || "",
         addressLine2: saved.addressLine2 || "",
         city: saved.city || "",
         state: saved.state || "",

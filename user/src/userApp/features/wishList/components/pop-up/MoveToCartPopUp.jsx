@@ -17,9 +17,16 @@ const MoveToCartPopUp = ({ onClose, product, onCompleted }) => {
 
     try {
       await addToCart({
-        id: product.id,
+        productId: product.id,
+        name: product.name,
+        price: product.price,
+        originalPrice: product.originalPrice,
+        image: product.image || product.banner || product.images?.[0] || "/placeholder.jpg",
+        category: product.category,
+        slug: product.slug,
+        sku: product.sku,
         selectedSize,
-        selectedQuantity: 1,
+        quantity: 1,
       });
 
       onCompleted?.();

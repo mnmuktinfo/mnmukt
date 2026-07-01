@@ -108,7 +108,7 @@ const EditProfilePage = () => {
     if (address) {
       setForm((p) => ({
         ...p,
-        addressLine1: address.addressLine1 ?? address.line1 ?? "",
+        addressLine1: address.addressLine1 ?? "",
         city: address.city ?? "",
         state: address.state ?? "",
         pincode: address.postalCode ?? address.pincode ?? "",
@@ -121,6 +121,26 @@ const EditProfilePage = () => {
   const setCheck = (f) => (e) =>
     setForm((p) => ({ ...p, [f]: e.target.checked }));
 
+  const fetchPin = async (pin) => {
+    if (!/^[1-9][0-9]{5}$/.test(pin)) return;
+    try {
+      const res = await fetch(`https://api.postalpincode.in/pincode/${pin}`);
+      const data = await res.json();
+      const result = data?.[0];
+      if (result?.Status === "Success") {
+        const office = result.PostOffice?.[0];
+        setForm((p) => ({ ...p, city: office?.District || p.city, state: office?.State || p.state }));
+      }
+    } catch (err) {}
+  };
+
+  const handlePincodeChange = (e) => {
+    const val = e.target.value;
+    if (!/^\d*$/.test(val) || val.length > 6) return;
+    setForm((p) => ({ ...p, pincode: val }));
+    if (val.length === 6) fetchPin(val);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -130,7 +150,6 @@ const EditProfilePage = () => {
 
       if (form.addressLine1 || form.city) {
         const saved = await saveAddress({
-          line1: form.addressLine1,
           addressLine1: form.addressLine1,
           city: form.city,
           state: form.state,
@@ -283,7 +302,7 @@ const EditProfilePage = () => {
               <Input
                 label="Pincode"
                 value={form.pincode}
-                onChange={set("pincode")}
+                onChange={handlePincodeChange}
                 placeholder="400001"
               />
             </div>

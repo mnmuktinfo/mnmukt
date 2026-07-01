@@ -89,7 +89,7 @@ const ProductCard = ({ product }) => {
       const cartItem = {
         productId: validatedProduct.id,
         name: validatedProduct.name,
-        unitPrice: validatedProduct.price,
+        price: validatedProduct.price,
         originalPrice: validatedProduct.originalPrice,
         image: mainImage,
         category: validatedProduct.category,
@@ -103,7 +103,7 @@ const ProductCard = ({ product }) => {
       const requiredFields = [
         "productId",
         "name",
-        "unitPrice",
+        "price",
         "image",
         "slug",
         "sku",
@@ -151,7 +151,7 @@ const ProductCard = ({ product }) => {
         {
           productId: validatedProduct.id,
           name: validatedProduct.name,
-          unitPrice: validatedProduct.price,
+          price: validatedProduct.price,
           originalPrice: validatedProduct.originalPrice,
           image: mainImage,
           category: validatedProduct.category,

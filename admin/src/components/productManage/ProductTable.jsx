@@ -89,9 +89,9 @@ const ProductTable = ({
               <div className="flex items-center gap-4 w-full lg:w-auto lg:contents">
                 {/* Image */}
                 <div className="w-16 h-16 lg:w-14 lg:h-14 rounded-sm overflow-hidden border border-gray-200 bg-[#f1f3f6] shrink-0 flex items-center justify-center relative">
-                  {product.banner ? (
+                  {product.image ? (
                     <img
-                      src={product.banner}
+                      src={product.image}
                       alt={product.name}
                       className="w-full h-full object-cover"
                     />

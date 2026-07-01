@@ -87,15 +87,15 @@ const orderItemSchema = z.object({
 
   category: z.string().optional(),
 
-  image: z.string().optional(),
+  image: z.string().url(),
 
   variant: variantSchema,
 
   quantity: z.number().int().min(1).max(100),
 
-  unitPrice: z.number().nonnegative(),
+  price: z.number().nonnegative(),
 
-  mrp: z.number().nonnegative().optional(),
+  originalPrice: z.number().nonnegative().optional(),
 
   totalPrice: z.number().nonnegative(),
 

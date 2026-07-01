@@ -1,40 +1,27 @@
-/**
- * OrderDetailPage.jsx — MNMUKT
- *
- * Design: Editorial minimal — inspired by reference screenshot
- *   • Big left-aligned "Order Details" heading
- *   • Per-item cards: large image left, info + tracking bar right
- *   • Delivery address + Shipping updates side-by-side inside each card
- *   • Bottom billing section: Billing address | Payment | Price breakdown
- *
- * Wires into existing services & sub-components:
- *   orderService.getOrderDetails(orderId)
- *   formatDate, getTrackingSteps
- *
- * Route: /orders/:orderId
- */
-
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { orderService } from "../features/orders/services/orderService";
 import { formatDate } from "../features/orders/utils/orders";
-import getTrackingSteps from "../features/orders/components/getTrackingSteps";
-import {
-  ChevronLeft,
-  ChevronRight,
-  ExternalLink,
-  Package,
-  Edit2,
-} from "lucide-react";
 
-/* ─────────────────────────────────────
-   BRAND TOKENS
-───────────────────────────────────── */
-const PINK = "#FF3F6C";
-const DARK = "#111827";
-const GRAY = "#6B7280";
-const LIGHT = "#F9FAFB";
+// Heroicons (Outline & Solid)
+import {
+  ArrowLeftIcon,
+  DocumentTextIcon,
+  MapPinIcon,
+  TruckIcon,
+  QuestionMarkCircleIcon,
+  StarIcon,
+  ArrowPathIcon,
+  ClipboardDocumentIcon,
+  PhoneIcon,
+  CheckCircleIcon as CheckCircleOutline,
+  XCircleIcon as XCircleOutline,
+} from "@heroicons/react/24/outline";
+import {
+  CheckCircleIcon as CheckCircleSolid,
+  XCircleIcon as XCircleSolid,
+} from "@heroicons/react/24/solid";
 
 /* ─────────────────────────────────────
    HELPERS
@@ -46,12 +33,22 @@ const fmt = (n) =>
     maximumFractionDigits: 0,
   }).format(n ?? 0);
 
+const formatPaymentMethod = (method) => {
+  if (!method) return "Online Payment";
+  const m = method.toLowerCase();
+  if (m === "cod") return "Cash on Delivery";
+  if (m === "razorpay") return "Razorpay (Online)";
+  if (m === "whatsapp") return "WhatsApp Payment";
+  if (m === "upi") return "UPI";
+  return m.replace(/_/g, " ");
+};
+
 /* ─────────────────────────────────────
    TRACKING STEPS CONFIG
 ───────────────────────────────────── */
 const STEPS = ["placed", "processing", "shipped", "delivered"];
 const STEP_LABELS = {
-  placed: "Order placed",
+  placed: "Order Placed",
   processing: "Processing",
   shipped: "Shipped",
   delivered: "Delivered",
@@ -65,183 +62,75 @@ const stepIdx = (status) => {
 };
 
 /* ─────────────────────────────────────
-   TRACKING BAR  (reference-style thin bar)
+   TRACKING PROGRESS BAR
 ───────────────────────────────────── */
-const TrackingBar = ({ orderStatus, itemStatus, label }) => {
-  const status = itemStatus || orderStatus || "placed";
-  const current = stepIdx(status);
-  const cancelled = status?.toLowerCase() === "cancelled";
+const TrackingBar = ({ status }) => {
+  const currentStatus = status?.toLowerCase() || "placed";
+  const isCancelled = currentStatus === "cancelled";
+  const current = stepIdx(currentStatus);
+  const fillPct = isCancelled
+    ? 100
+    : Math.max(5, Math.round((current / (STEPS.length - 1)) * 100));
 
-  // how far the fill goes (0–100%)
-  const fillPct = cancelled
-    ? 0
-    : Math.round((current / (STEPS.length - 1)) * 100);
+  if (isCancelled) {
+    return (
+      <div className="mt-4 bg-red-50 p-4 rounded-md border border-red-100 flex items-start gap-3">
+        <XCircleSolid className="w-6 h-6 text-red-500 shrink-0" />
+        <div>
+          <p className="text-sm font-semibold text-red-700">Order Cancelled</p>
+          <p className="text-xs text-red-600 mt-1">
+            This order has been cancelled. Any paid amount will be refunded as
+            per policy.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="mt-5">
-      {label && (
-        <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">
-          {label}
-        </p>
-      )}
-
-      {/* Bar */}
-      <div className="relative h-[3px] bg-gray-200 rounded-full overflow-hidden">
-        <div
-          className="absolute inset-y-0 left-0 rounded-full transition-all duration-700"
-          style={{
-            width: `${fillPct}%`,
-            background: cancelled ? "#EF4444" : PINK,
-          }}
-        />
-      </div>
-
-      {/* Step labels */}
-      <div className="flex justify-between mt-2">
-        {STEPS.map((step, i) => {
-          const done = !cancelled && i <= current;
-          const active = !cancelled && i === current;
-          return (
-            <span
-              key={step}
-              className="text-[10px] sm:text-[11px] font-semibold transition-colors"
-              style={{
-                color: active ? PINK : done ? DARK : "#9CA3AF",
-                fontWeight: active ? 700 : 500,
-              }}>
-              {STEP_LABELS[step]}
-            </span>
-          );
-        })}
-      </div>
-
-      {/* Status text */}
-      {cancelled ? (
-        <p className="text-xs text-red-500 font-semibold mt-2">
-          Order cancelled
-        </p>
-      ) : (
-        <p className="text-xs font-semibold mt-2" style={{ color: GRAY }}>
-          {status?.charAt(0).toUpperCase() + status?.slice(1)} ·{" "}
-          <span style={{ color: PINK }}>
-            {STEP_LABELS[status?.toLowerCase()] ?? "Order placed"}
+    <div className="mt-6 mb-2">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-sm font-semibold text-gray-900">
+          Status:{" "}
+          <span className="text-[#f43397]">
+            {STEP_LABELS[currentStatus] || currentStatus}
           </span>
         </p>
-      )}
-    </div>
-  );
-};
+      </div>
 
-/* ─────────────────────────────────────
-   ITEM CARD  (large image left, details right)
-───────────────────────────────────── */
-const ItemCard = ({ item, orderStatus, address, index }) => {
-  const [editPhone, setEditPhone] = useState(false);
-
-  return (
-    <div
-      className="border-t border-gray-200 pt-8 pb-10"
-      style={{ animationDelay: `${index * 60}ms` }}>
-      <div className="flex flex-col sm:flex-row gap-6 sm:gap-10">
-        {/* ── Product Image ── */}
+      <div className="relative px-2">
+        {/* Background Bar */}
+        <div className="absolute top-2.5 left-2 right-2 h-1 bg-gray-200 rounded-full" />
+        {/* Fill Bar */}
         <div
-          className="w-full sm:w-[200px] lg:w-[220px] aspect-[4/5] sm:aspect-auto sm:h-[240px]
-            flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden">
-          {item.image ? (
-            <img
-              src={item.image}
-              alt={item.name}
-              className="w-full h-full object-cover hover:scale-[1.03] transition-transform duration-500"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-300">
-              <Package size={36} />
-            </div>
-          )}
-        </div>
+          className="absolute top-2.5 left-2 h-1 bg-green-500 rounded-full transition-all duration-700"
+          style={{ width: `calc(${fillPct}% - 16px)` }}
+        />
 
-        {/* ── Product Info ── */}
-        <div className="flex-1 min-w-0 flex flex-col">
-          {/* Name + Price */}
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h3 className="text-[17px] sm:text-[19px] font-bold text-gray-900 leading-snug">
-                {item.name}
-              </h3>
-              {item.description && (
-                <p className="text-sm text-gray-500 mt-1.5 leading-relaxed max-w-[420px] line-clamp-3">
-                  {item.description}
-                </p>
-              )}
-            </div>
-            <p className="text-[17px] font-bold text-gray-900 flex-shrink-0">
-              {fmt(item.price)}
-            </p>
-          </div>
-
-          {/* Size / Qty pills */}
-          <div className="flex flex-wrap gap-2 mt-3">
-            {item.selectedSize && (
-              <span className="text-[11px] font-semibold text-gray-500 bg-gray-100 px-2.5 py-1 rounded">
-                Size: {item.selectedSize}
-              </span>
-            )}
-            <span className="text-[11px] font-semibold text-gray-500 bg-gray-100 px-2.5 py-1 rounded">
-              Qty: {item.quantity || 1}
-            </span>
-          </div>
-
-          {/* ── Address + Shipping updates row (reference layout) ── */}
-          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {/* Delivery address */}
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-2">
-                Delivery address
-              </p>
-              {address ? (
-                <div className="text-[13px] text-gray-700 leading-relaxed space-y-0.5">
-                  <p className="font-semibold text-gray-900">{address.fullName || address.name}</p>
-                  {(address.addressLine1 || address.line1) && <p>{address.addressLine1 || address.line1}</p>}
-                  <p>
-                    {[address.city, address.state, address.postalCode || address.pincode]
-                      .filter(Boolean)
-                      .join(", ")}
-                  </p>
+        {/* Nodes */}
+        <div className="relative flex justify-between">
+          {STEPS.map((step, i) => {
+            const isCompleted = i <= current;
+            const isActive = i === current;
+            return (
+              <div key={step} className="flex flex-col items-center gap-2">
+                <div
+                  className={`w-6 h-6 rounded-full flex items-center justify-center border-2 bg-white z-10 transition-colors ${
+                    isCompleted ? "border-green-500" : "border-gray-300"
+                  }`}>
+                  {isCompleted && (
+                    <div className="w-2.5 h-2.5 bg-green-500 rounded-full" />
+                  )}
                 </div>
-              ) : (
-                <p className="text-[13px] text-gray-400">No address on file</p>
-              )}
-            </div>
-
-            {/* Shipping updates */}
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-2">
-                Shipping updates
-              </p>
-              {address?.phone ? (
-                <div className="text-[13px] text-gray-700 space-y-0.5">
-                  <p>
-                    {address.phone.replace(
-                      /(\d{2})(\d{6})(\d{2})/,
-                      "$1••••••$3",
-                    )}
-                  </p>
-                  <button
-                    onClick={() => setEditPhone((v) => !v)}
-                    className="flex items-center gap-1 text-[12px] font-semibold transition-colors"
-                    style={{ color: PINK }}>
-                    <Edit2 size={11} />
-                    Edit
-                  </button>
-                </div>
-              ) : (
-                <p className="text-[13px] text-gray-400">—</p>
-              )}
-            </div>
-          </div>
-
-          {/* ── Tracking Bar ── */}
-          <TrackingBar orderStatus={orderStatus} itemStatus={item.itemStatus} />
+                <span
+                  className={`text-[10px] sm:text-xs font-medium text-center ${
+                    isActive ? "text-gray-900 font-bold" : "text-gray-500"
+                  }`}>
+                  {STEP_LABELS[step]}
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -249,115 +138,132 @@ const ItemCard = ({ item, orderStatus, address, index }) => {
 };
 
 /* ─────────────────────────────────────
-   BILLING FOOTER  (reference-style 3-col)
+   ITEM CARD
 ───────────────────────────────────── */
-const BillingFooter = ({ order }) => {
-  const p = order?.pricing ?? {};
-  const address = order?.shippingAddress || order?.addressSnapshot;
-
-  const priceRows = [
-    {
-      label: "Subtotal",
-      value: p.subtotal ?? p.totalMRP ?? order?.totalAmount,
-    },
-    {
-      label: "Shipping",
-      value: p.shippingCharge ?? p.deliveryCharge ?? p.deliveryFee ?? 0,
-      free: (p.shippingCharge ?? p.deliveryCharge ?? p.deliveryFee ?? 0) === 0,
-    },
-    (p.itemDiscount > 0 || p.discount > 0) && { 
-      label: "Discount", 
-      value: -(p.itemDiscount ?? p.discount), 
-      green: true 
-    },
-    p.couponDiscount > 0 && {
-      label: "Coupon",
-      value: -p.couponDiscount,
-      green: true,
-    },
-    p.platformFee > 0 && { label: "Platform fee", value: p.platformFee },
-    (p.taxAmount > 0 || p.gstAmount > 0) && { label: "Tax", value: p.taxAmount ?? p.gstAmount },
-  ].filter(Boolean);
-
-  const total = p.total ?? p.totalPayable ?? p.totalAmount ?? order?.totalAmount ?? 0;
+const ItemCard = ({ item, orderStatus }) => {
+  const isDelivered = orderStatus?.toLowerCase() === "delivered";
+  const isCancelled = orderStatus?.toLowerCase() === "cancelled";
 
   return (
-    <div className="border-t border-gray-200 mt-4 pt-10 pb-16">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-10">
-        {/* Billing Address */}
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-3">
-            Billing address
-          </p>
-          {address ? (
-            <div className="text-[13px] text-gray-700 leading-relaxed space-y-0.5">
-              <p className="font-semibold text-gray-900">{address.fullName || address.name}</p>
-              {(address.addressLine1 || address.line1) && <p>{address.addressLine1 || address.line1}</p>}
-              <p>
-                {[address.city, address.state, address.postalCode || address.pincode]
-                  .filter(Boolean)
-                  .join(", ")}
-              </p>
-            </div>
-          ) : (
-            <p className="text-[13px] text-gray-400">—</p>
+    <div className="p-4 border-b border-gray-100 last:border-0 flex flex-col sm:flex-row gap-4">
+      {/* Product Image */}
+      <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gray-100 rounded border border-gray-200 shrink-0 overflow-hidden">
+        {item.image ? (
+          <img
+            src={item.image}
+            alt={item.name}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <DocumentTextIcon className="w-8 h-8 text-gray-300" />
+          </div>
+        )}
+      </div>
+
+      {/* Product Details */}
+      <div className="flex-1">
+        <h3 className="text-sm font-medium text-gray-900 line-clamp-2">
+          {item.name}
+        </h3>
+        <div className="flex flex-wrap gap-3 mt-1.5 text-xs text-gray-500">
+          {item.selectedSize && (
+            <span>
+              Size:{" "}
+              <span className="font-medium text-gray-800">
+                {item.selectedSize}
+              </span>
+            </span>
+          )}
+          <span>
+            Qty:{" "}
+            <span className="font-medium text-gray-800">
+              {item.quantity || 1}
+            </span>
+          </span>
+        </div>
+        <p className="text-base font-semibold text-gray-900 mt-2">
+          {fmt(item.price)}
+        </p>
+
+        {/* Item Actions */}
+        <div className="mt-4 flex flex-wrap gap-2">
+          {isDelivered && (
+            <>
+              <button className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-50 border border-gray-300 rounded hover:bg-gray-100">
+                <ArrowPathIcon className="w-4 h-4" /> Return / Exchange
+              </button>
+              <button className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-[#f43397] bg-pink-50 border border-pink-200 rounded hover:bg-pink-100">
+                <StarIcon className="w-4 h-4" /> Rate Product
+              </button>
+            </>
+          )}
+          {!isDelivered && !isCancelled && (
+            <button className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded hover:bg-red-100">
+              <XCircleOutline className="w-4 h-4" /> Cancel Item
+            </button>
           )}
         </div>
+      </div>
+    </div>
+  );
+};
 
-        {/* Payment Information */}
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-3">
-            Payment information
-          </p>
-          <div className="text-[13px] text-gray-700 space-y-1">
-            <div className="flex items-center gap-2">
-              {/* Card icon placeholder */}
-              <span
-                className="inline-flex items-center justify-center px-2 py-1 rounded text-[10px]
-                  font-black text-white uppercase"
-                style={{ background: PINK }}>
-                {order?.paymentMethod === "cod" ? "COD" : "CARD"}
-              </span>
-              <span className="font-semibold text-gray-900 capitalize">
-                {order?.paymentMethod === "cod"
-                  ? "Cash on Delivery"
-                  : (order?.paymentMethod ?? "Online")}
-              </span>
-            </div>
-            <p className="text-gray-400 text-[12px] capitalize">
-              Status: {order?.paymentStatus ?? "pending"}
-            </p>
-          </div>
+/* ─────────────────────────────────────
+   ORDER SUMMARY CARD
+───────────────────────────────────── */
+const OrderSummary = ({ pricing, total }) => {
+  const p = pricing || {};
+
+  return (
+    <div className="bg-white rounded-md border border-gray-200 p-4">
+      <h2 className="text-sm font-semibold text-gray-900 mb-4 border-b border-gray-100 pb-2">
+        Price Details
+      </h2>
+      <div className="space-y-2.5 text-sm">
+        <div className="flex justify-between text-gray-600">
+          <span>Total Product Price</span>
+          <span>{fmt(p.subtotal ?? p.totalMRP)}</span>
         </div>
 
-        {/* Price Breakdown */}
-        <div>
-          <div className="space-y-2.5">
-            {priceRows.map((row, i) => (
-              <div key={i} className="flex items-center justify-between">
-                <span className="text-[13px] text-gray-500">{row.label}</span>
-                <span
-                  className={`text-[13px] font-semibold ${
-                    row.green ? "text-green-600" : "text-gray-900"
-                  }`}>
-                  {row.free
-                    ? "Free"
-                    : row.value < 0
-                      ? `− ${fmt(Math.abs(row.value))}`
-                      : fmt(row.value)}
-                </span>
-              </div>
-            ))}
+        <div className="flex justify-between text-gray-600">
+          <span>Shipping Charges</span>
+          <span
+            className={
+              (p.shippingCharge ?? p.deliveryFee) === 0
+                ? "text-green-600 font-medium"
+                : ""
+            }>
+            {(p.shippingCharge ?? p.deliveryFee) === 0
+              ? "Free"
+              : fmt(p.shippingCharge ?? p.deliveryFee)}
+          </span>
+        </div>
 
-            <div className="flex items-center justify-between pt-3 mt-1 border-t border-gray-200">
-              <span className="text-[14px] font-bold text-gray-900">
-                Order total
-              </span>
-              <span className="text-[14px] font-black" style={{ color: PINK }}>
-                {fmt(total)}
-              </span>
-            </div>
+        {(p.itemDiscount > 0 || p.discount > 0) && (
+          <div className="flex justify-between text-green-600 font-medium">
+            <span>Special Discount</span>
+            <span>− {fmt(p.itemDiscount ?? p.discount)}</span>
           </div>
+        )}
+
+        {p.couponDiscount > 0 && (
+          <div className="flex justify-between text-green-600 font-medium">
+            <span>Coupon Applied</span>
+            <span>− {fmt(p.couponDiscount)}</span>
+          </div>
+        )}
+
+        {(p.taxAmount > 0 || p.gstAmount > 0) && (
+          <div className="flex justify-between text-gray-600">
+            <span>Estimated Tax</span>
+            <span>{fmt(p.taxAmount ?? p.gstAmount)}</span>
+          </div>
+        )}
+
+        <div className="flex justify-between text-base font-bold text-gray-900 pt-3 border-t border-gray-100 mt-2">
+          <span>Order Total</span>
+          <span>{fmt(total)}</span>
         </div>
       </div>
     </div>
@@ -367,36 +273,15 @@ const BillingFooter = ({ order }) => {
 /* ─────────────────────────────────────
    SKELETON
 ───────────────────────────────────── */
-const Skel = ({ className }) => (
-  <div className={`animate-pulse bg-gray-100 rounded ${className}`} />
-);
-
 const PageSkeleton = () => (
-  <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-10">
-    <Skel className="h-8 w-48 mb-2" />
-    <Skel className="h-4 w-72 mb-12" />
-    {[1, 2].map((i) => (
-      <div key={i} className="border-t border-gray-200 pt-8 pb-10 flex gap-8">
-        <Skel className="w-[200px] h-[240px] flex-shrink-0" />
-        <div className="flex-1 space-y-3">
-          <Skel className="h-6 w-48" />
-          <Skel className="h-4 w-full" />
-          <Skel className="h-4 w-4/5" />
-          <div className="mt-6 grid grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <Skel className="h-3 w-28" />
-              <Skel className="h-4 w-40" />
-              <Skel className="h-4 w-32" />
-            </div>
-            <div className="space-y-2">
-              <Skel className="h-3 w-28" />
-              <Skel className="h-4 w-36" />
-            </div>
-          </div>
-          <Skel className="h-2 w-full mt-4" />
-        </div>
-      </div>
-    ))}
+  <div className="max-w-3xl mx-auto px-4 pt-6 space-y-4">
+    <div className="h-20 bg-gray-200 rounded-md animate-pulse" />
+    <div className="h-40 bg-gray-200 rounded-md animate-pulse" />
+    <div className="flex gap-4">
+      <div className="h-32 flex-1 bg-gray-200 rounded-md animate-pulse" />
+      <div className="h-32 flex-1 bg-gray-200 rounded-md animate-pulse" />
+    </div>
+    <div className="h-48 bg-gray-200 rounded-md animate-pulse" />
   </div>
 );
 
@@ -406,130 +291,229 @@ const PageSkeleton = () => (
 const OrderDetailPage = () => {
   const { orderId } = useParams();
   const navigate = useNavigate();
+  const [copied, setCopied] = useState(false);
 
   const {
     data: order,
     isLoading,
     error,
-    refetch,
   } = useQuery({
     queryKey: ["order", orderId],
     queryFn: () => orderService.getOrderDetails(orderId),
     enabled: !!orderId,
     staleTime: 5 * 60 * 1000,
-    gcTime: 30 * 60 * 1000,
-    retry: 2,
   });
 
-  /* ── Loading ── */
-  if (isLoading)
+  const handleCopyOrderId = (id) => {
+    navigator.clipboard.writeText(id);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  if (isLoading) {
     return (
-      <div className="min-h-screen bg-white font-sans">
-        <nav className="border-b border-gray-200 h-14" />
+      <div className="min-h-screen bg-gray-50 font-sans">
+        <nav className="h-14 bg-white border-b border-gray-200" />
         <PageSkeleton />
       </div>
     );
+  }
 
-  /* ── Error ── */
-  if (error || !order)
+  if (error || !order) {
     return (
-      <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-4 font-sans">
-        <p className="text-gray-900 font-semibold text-lg">Order not found</p>
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center font-sans p-4">
+        <QuestionMarkCircleIcon className="w-16 h-16 text-gray-400 mb-4" />
+        <p className="text-gray-900 font-semibold text-lg mb-4">
+          Order not found
+        </p>
         <button
           onClick={() => navigate("/orders")}
-          className="text-sm font-bold px-5 py-2.5 rounded-full text-white"
-          style={{ background: PINK }}>
+          className="px-6 py-2.5 bg-[#f43397] text-white text-sm font-medium rounded hover:bg-[#e02b88] transition-colors">
           Back to Orders
         </button>
       </div>
     );
+  }
 
   const items = order.items ?? [];
   const address = order.shippingAddress || order.addressSnapshot;
+  const totalAmount = order.pricing?.total ?? order.totalAmount ?? 0;
+  const displayOrderId = order.orderId ?? order.id;
 
   return (
-    <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&display=swap');
-        .od-page * { box-sizing: border-box; }
-      `}</style>
+    <div className="min-h-screen bg-gray-50 font-sans pb-24">
+      {/* TOP NAV */}
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
+        <div className="max-w-3xl mx-auto px-4 h-14 flex items-center gap-3">
+          <button
+            onClick={() => navigate(-1)}
+            className="p-1 -ml-1 text-gray-600 hover:text-gray-900 transition-colors">
+            <ArrowLeftIcon className="w-5 h-5" />
+          </button>
+          <h1 className="text-base font-semibold text-gray-900">
+            Order Details
+          </h1>
+        </div>
+      </header>
 
-      <div
-        className="od-page min-h-screen bg-white pb-20"
-        style={{ fontFamily: "'DM Sans', sans-serif", color: DARK }}>
-        {/* ── Minimal Top Nav ── */}
-        <nav className="border-b border-gray-200 sticky top-0 z-40 bg-white">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center gap-3">
-            <button
-              onClick={() => navigate(-1)}
-              className="flex items-center gap-1.5 text-gray-500 hover:text-gray-900
-                text-[13px] font-semibold transition-colors group"
-              aria-label="Go back">
-              <ChevronLeft
-                size={18}
-                className="group-hover:-translate-x-0.5 transition-transform"
-              />
-              Orders
-            </button>
-          </div>
-        </nav>
-
-        {/* ── Page Content ── */}
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* ── Page Title Row (reference style) ── */}
-          <div
-            className="flex flex-col sm:flex-row sm:items-end sm:justify-between
-            pt-8 sm:pt-10 pb-2 gap-3">
-            <div>
-              <h1 className="text-[26px] sm:text-[30px] font-black text-gray-900 leading-none">
-                Order Details
-              </h1>
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2">
-                <span className="text-[13px] text-gray-400 font-medium">
-                  Order number{" "}
-                  <span className="font-bold text-gray-600">
-                    {order.orderId ?? order.id}
+      <div className="max-w-3xl mx-auto px-4 pt-4 sm:pt-6 space-y-4">
+        {/* HEADER INFO CARD */}
+        <div className="bg-white rounded-md border border-gray-200 p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-sm text-gray-500">Order ID:</span>
+              <span className="text-sm font-semibold text-gray-900">
+                {displayOrderId}
+              </span>
+              <button
+                onClick={() => handleCopyOrderId(displayOrderId)}
+                className="text-gray-400 hover:text-[#f43397] transition-colors relative"
+                title="Copy Order ID">
+                <ClipboardDocumentIcon className="w-4 h-4" />
+                {copied && (
+                  <span className="absolute -top-8 -left-4 bg-gray-800 text-white text-[10px] px-2 py-1 rounded shadow">
+                    Copied!
                   </span>
-                </span>
-                <span className="text-gray-300 hidden sm:inline">·</span>
-                <span className="text-[13px] text-gray-400 font-medium">
-                  {formatDate(order.createdAt)}
-                </span>
-              </div>
+                )}
+              </button>
             </div>
-
-            {/* View Invoice CTA */}
-            <button
-              className="flex items-center gap-1.5 text-[13px] font-bold transition-colors"
-              style={{ color: PINK }}>
-              View invoice <ChevronRight size={15} />
-            </button>
+            <p className="text-xs text-gray-500">
+              Placed on {formatDate(order.createdAt)}
+            </p>
           </div>
 
-          {/* ── Per-Item Cards ── */}
-          <div className="mt-2">
+          <button className="flex items-center justify-center gap-1.5 px-4 py-2 border border-gray-300 text-sm font-medium text-gray-700 bg-white rounded hover:bg-gray-50 transition-colors w-full sm:w-auto">
+            <DocumentTextIcon className="w-4 h-4 text-gray-500" />
+            Download Invoice
+          </button>
+        </div>
+
+        {/* TRACKING & ITEMS CARD */}
+        <div className="bg-white rounded-md border border-gray-200 shadow-sm">
+          <div className="p-4 border-b border-gray-100">
+            <h2 className="text-sm font-semibold text-gray-900 mb-2">
+              Delivery Status
+            </h2>
+            <TrackingBar status={order.orderStatus} />
+          </div>
+
+          <div>
             {items.length > 0 ? (
               items.map((item, i) => (
                 <ItemCard
                   key={item.id ?? i}
                   item={item}
                   orderStatus={order.orderStatus}
-                  address={address}
-                  index={i}
                 />
               ))
             ) : (
-              <div className="border-t border-gray-200 py-16 text-center text-gray-400 text-sm">
+              <div className="py-10 text-center text-sm text-gray-500">
                 No items found in this order.
               </div>
             )}
           </div>
+        </div>
 
-          {/* ── Billing / Payment / Pricing Footer ── */}
-          <BillingFooter order={order} />
+        {/* DETAILS GRID (Address + Payment) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Shipping Address */}
+          <div className="bg-white rounded-md border border-gray-200 p-4 flex flex-col">
+            <h2 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2 border-b border-gray-100 pb-2">
+              <MapPinIcon className="w-4 h-4 text-gray-500" /> Delivery Address
+            </h2>
+            {address ? (
+              <div className="text-sm text-gray-700 space-y-1 mt-1">
+                <p className="font-medium text-gray-900">
+                  {address.fullName || address.name}
+                </p>
+                {address.addressLine1 && <p>{address.addressLine1}</p>}
+                <p>
+                  {[
+                    address.city,
+                    address.state,
+                    address.postalCode || address.pincode,
+                  ]
+                    .filter(Boolean)
+                    .join(", ")}
+                </p>
+                {address.phone && (
+                  <p className="pt-2 font-medium">Phone: {address.phone}</p>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400 italic">No address on file</p>
+            )}
+          </div>
+
+          {/* Payment Info */}
+          <div className="bg-white rounded-md border border-gray-200 p-4 flex flex-col">
+            <h2 className="text-sm font-semibold text-gray-900 mb-3 border-b border-gray-100 pb-2">
+              Payment Details
+            </h2>
+            <div className="mt-1 space-y-3">
+              <div>
+                <p className="text-xs text-gray-500 mb-0.5">Method</p>
+                <p className="text-sm font-medium text-gray-900">
+                  {formatPaymentMethod(order.payment?.method)}
+                </p>
+              </div>
+              {order.payment?.status && (
+                <div>
+                  <p className="text-xs text-gray-500 mb-0.5">Status</p>
+                  <div className="flex items-center gap-1.5">
+                    {order.payment.status.toLowerCase() === "completed" ||
+                    order.payment.status.toLowerCase() === "success" ? (
+                      <CheckCircleSolid className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <div className="w-2 h-2 bg-amber-500 rounded-full ml-1" />
+                    )}
+                    <p className="text-sm font-medium capitalize text-gray-900">
+                      {order.payment.status}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ORDER SUMMARY */}
+        <OrderSummary pricing={order.pricing} total={totalAmount} />
+
+        {/* SUPPORT FOOTER */}
+        <div className="mt-6 pt-6 border-t border-gray-200">
+          <p className="text-sm font-semibold text-gray-900 mb-4 px-2">
+            Need help with your order?
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <a
+              href={`mailto:support@store.com?subject=Help with Order ${displayOrderId}`}
+              className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded hover:border-gray-300 transition-colors">
+              <PhoneIcon className="w-5 h-5 text-gray-400" />
+              <div>
+                <p className="text-sm font-medium text-gray-900">
+                  Contact Support
+                </p>
+                <p className="text-xs text-gray-500">Reach out to our team</p>
+              </div>
+            </a>
+            <a
+              href="/support/returns"
+              className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded hover:border-gray-300 transition-colors">
+              <ArrowPathIcon className="w-5 h-5 text-gray-400" />
+              <div>
+                <p className="text-sm font-medium text-gray-900">
+                  Return Policy
+                </p>
+                <p className="text-xs text-gray-500">
+                  Learn about easy returns
+                </p>
+              </div>
+            </a>
+          </div>
         </div>
       </div>
-    </>
+    </div>
   );
 };
 

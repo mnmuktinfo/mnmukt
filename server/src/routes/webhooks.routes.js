@@ -3,39 +3,36 @@ const router = express.Router();
 const crypto = require("crypto");
 
 const logger = require("../utils/logger");
-const db = require("../config/firebaseAdmin");
+const Order = require("../models/Order");
+const { sendOrderConfirmationEmail } = require("../services/resend.email");
 
 // ==========================================
 // WEBHOOK SIGNATURE VERIFICATION
 // ==========================================
 
-/**
- * ✅ Verify Razorpay webhook signature
- * This prevents anyone from calling the webhook and spoofing payments
- */
-const verifyRazorpaySignature = (req) => {
+const verifyRazorpayWebhookSignature = (req) => {
   try {
-    const {
-      razorpay_order_id,
-      razorpay_payment_id,
-      razorpay_signature,
-    } = req.body;
+    const signature = req.headers["x-razorpay-signature"];
+    if (!signature) return false;
 
-    // Reconstruct the signature from the webhook secret
-    const body = `${razorpay_order_id}|${razorpay_payment_id}`;
+    // Razorpay Webhooks use the RAW JSON body for verification
+    const body = JSON.stringify(req.body);
+    const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+
+    if (!secret) {
+      logger("ERROR", "RAZORPAY_WEBHOOK_SECRET is not defined in environment variables");
+      return false;
+    }
 
     const expectedSignature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_WEBHOOK_SECRET)
+      .createHmac("sha256", secret)
       .update(body)
       .digest("hex");
 
-    // Constant-time comparison to prevent timing attacks
-    const isValid = crypto.timingSafeEqual(
-      Buffer.from(razorpay_signature),
+    return crypto.timingSafeEqual(
+      Buffer.from(signature),
       Buffer.from(expectedSignature)
     );
-
-    return isValid;
   } catch (error) {
     logger("WARN", `Signature verification failed: ${error.message}`);
     return false;
@@ -43,209 +40,125 @@ const verifyRazorpaySignature = (req) => {
 };
 
 // ==========================================
-// RAZORPAY PAYMENT SUCCESS WEBHOOK
+// RAZORPAY WEBHOOK HANDLER
 // ==========================================
 
-/**
- * ✅ Webhook for Razorpay payment success
- * IMPORTANT: This endpoint should NOT require user authentication
- * because webhooks are called by Razorpay servers, not the user.
- * Instead, we verify the webhook signature to ensure it came from Razorpay.
- */
-router.post("/razorpay/payment-success", async (req, res) => {
+router.post("/razorpay", async (req, res) => {
   try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
-      req.body;
-
-    // ✅ CRITICAL: Verify webhook signature (most important!)
-    if (!verifyRazorpaySignature(req.body)) {
+    // 1. Verify Signature
+    if (!verifyRazorpayWebhookSignature(req)) {
       logger("WARN", `Invalid webhook signature attempt: ${req.ip}`);
-
-      return res.status(401).json({
-        success: false,
-        message: "Invalid signature",
-      });
+      return res.status(401).json({ success: false, message: "Invalid signature" });
     }
 
-    // ✅ Validate required fields
-    if (!razorpay_order_id || !razorpay_payment_id) {
-      return res.status(400).json({
-        success: false,
-        message: "Missing payment details",
-      });
+    const eventType = req.body.event;
+    
+    // We only care about payment success and failure events
+    if (!["payment.captured", "payment.authorized", "payment.failed", "order.paid"].includes(eventType)) {
+      return res.status(200).json({ success: true, message: "Event ignored" });
     }
 
-    // ✅ Find order by Razorpay order ID (not user input!)
-    const orderDoc = await db
-      .collection("orders")
-      .where("razorpay_order_id", "==", razorpay_order_id)
-      .limit(1)
-      .get();
+    const paymentEntity = req.body.payload?.payment?.entity;
+    if (!paymentEntity) {
+       return res.status(400).json({ success: false, message: "No payment payload" });
+    }
 
-    if (orderDoc.empty) {
+    const razorpay_order_id = paymentEntity.order_id;
+    const razorpay_payment_id = paymentEntity.id;
+
+    if (!razorpay_order_id) {
+       return res.status(400).json({ success: false, message: "Missing order_id in webhook" });
+    }
+
+    // 2. Find Order in MongoDB
+    const order = await Order.findOne({ "payment.gatewayMeta.razorpay_order_id": razorpay_order_id });
+
+    if (!order) {
       logger("WARN", `Webhook: Order not found for ${razorpay_order_id}`);
-
-      return res.status(404).json({
-        success: false,
-        message: "Order not found",
-      });
+      return res.status(404).json({ success: false, message: "Order not found" });
     }
 
-    const order = orderDoc.docs[0];
-    const orderId = order.id;
-    const orderData = order.data();
-
-    // ✅ Prevent double-processing (idempotency)
-    if (orderData.paymentStatus === "paid") {
-      logger("INFO", `Webhook: Payment already processed for ${orderId}`);
-
-      return res.status(200).json({
-        success: true,
-        message: "Payment already processed",
-      });
-    }
-
-    const batch = db.batch();
-    const now = new Date().toISOString();
-
-    // ✅ Update order - payment confirmed
-    batch.update(db.collection("orders").doc(orderId), {
-      paymentStatus: "paid",
-      razorpay_payment_id,
-      razorpay_order_id,
-      orderStatus: "confirmed",
-      paidAt: now,
-      updatedAt: now,
-    });
-
-    // ✅ Update user's order reference
-    batch.update(
-      db.collection("users").doc(orderData.userId).collection("orders").doc(orderId),
-      {
-        paymentStatus: "paid",
-        orderStatus: "confirmed",
-        updatedAt: now,
+    // ==========================================
+    // HANDLE SUCCESS EVENTS
+    // ==========================================
+    if (["payment.captured", "payment.authorized", "order.paid"].includes(eventType)) {
+      
+      if (order.payment?.status === "paid") {
+        logger("INFO", `Webhook: Payment already processed for ${order.orderId}`);
+        return res.status(200).json({ success: true, message: "Payment already processed" });
       }
-    );
 
-    // ✅ Add timeline entry for audit trail
-    batch.set(
-      db.collection("orders").doc(orderId).collection("timeline").doc(),
-      {
-        status: "payment_received",
-        event: "payment_confirmed",
-        transactionId: razorpay_payment_id,
-        amount: orderData.amount,
-        note: `Payment of ₹${orderData.amount} confirmed via Razorpay`,
-        timestamp: now,
+      order.payment = order.payment || {};
+      order.payment.status = "paid";
+      order.payment.paidAt = new Date();
+      order.payment.amountPaid = (paymentEntity.amount || 0) / 100; // Convert paise to rupees
+      
+      order.payment.gatewayMeta = {
+        ...(order.payment.gatewayMeta || {}),
+        razorpay_payment_id,
+        webhook_verified: true,
+      };
+
+      order.orderStatus = "confirmed";
+      order.markModified("payment");
+
+      if (typeof order.addTimeline === "function") {
+        order.addTimeline(
+          "confirmed",
+          "Payment confirmed via Razorpay Webhook",
+          { type: "system", id: "razorpay_webhook", name: "Razorpay" }
+        );
       }
-    );
 
-    // Commit all updates atomically
-    await batch.commit();
-
-    logger("INFO", `Payment confirmed for order ${orderId}`, {
-      orderId,
-      userId: orderData.userId,
-      paymentId: razorpay_payment_id,
-      amount: orderData.amount,
-    });
-
-    res.status(200).json({
-      success: true,
-      message: "Payment processed successfully",
-      orderId,
-    });
-  } catch (error) {
-    logger("ERROR", `Webhook error: ${error.message}`, {
-      ip: req.ip,
-      error: error.stack,
-    });
-
-    res.status(500).json({
-      success: false,
-      message: "Webhook processing failed",
-    });
-  }
-});
-
-// ==========================================
-// RAZORPAY PAYMENT FAILURE WEBHOOK
-// ==========================================
-
-/**
- * ✅ Handle failed payments
- */
-router.post("/razorpay/payment-failure", async (req, res) => {
-  try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, error } =
-      req.body;
-
-    // ✅ Verify signature
-    if (!verifyRazorpaySignature({ razorpay_order_id, razorpay_payment_id, razorpay_signature })) {
-      logger("WARN", `Invalid failure webhook signature: ${req.ip}`);
-
-      return res.status(401).json({
-        success: false,
-        message: "Invalid signature",
+      await order.save();
+      
+      // Trigger Email Notification safely
+      sendOrderConfirmationEmail(order).catch(err => {
+         logger("ERROR", `Failed to send email inside webhook: ${err.message}`);
       });
+
+      logger("INFO", `Payment confirmed via Webhook for order ${order.orderId}`);
+      return res.status(200).json({ success: true, message: "Payment processed successfully" });
     }
 
-    // Find order
-    const orderDoc = await db
-      .collection("orders")
-      .where("razorpay_order_id", "==", razorpay_order_id)
-      .limit(1)
-      .get();
+    // ==========================================
+    // HANDLE FAILURE EVENTS
+    // ==========================================
+    if (eventType === "payment.failed") {
+      if (order.payment?.status === "failed") {
+         return res.status(200).json({ success: true, message: "Already marked as failed" });
+      }
+      
+      const errorReason = paymentEntity.error_description || paymentEntity.error_reason || "Unknown error";
 
-    if (orderDoc.empty) {
-      return res.status(404).json({
-        success: false,
-        message: "Order not found",
-      });
+      order.payment = order.payment || {};
+      order.payment.status = "failed";
+      order.payment.gatewayMeta = {
+        ...(order.payment.gatewayMeta || {}),
+        razorpay_payment_id,
+        failureReason: errorReason,
+      };
+      
+      order.markModified("payment");
+
+      if (typeof order.addTimeline === "function") {
+        order.addTimeline(
+          "payment_failed",
+          `Payment failed: ${errorReason}`,
+          { type: "system", id: "razorpay_webhook", name: "Razorpay" }
+        );
+      }
+
+      await order.save();
+      logger("WARN", `Payment failed for order ${order.orderId}`);
+      return res.status(200).json({ success: true, message: "Payment failure recorded" });
     }
 
-    const order = orderDoc.docs[0];
-    const orderId = order.id;
-    const orderData = order.data();
-    const now = new Date().toISOString();
+    return res.status(200).json({ success: true, message: "Event not handled" });
 
-    // ✅ Update order status to failed
-    await db.collection("orders").doc(orderId).update({
-      paymentStatus: "failed",
-      razorpay_payment_id,
-      failureReason: error?.description || "Unknown error",
-      updatedAt: now,
-    });
-
-    // ✅ Add timeline entry
-    await db
-      .collection("orders")
-      .doc(orderId)
-      .collection("timeline")
-      .add({
-        status: "payment_failed",
-        event: "payment_failed",
-        error: error?.description,
-        timestamp: now,
-      });
-
-    logger("WARN", `Payment failed for order ${orderId}`, {
-      orderId,
-      error: error?.description,
-    });
-
-    res.status(200).json({
-      success: true,
-      message: "Payment failure recorded",
-    });
   } catch (error) {
-    logger("ERROR", `Payment failure webhook error: ${error.message}`);
-
-    res.status(500).json({
-      success: false,
-      message: "Webhook processing failed",
-    });
+    logger("ERROR", `Webhook error: ${error.message}`);
+    res.status(500).json({ success: false, message: "Webhook processing failed" });
   }
 });
 

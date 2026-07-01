@@ -38,7 +38,7 @@ const INITIAL_PRODUCT = {
   lowStockThreshold: "",
 
   // Media
-  banner: "",
+  image: "", // Renamed from banner
   hoverImage: "",
   videoUrl: "",
   images: [],
@@ -123,7 +123,7 @@ export const useProductForm = () => {
   const [loading, setLoading] = useState(false);
   const [pageLoading, setPageLoading] = useState(false);
 
-  const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadingGallery, setUploadingGallery] = useState(false);
   const [uploadingColorIdx, setUploadingColorIdx] = useState(null);
 
@@ -197,18 +197,18 @@ export const useProductForm = () => {
   /* ─────────────────────────────
      Banner upload
   ───────────────────────────── */
-  const handleBannerUpload = async (e) => {
+  const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      setUploadingBanner(true);
-      const res = await uploadImageToCloudinary(file, cloudName, uploadPreset);
-      setProduct((p) => ({ ...p, banner: res.url }));
-    } catch (err) {
-      setError("Failed to upload banner image.");
-    } finally {
-      setUploadingBanner(false);
+    if (file) {
+      try {
+        setUploadingImage(true);
+        const res = await uploadImageToCloudinary(file, cloudName, uploadPreset);
+        setProduct((p) => ({ ...p, image: res.url }));
+      } catch (err) {
+        setError("Failed to upload primary image.");
+      } finally {
+        setUploadingImage(false);
+      }
     }
   };
 
@@ -392,11 +392,11 @@ const handleColorImageUpload = async (e, idx) => {
     handleChange,
     handleSubmit,
 
-    uploadingBanner,
+    uploadingImage,
     uploadingGallery,
     uploadingColorIdx,
 
-    handleBannerUpload,
+    handleImageUpload,
     handleGalleryUpload,
 
     addColor,

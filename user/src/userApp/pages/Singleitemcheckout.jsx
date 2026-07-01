@@ -162,6 +162,48 @@ const SingleItemCheckout = () => {
     window.scrollTo(0, 0);
   }, [step]);
 
+  // ── Normalize item (matches ProductCard shapes)
+  const normalizedItem = useMemo(() => {
+    if (!rawItem) return null;
+    return {
+      productId: rawItem.productId || rawItem._id || rawItem.id,
+      sku: rawItem.sku || "",
+      name: rawItem.name || "",
+      image: rawItem.image || rawItem.banner || rawItem.thumbnail || "",
+      quantity: selectedQuantity,
+      unitPrice: Number(rawItem.price ?? 0),
+      mrp: Number(rawItem.originalPrice || rawItem.price || 0),
+      totalPrice: Number(rawItem.price ?? 0) * selectedQuantity,
+      variant: {
+        size: selectedSize,
+        color: rawItem.selectedColor || rawItem.variant?.color || "",
+      },
+      category: rawItem.category || "",
+      brand: rawItem.brand || "",
+      selectedSize,
+    };
+  }, [rawItem, selectedSize, selectedQuantity]);
+
+  // ── Pricing (for display)
+  const pricing = useMemo(() => {
+    if (!normalizedItem) return null;
+    const subtotal = normalizedItem.unitPrice * normalizedItem.quantity;
+    const totalMRP = normalizedItem.mrp * normalizedItem.quantity;
+    const itemDiscount = totalMRP - subtotal;
+    const deliveryFee = subtotal >= 500 ? 0 : subtotal >= 999 ? 25 : 50;
+    const totalPayable = subtotal + deliveryFee;
+
+    return {
+      subtotal,
+      totalMRP,
+      itemDiscount,
+      deliveryFee,
+      couponDiscount,
+      totalPayable: totalPayable - couponDiscount,
+      discountPercent: totalMRP > 0 ? Math.round((itemDiscount / totalMRP) * 100) : 0,
+    };
+  }, [normalizedItem, couponDiscount]);
+
   // ── Guard: no item
   if (!rawItem || !selectedSize) {
     return (
@@ -183,58 +225,33 @@ const SingleItemCheckout = () => {
     );
   }
 
-  // ── Normalize item (matches ProductCard shapes)
-  const normalizedItem = useMemo(
-    () => ({
-      productId: rawItem.productId || rawItem._id || rawItem.id,
-      sku: rawItem.sku || "",
-      name: rawItem.name || "",
-      image: rawItem.image || rawItem.banner || rawItem.thumbnail || "",
-      quantity: selectedQuantity,
-      unitPrice: Number(rawItem.unitPrice ?? rawItem.price ?? 0),
-      mrp: Number(
-        rawItem.originalPrice ||
-          rawItem.mrp ||
-          rawItem.unitPrice ||
-          rawItem.price ||
-          0,
-      ),
-      totalPrice:
-        Number(rawItem.unitPrice ?? rawItem.price ?? 0) * selectedQuantity,
-      variant: {
-        size: selectedSize,
-        color: rawItem.selectedColor || rawItem.variant?.color || "",
-      },
-      category: rawItem.category || "",
-      brand: rawItem.brand || "",
-      selectedSize,
-    }),
-    [rawItem, selectedSize, selectedQuantity],
-  );
 
-  // ── Pricing (for display)
-  const pricing = useMemo(() => {
-    const subtotal = normalizedItem.unitPrice * normalizedItem.quantity;
-    const totalMRP = normalizedItem.mrp * normalizedItem.quantity;
-    const itemDiscount = totalMRP - subtotal;
-    const deliveryFee = subtotal >= 500 ? 0 : subtotal >= 999 ? 25 : 50;
-    const totalPayable = subtotal + deliveryFee;
-
-    return {
-      subtotal,
-      totalMRP,
-      itemDiscount,
-      deliveryFee,
-      couponDiscount,
-      totalPayable: totalPayable - couponDiscount,
-      discountPercent:
-        totalMRP > 0 ? Math.round((itemDiscount / totalMRP) * 100) : 0,
-    };
-  }, [normalizedItem, couponDiscount]);
+  const fetchPinForSingleCheckout = async (pin) => {
+    if (!/^[1-9][0-9]{5}$/.test(pin)) return;
+    try {
+      const res = await fetch(`https://api.postalpincode.in/pincode/${pin}`);
+      const data = await res.json();
+      const result = data?.[0];
+      if (result?.Status === "Success") {
+        const office = result.PostOffice?.[0];
+        setShippingAddress((prev) => ({
+          ...prev,
+          city: office?.District || prev.city,
+          state: office?.State || prev.state,
+        }));
+      }
+    } catch (err) {}
+  };
 
   // ── Address handlers
   const handleAddressChange = (e) => {
     const { name, value } = e.target;
+    
+    if (name === "postalCode") {
+      if (!/^\d*$/.test(value) || value.length > 6) return;
+      if (value.length === 6) fetchPinForSingleCheckout(value);
+    }
+
     setShippingAddress((prev) => ({
       ...prev,
       [name]: value,
@@ -729,7 +746,7 @@ const SingleItemCheckout = () => {
             <p className="text-xs text-gray-400 mt-1">
               Size: {selectedSize} · Qty: {selectedQuantity}
             </p>
-            {normalizedItem.mrp > normalizedItem.unitPrice && (
+            {normalizedItem.mrp > normalizedItem.price && (
               <p className="text-xs text-gray-400 mt-0.5 line-through">
                 MRP ₹{normalizedItem.mrp.toLocaleString("en-IN")}
               </p>

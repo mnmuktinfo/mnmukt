@@ -32,6 +32,9 @@ const CollectionPage = lazy(
 );
 const ContactUsPage = lazy(() => import("./userApp/pages/ContactUsPage"));
 const AboutUsPage = lazy(() => import("./userApp/pages/AboutUsPage"));
+const OrderTrackingPage = lazy(
+  () => import("./userApp/pages/OrderTrackingPage")
+);
 const SingleItemCheckout = lazy(
   () => import("./userApp/pages/Singleitemcheckout"),
 );
@@ -183,6 +186,12 @@ const AppRoutes = () => {
           <Route
             path="/product/:slug"
             element={<LazyPage Component={ProductDetailsPage} />}
+          />
+
+          {/* Tracking */}
+          <Route
+            path="/order-tracking/:orderId"
+            element={<LazyPage Component={OrderTrackingPage} />}
           />
 
           {/* Collections */}

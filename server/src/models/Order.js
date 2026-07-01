@@ -89,9 +89,9 @@ const orderItemSchema = new Schema(
       type: String,
       required: [true, "Product image is required"],
     },
-    unitPrice: {
+    price: {
       type: Number,
-      required: [true, "Unit price is required"],
+      required: [true, "Price is required"],
       min: [0, "Price cannot be negative"],
     },
     quantity: {
@@ -112,7 +112,7 @@ const orderItemSchema = new Schema(
     originalPrice: {
       type: Number,
       default: function () {
-        return this.unitPrice; // ✅ Fallback to unitPrice if not provided
+        return this.price; // ✅ Fallback to price if not provided
       },
       min: [0, "Price cannot be negative"],
     },
@@ -130,7 +130,7 @@ const orderItemSchema = new Schema(
     lineTotal: {
       type: Number,
       default: function () {
-        return (this.unitPrice || 0) * (this.quantity || 0);
+        return (this.price || 0) * (this.quantity || 0);
       },
     },
   },
@@ -362,7 +362,6 @@ orderSchema.index({ orderStatus: 1, createdAt: -1 });
 orderSchema.index({ "payment.status": 1, createdAt: -1 });
 
 // Soft delete queries
-orderSchema.index({ isDeleted: 1 });
 
 // Payment gateway orders (for reconciliation)
 orderSchema.index({ "payment.gateway": 1, createdAt: -1 });
@@ -380,7 +379,7 @@ orderSchema.methods.validateItems = function () {
     "productId",
     "name",
     "image",
-    "unitPrice",
+    "price",
     "quantity",
     "sku",
     "slug",
@@ -409,7 +408,7 @@ orderSchema.methods.validateItems = function () {
  */
 orderSchema.methods.calculatePricing = function () {
   const subtotal = this.items.reduce((sum, item) => {
-    return sum + (item.unitPrice || 0) * (item.quantity || 0);
+    return sum + (item.price || 0) * (item.quantity || 0);
   }, 0);
 
   this.pricing.subtotal = subtotal;

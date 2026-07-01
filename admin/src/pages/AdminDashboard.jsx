@@ -139,7 +139,7 @@
 //                           <div className="w-12 h-12 bg-white border border-gray-200 rounded-sm overflow-hidden flex items-center justify-center p-1">
 //                             <img
 //                               src={
-//                                 product.banner ||
+//                                 product.image ||
 //                                 product.images?.[0] ||
 //                                 product.image
 //                               }

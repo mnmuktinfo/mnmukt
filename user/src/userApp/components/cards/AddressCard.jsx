@@ -26,8 +26,7 @@ const AddressCard = ({ address, userName, userPhone, onEdit, onAdd }) => {
   // ── Empty state ──
   if (
     !address ||
-    (!address.line1 &&
-      !address.addressLine1 &&
+    (!address.addressLine1 &&
       !address.city &&
       !address.pincode)
   ) {
@@ -58,7 +57,7 @@ const AddressCard = ({ address, userName, userPhone, onEdit, onAdd }) => {
   }
 
   // ── Normalize fields ──
-  const line1 = address.line1 || address.addressLine1 || "";
+  const addressLine1 = address.addressLine1 || "";
   const city = address.city || "";
   const state = address.state || "";
   const pincode = address.pincode || "";
@@ -103,8 +102,8 @@ const AddressCard = ({ address, userName, userPhone, onEdit, onAdd }) => {
 
       {/* ── Body ── */}
       <div className="px-5 py-4 grow">
-        {line1 && (
-          <p className="text-[15px] text-zinc-800 leading-relaxed">{line1}</p>
+        {addressLine1 && (
+          <p className="text-[15px] text-zinc-800 leading-relaxed">{addressLine1}</p>
         )}
         {hasLocation && (
           <div className="flex items-center flex-wrap gap-2 mt-1.5">

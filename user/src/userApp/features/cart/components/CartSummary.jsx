@@ -11,6 +11,7 @@ const CartSummary = ({
   selectedItems = [],
   addressPage = false, // new prop
   button = true,
+  isLoading = false,
 }) => {
   const selectedCount = selectedItems.length;
 
@@ -166,7 +167,7 @@ const CartSummary = ({
           {button && (
             <button
               type="button"
-              disabled={selectedCount === 0}
+              disabled={selectedCount === 0 || isLoading}
               onClick={onPlaceOrder}
               className="w-full py-3.5 sm:py-3 bg-[#f43397] text-white text-[13px] sm:text-[14px] font-bold uppercase tracking-widest hover:bg-[#d82a85] transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
               {btnText}

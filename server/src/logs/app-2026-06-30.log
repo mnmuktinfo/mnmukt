@@ -6125,3 +6125,752 @@ Memory     : 46.73 MB
 6d3796a0-99d4-47db-85fb-fe13eecc49b5 ::1 GET /api/v1/orders/admin?page=1&limit=15&status=delivered 200 5508.257 ms
 ──────────────────────────────────────────────
 
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 17:27:23.299
+PID        : 61992
+Environment: development
+Memory     : 40.16 MB
+
+✅ MongoDB Connected Successfully
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 17:27:23.307
+PID        : 61992
+Environment: development
+Memory     : 40.20 MB
+
+MongoDB connected
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 17:27:23.321
+PID        : 61992
+Environment: development
+Memory     : 40.32 MB
+
+Server running on port 5000
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+⚠ WARN
+
+Time       : 2026-06-30 17:27:23.390
+PID        : 61992
+Environment: development
+Memory     : 40.45 MB
+
+Process Warning: Warning - mongoose: Duplicate schema index on {"isDeleted":1} for model "Order". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 17:27:29.862
+PID        : 61992
+Environment: development
+Memory     : 47.69 MB
+
+b0fd55f0-75e9-4147-baa6-b41d9b5d5052 ::1 POST /api/v1/orders 201 2993.708 ms
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 17:27:31.432
+PID        : 61992
+Environment: development
+Memory     : 42.72 MB
+
+Razorpay order created
+
+Metadata:
+{
+  "orderId": "MNMU-671D3EA552D0",
+  "razorpayOrderId": "order_T7vP9kgi7HySlS"
+}
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 17:27:31.439
+PID        : 61992
+Environment: development
+Memory     : 42.77 MB
+
+a2526f88-ba86-4324-9283-f8b26fb7b5db ::1 POST /api/v1/payments/create-order 200 1098.610 ms
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 17:28:08.476
+PID        : 61992
+Environment: development
+Memory     : 43.54 MB
+
+5cfa1c59-fa6f-4a0b-bb1d-020ca5ef8ea2 ::1 POST /api/v1/payments/verify 200 863.963 ms
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 17:47:02.973
+PID        : 15628
+Environment: development
+Memory     : 40.27 MB
+
+✅ MongoDB Connected Successfully
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 17:47:02.984
+PID        : 15628
+Environment: development
+Memory     : 40.31 MB
+
+MongoDB connected
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 17:47:03.003
+PID        : 15628
+Environment: development
+Memory     : 40.42 MB
+
+Server running on port 5000
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+⚠ WARN
+
+Time       : 2026-06-30 17:47:03.253
+PID        : 15628
+Environment: development
+Memory     : 40.55 MB
+
+Process Warning: Warning - mongoose: Duplicate schema index on {"isDeleted":1} for model "Order". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 17:47:41.517
+PID        : 41708
+Environment: development
+Memory     : 40.27 MB
+
+✅ MongoDB Connected Successfully
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 17:47:41.531
+PID        : 41708
+Environment: development
+Memory     : 40.32 MB
+
+MongoDB connected
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 17:47:41.550
+PID        : 41708
+Environment: development
+Memory     : 40.43 MB
+
+Server running on port 5000
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+⚠ WARN
+
+Time       : 2026-06-30 17:47:45.595
+PID        : 41708
+Environment: development
+Memory     : 40.66 MB
+
+Process Warning: Warning - mongoose: Duplicate schema index on {"isDeleted":1} for model "Order". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:02:40.927
+PID        : 56052
+Environment: development
+Memory     : 41.63 MB
+
+✅ MongoDB Connected Successfully
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:02:40.933
+PID        : 56052
+Environment: development
+Memory     : 41.67 MB
+
+MongoDB connected
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:02:40.941
+PID        : 56052
+Environment: development
+Memory     : 41.80 MB
+
+Server running on port 5000
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+⚠ WARN
+
+Time       : 2026-06-30 18:02:41.016
+PID        : 56052
+Environment: development
+Memory     : 41.93 MB
+
+Process Warning: Warning - mongoose: Duplicate schema index on {"isDeleted":1} for model "Order". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+✖ ERROR
+
+Time       : 2026-06-30 18:02:46.146
+PID        : 56052
+Environment: development
+Memory     : 43.12 MB
+
+{
+  "method": "GET",
+  "url": "/api/v1/orders/status/MNMU-671D3EA552D0?email=ravisharmabhimtal%40gmail.com",
+  "statusCode": 500,
+  "message": "Cannot set property query of #<IncomingMessage> which has only a getter",
+  "stack": "TypeError: Cannot set property query of #<IncomingMessage> which has only a getter\n    at C:\\Users\\User ACER\\Desktop\\agency\\mnmukt\\server\\node_modules\\express-mongo-sanitize\\index.js:113:18\n    at Array.forEach (<anonymous>)\n    at C:\\Users\\User ACER\\Desktop\\agency\\mnmukt\\server\\node_modules\\express-mongo-sanitize\\index.js:110:44\n    at Layer.handleRequest (C:\\Users\\User ACER\\Desktop\\agency\\mnmukt\\server\\node_modules\\router\\lib\\layer.js:152:17)\n    at trimPrefix (C:\\Users\\User ACER\\Desktop\\agency\\mnmukt\\server\\node_modules\\router\\index.js:342:13)\n    at C:\\Users\\User ACER\\Desktop\\agency\\mnmukt\\server\\node_modules\\router\\index.js:297:9\n    at processParams (C:\\Users\\User ACER\\Desktop\\agency\\mnmukt\\server\\node_modules\\router\\index.js:582:12)\n    at next (C:\\Users\\User ACER\\Desktop\\agency\\mnmukt\\server\\node_modules\\router\\index.js:291:5)\n    at cookieParser (C:\\Users\\User ACER\\Desktop\\agency\\mnmukt\\server\\node_modules\\cookie-parser\\index.js:57:14)\n    at Layer.handleRequest (C:\\Users\\User ACER\\Desktop\\agency\\mnmukt\\server\\node_modules\\router\\lib\\layer.js:152:17)"
+}
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:03:28.098
+PID        : 24928
+Environment: development
+Memory     : 45.17 MB
+
+✅ MongoDB Connected Successfully
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:03:28.104
+PID        : 24928
+Environment: development
+Memory     : 45.20 MB
+
+MongoDB connected
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:03:28.111
+PID        : 24928
+Environment: development
+Memory     : 45.32 MB
+
+Server running on port 5000
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+⚠ WARN
+
+Time       : 2026-06-30 18:03:28.197
+PID        : 24928
+Environment: development
+Memory     : 45.45 MB
+
+Process Warning: Warning - mongoose: Duplicate schema index on {"isDeleted":1} for model "Order". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:03:57.626
+PID        : 59588
+Environment: development
+Memory     : 45.14 MB
+
+✅ MongoDB Connected Successfully
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:03:57.632
+PID        : 59588
+Environment: development
+Memory     : 45.18 MB
+
+MongoDB connected
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:03:57.641
+PID        : 59588
+Environment: development
+Memory     : 45.30 MB
+
+Server running on port 5000
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+⚠ WARN
+
+Time       : 2026-06-30 18:03:57.705
+PID        : 59588
+Environment: development
+Memory     : 45.46 MB
+
+Process Warning: Warning - mongoose: Duplicate schema index on {"isDeleted":1} for model "Order". This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:04:02.397
+PID        : 51520
+Environment: development
+Memory     : 45.06 MB
+
+✅ MongoDB Connected Successfully
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:04:02.404
+PID        : 51520
+Environment: development
+Memory     : 45.09 MB
+
+MongoDB connected
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:04:02.415
+PID        : 51520
+Environment: development
+Memory     : 45.22 MB
+
+Server running on port 5000
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:04:32.057
+PID        : 51520
+Environment: development
+Memory     : 42.73 MB
+
+bab6d725-5f47-413f-8ab6-ecff93cfb2db ::1 GET /api/v1/orders/MNMU-671D3EA552D0 200 1329.827 ms
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:08:01.834
+PID        : 51520
+Environment: development
+Memory     : 43.47 MB
+
+9fa776ef-5b0f-417e-9876-579b82e5030a ::1 GET /api/v1/orders/MNMU-671D3EA552D0 404 550.850 ms
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:08:31.161
+PID        : 51520
+Environment: development
+Memory     : 44.05 MB
+
+06a4cd1e-8d2d-4336-9dfe-af05ffc6aebb ::1 GET /api/v1/orders/MNMU-671D3EA552D0 404 1455.848 ms
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:08:32.438
+PID        : 51520
+Environment: development
+Memory     : 44.40 MB
+
+2d6b669c-413b-4115-8d81-5f6277fac19d ::1 GET /api/v1/orders/MNMU-671D3EA552D0 304 1679.588 ms
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:13:10.222
+PID        : 51520
+Environment: development
+Memory     : 45.29 MB
+
+051cdfd2-911a-4c60-8efd-d44c5578a720 ::1 GET /api/v1/orders/admin?page=1&limit=15&status=all 200 5014.137 ms
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:13:20.315
+PID        : 51520
+Environment: development
+Memory     : 45.72 MB
+
+e349554a-7433-43e5-a01b-6bbf89521943 ::1 GET /api/v1/orders/admin?page=1&limit=15&status=all 200 10083.112 ms
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:13:29.076
+PID        : 51520
+Environment: development
+Memory     : 45.91 MB
+
+8d6b8359-8beb-4d27-b79b-7290283c4f0d ::1 GET /api/v1/orders/admin/MNMU-671D3EA552D0 200 2807.967 ms
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:13:31.343
+PID        : 51520
+Environment: development
+Memory     : 46.82 MB
+
+57314c6e-4900-4896-a7b1-7e5c832b9708 ::1 PATCH /api/v1/orders/admin/MNMU-671D3EA552D0/status 200 2254.859 ms
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:13:42.938
+PID        : 51520
+Environment: development
+Memory     : 45.57 MB
+
+15dff4cc-c2d0-4160-b768-26f2ece56093 ::1 GET /api/v1/orders/admin?page=1&limit=15&status=all 200 11570.239 ms
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:13:43.049
+PID        : 51520
+Environment: development
+Memory     : 45.18 MB
+
+d27385f3-b715-4152-ada7-773d6d9dba2b ::1 GET /api/v1/orders/admin/MNMU-671D3EA552D0 200 11457.204 ms
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:13:46.036
+PID        : 51520
+Environment: development
+Memory     : 45.94 MB
+
+d6e85651-3b98-497d-acc4-71094fd6a3af ::1 GET /api/v1/orders/admin?page=1&limit=15&status=all 200 2970.705 ms
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:13:58.707
+PID        : 51520
+Environment: development
+Memory     : 46.33 MB
+
+a7cf93dc-5490-479d-99e4-2a5d647f8a4e ::1 GET /api/v1/orders/admin/MNMU-671D3EA552D0 304 2262.861 ms
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:14:00.663
+PID        : 51520
+Environment: development
+Memory     : 46.55 MB
+
+b18e8283-81a1-479e-8c84-57f60fb5a3a2 ::1 PATCH /api/v1/orders/admin/MNMU-671D3EA552D0/status 200 1923.383 ms
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:14:04.079
+PID        : 51520
+Environment: development
+Memory     : 46.90 MB
+
+8d6419f3-2654-4489-868b-c3ac484a2bd1 ::1 PATCH /api/v1/orders/admin/MNMU-671D3EA552D0/status 200 3394.583 ms
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:14:06.014
+PID        : 51520
+Environment: development
+Memory     : 46.96 MB
+
+8a224161-a434-42b6-a425-c2fa3886fa2f ::1 GET /api/v1/orders/admin?page=1&limit=15&status=all 200 1873.855 ms
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:14:40.673
+PID        : 51520
+Environment: development
+Memory     : 47.49 MB
+
+db36c75d-b0a7-4492-917f-ea75955b3fc4 ::1 GET /api/v1/orders/MNMU-671D3EA552D0 200 960.139 ms
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:25:55.781
+PID        : 51520
+Environment: development
+Memory     : 47.63 MB
+
+853df34f-77be-40b5-93c8-0560e0a81d2d ::1 GET /api/v1/orders/admin/MNMU-671D3EA552D0 200 886.218 ms
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:25:56.367
+PID        : 51520
+Environment: development
+Memory     : 47.66 MB
+
+be836d64-a272-4bf9-b654-ec6e4ea7e19e ::1 PATCH /api/v1/orders/admin/MNMU-671D3EA552D0/status 200 568.156 ms
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:25:56.901
+PID        : 51520
+Environment: development
+Memory     : 47.73 MB
+
+6db54dc3-8d69-4195-b4af-ee44f87e234e ::1 PATCH /api/v1/orders/admin/MNMU-671D3EA552D0/status 200 517.789 ms
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:25:58.414
+PID        : 51520
+Environment: development
+Memory     : 48.32 MB
+
+3930f731-39a5-435b-a638-f67e89241768 ::1 GET /api/v1/orders/admin?page=1&limit=15&status=all 200 1356.922 ms
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:26:11.577
+PID        : 51520
+Environment: development
+Memory     : 48.73 MB
+
+c71761b9-2419-419a-9f26-37b2a8346d1a ::1 GET /api/v1/orders/admin/MNMU-952C8E71551D 200 546.305 ms
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:26:12.255
+PID        : 51520
+Environment: development
+Memory     : 48.67 MB
+
+b96e9738-4a08-429d-97ce-daa03800a892 ::1 PATCH /api/v1/orders/admin/MNMU-952C8E71551D/status 200 665.792 ms
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:26:13.610
+PID        : 51520
+Environment: development
+Memory     : 49.30 MB
+
+e842f605-6e3b-4812-a19d-fdf0d3d8f849 ::1 GET /api/v1/orders/admin?page=1&limit=15&status=all 200 1264.831 ms
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:26:28.274
+PID        : 51520
+Environment: development
+Memory     : 49.82 MB
+
+8ab5dfb6-2b77-4d31-86a2-892541e3f12d ::1 GET /api/v1/orders/MNMU-671D3EA552D0 200 557.154 ms
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:26:36.872
+PID        : 51520
+Environment: development
+Memory     : 50.07 MB
+
+31bc97a5-548d-493b-9aa9-ddee89a6d43b ::1 GET /api/v1/orders/MNMU-671D3EA552D0 304 497.139 ms
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:34:18.343
+PID        : 51520
+Environment: development
+Memory     : 49.94 MB
+
+b05d2d9e-5a03-4878-bf2f-45b5043aa04f ::1 GET /api/v1/orders/MNMU-671D3EA552D0 304 619.908 ms
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:34:43.203
+PID        : 51520
+Environment: development
+Memory     : 49.96 MB
+
+2e531937-42eb-4ae7-af19-b033b018e773 ::1 GET /api/v1/orders/MNMU-671D3EA552D0 304 722.352 ms
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:37:27.731
+PID        : 51520
+Environment: development
+Memory     : 50.22 MB
+
+6a9d8b3e-c6f0-464c-ba15-c0d7c7352c42 ::1 GET /api/v1/orders/MNMU-671D3EA552D0 304 2279.687 ms
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:37:52.338
+PID        : 51520
+Environment: development
+Memory     : 50.64 MB
+
+d7d67c5e-e689-4d15-9f7a-d2a801e80a05 ::1 GET /api/v1/orders 200 1419.816 ms
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:38:38.756
+PID        : 51520
+Environment: development
+Memory     : 50.88 MB
+
+b738a163-1fde-479a-84a2-b7e4f367eed2 ::1 GET /api/v1/orders/MNMU-671D3EA552D0 304 507.028 ms
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:55:02.613
+PID        : 51520
+Environment: development
+Memory     : 51.66 MB
+
+d31dc234-5434-4821-bb83-aac25227893b ::1 GET /api/v1/orders 200 812.396 ms
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 18:58:09.566
+PID        : 51520
+Environment: development
+Memory     : 45.36 MB
+
+ee02d23d-e6d0-4cd7-b8cd-eda1d6f30ae4 ::1 GET /api/v1/orders 200 712.863 ms
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 19:01:52.655
+PID        : 51520
+Environment: development
+Memory     : 46.21 MB
+
+21d6c3fa-2086-42d3-ad94-f2d769b38cd2 ::1 GET /api/v1/orders 200 995.119 ms
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+ℹ INFO
+
+Time       : 2026-06-30 19:05:06.081
+PID        : 51520
+Environment: development
+Memory     : 47.16 MB
+
+84ca2821-5943-4f14-ad2c-567f79aab0be ::1 GET /api/v1/orders 200 668.478 ms
+──────────────────────────────────────────────
+
+──────────────────────────────────────────────
+⚠ WARN
+
+Time       : 2026-06-30 19:07:49.921
+PID        : 51520
+Environment: development
+Memory     : 47.59 MB
+
+MongoDB disconnected
+──────────────────────────────────────────────
+

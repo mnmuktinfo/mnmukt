@@ -42,53 +42,37 @@ export const CartProvider = ({ children }) => {
   /* ============================================
      VALIDATE PRODUCT DATA BEFORE ADDING
      ============================================ */
-  const validateProductData = (product) => {
-    const required = ["productId", "name", "image", "unitPrice", "slug", "sku"];
-
-    const missing = required.filter((field) => {
-      const value = product[field];
-      return value === undefined || value === null || value === "";
-    });
+  const validateItem = (item) => {
+    const required = ["productId", "name", "image", "price", "slug", "sku"];
+    const missing = required.filter((field) => !item[field] && item[field] !== 0);
 
     if (missing.length > 0) {
-      throw new Error(
-        `❌ Cart validation failed. Missing fields: ${missing.join(", ")}`,
-      );
+      console.error(`Cannot add to cart. Missing fields: ${missing.join(", ")}`, item);
+      return false;
     }
-
     return true;
   };
 
   /* ============================================
      ADD TO CART - WITH VALIDATION
      ============================================ */
-  const addToCart = useCallback(async (product) => {
+  const addToCart = useCallback(async (cartItemData) => {
     setSyncing(true);
     try {
-      // ✅ Validate all required fields exist
-      validateProductData(product);
-
-      const {
-        productId,
-        id,
-        name,
-        image,
-        unitPrice,
-        originalPrice,
-        category,
-        slug,
-        selectedSize,
-        selectedColor,
-        quantity = 1,
-        sku,
-      } = product;
-
-      const finalProductId = productId || id;
-      if (!finalProductId) {
-        throw new Error("Product ID is required");
+      if (!cartItemData) {
+        throw new Error("Invalid product for cart addition");
       }
 
-      const cartKey = `${finalProductId}_${selectedSize || "default"}`;
+      // Handle both cases: id (legacy) vs productId (new)
+      const productId = cartItemData.productId || cartItemData.id;
+      const selectedSize = cartItemData.selectedSize || "onesize";
+      const quantity = cartItemData.quantity || cartItemData.selectedQuantity || 1;
+
+      if (!productId || !selectedSize) {
+        throw new Error("Invalid product or size for cart addition");
+      }
+
+      const cartKey = `${productId}_${selectedSize}`;
 
       setCart((prev) => {
         const existingIndex = prev.findIndex(
@@ -115,18 +99,18 @@ export const CartProvider = ({ children }) => {
           // ✅ New item to cart - ensure all fields present
           const newItem = {
             cartKey,
-            productId: finalProductId,
-            name,
-            image,
-            unitPrice,
-            originalPrice: originalPrice ?? unitPrice, // ✅ Fallback to unitPrice
-            category: category || "General",
-            slug,
+            productId,
+            name: cartItemData.name,
+            image: cartItemData.image,
+            price: cartItemData.price,
+            originalPrice: cartItemData.originalPrice ?? cartItemData.price,
+            category: cartItemData.category || cartItemData.categoryId || "General",
+            slug: cartItemData.slug,
             quantity,
-            selectedSize: selectedSize || "default",
-            selectedColor: selectedColor || null,
-            meta: { sku },
-            addedAt: new Date().toISOString(), // ✅ Track when added
+            selectedSize,
+            selectedColor: cartItemData.selectedColor || null,
+            meta: { sku: cartItemData.sku || `SKU-${productId.substring(0,6).toUpperCase()}` },
+            addedAt: new Date().toISOString(),
           };
 
           updated = [...prev, newItem];
@@ -278,7 +262,7 @@ export const CartProvider = ({ children }) => {
      ============================================ */
   const getTotal = useCallback(() => {
     return cart.reduce((sum, item) => {
-      return sum + (item.unitPrice || 0) * (item.quantity || 0);
+      return sum + (item.price || 0) * (item.quantity || 0);
     }, 0);
   }, [cart]);
 

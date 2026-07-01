@@ -14,7 +14,7 @@ const CartItemCard = ({
 }) => {
   // Local state for UI
   const [selectedQuantity, setQuantity] = useState(
-    product.selectedQuantity || 1,
+    product.quantity || 1,
   );
   const [selectedSize, setSelectedSize] = useState(product.selectedSize || "");
   const [showQuantityPopup, setShowQuantityPopup] = useState(false);
@@ -22,9 +22,9 @@ const CartItemCard = ({
 
   // Sync local state with props when cart changes
   useEffect(() => {
-    setQuantity(product.selectedQuantity || 1);
+    setQuantity(product.quantity || 1);
     setSelectedSize(product.selectedSize || "");
-  }, [product.selectedQuantity, product.selectedSize]);
+  }, [product.quantity, product.selectedSize]);
 
   // Price calculations
   const price = Number(product.price);

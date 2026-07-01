@@ -3,6 +3,7 @@ const logger = require("../utils/logger");
 
 const Order = require("../models/Order");
 const razorpayService = require("../services/razorpay.service");
+const { sendOrderConfirmationEmail } = require("../services/resend.email");
 
 // ✅ CENTRAL CONSTANTS
 const {
@@ -268,6 +269,21 @@ const verifyRazorpayPayment = async (req, res) => {
     }
 
     // =====================================================
+    // IDEMPOTENCY CHECK
+    // =====================================================
+    if (order.payment?.status === PAYMENT_STATUS.PAID) {
+      return res.json({
+        success: true,
+        message: "Payment already verified",
+        data: {
+          orderId: order.orderId,
+          orderStatus: order.orderStatus,
+          paymentStatus: order.payment.status,
+        },
+      });
+    }
+
+    // =====================================================
     // UPDATE ORDER
     // =====================================================
     order.payment = order.payment || {};
@@ -298,6 +314,11 @@ const verifyRazorpayPayment = async (req, res) => {
     }
 
     await order.save();
+    
+    // Trigger Email Asynchronously
+    sendOrderConfirmationEmail(order).catch((err) => {
+       logger("ERROR", `Email sending failed on verify: ${err.message}`);
+    });
 
     return res.json({
       success: true,

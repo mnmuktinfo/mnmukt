@@ -272,9 +272,16 @@ const ProductDetailsPage = () => {
       setIsAdding(true);
       try {
         await addToCart({
-          id: product.id,
+          productId: product.id,
+          name: product.name,
+          price: product.price,
+          originalPrice: product.originalPrice,
+          image: product.image || product.images?.[0] || "",
+          category: product.category,
+          slug: product.slug,
+          sku: product.sku,
           selectedSize,
-          selectedQuantity: quantity,
+          quantity,
         });
         if (redirect) {
           navigate("/checkout/cart");

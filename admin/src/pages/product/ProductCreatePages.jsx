@@ -45,7 +45,7 @@ const ProductCreatePage = () => {
     handleChange,
     handleSubmit,
 
-    uploadingBanner,
+    uploadingImage,
     uploadingGallery,
     uploadingColorIdx,
 
@@ -72,12 +72,12 @@ const ProductCreatePage = () => {
     removeColor,
     handleColorImageUpload,
     handleGalleryUpload,
-    handleBannerUpload,
+    handleImageUpload,
   } = useProductForm();
 
   const isBusy =
     loading ||
-    uploadingBanner ||
+    uploadingImage ||
     uploadingGallery ||
     uploadingColorIdx !== null;
 
@@ -239,8 +239,8 @@ const ProductCreatePage = () => {
 
             <ProductImageCard
               product={product}
-              uploadingBanner={uploadingBanner}
-              handleBannerUpload={handleBannerUpload}
+              uploadingImage={uploadingImage}
+              handleImageUpload={handleImageUpload}
             />
 
             <ProductGalleryCard

@@ -46,8 +46,8 @@ const CartDrawer = ({ isOpen, onClose }) => {
     const result = cart.reduce(
       (acc, item) => {
         const qty = item.quantity || 1;
-        const original = item.originalPrice || item.unitPrice || 0;
-        const current = item.unitPrice || 0;
+        const original = item.originalPrice || item.price || 0;
+        const current = item.price || 0;
 
         acc.totalMRP += original * qty;
         acc.subtotal += current * qty;
@@ -198,8 +198,8 @@ const CartDrawer = ({ isOpen, onClose }) => {
               ) : (
                 cart.map((item) => {
                   const discount = getDiscount(
-                    item.originalPrice || item.unitPrice,
-                    item.unitPrice,
+                    item.originalPrice || item.price,
+                    item.price,
                   );
 
                   return (
@@ -227,7 +227,7 @@ const CartDrawer = ({ isOpen, onClose }) => {
                             </span>
                           )}
                           <span className="text-[14px] text-gray-900 font-medium">
-                            ₹{formatPrice(item.unitPrice || 0)}
+                            ₹{formatPrice(item.price || 0)}
                           </span>
                           {discount > 0 && (
                             <span className="text-[14px] text-red-500 font-medium">
@@ -285,7 +285,7 @@ const CartDrawer = ({ isOpen, onClose }) => {
                         <p className="text-[12px] text-purple-600 mt-2.5">
                           Earn{" "}
                           <span className="font-semibold">
-                            ₹{calculatePoints(item.unitPrice * item.quantity)}
+                            ₹{calculatePoints(item.price * item.quantity)}
                           </span>{" "}
                           points
                         </p>

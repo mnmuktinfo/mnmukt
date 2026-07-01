@@ -5,6 +5,7 @@ const cors = require("cors");
 const helmet = require("helmet");
 const compression = require("compression");
 const cookieParser = require("cookie-parser");
+const mongoSanitize = require("express-mongo-sanitize");
 
 const logger = require("./utils/logger");
 
@@ -40,6 +41,14 @@ app.use(
 
 app.use(compression({ level: 6, threshold: 1024 })); // Only compress >1KB
 app.use(cookieParser());
+
+// Data sanitization against NoSQL query injection (Express 5 safe)
+app.use((req, res, next) => {
+    if (req.body) mongoSanitize.sanitize(req.body);
+    if (req.query) mongoSanitize.sanitize(req.query);
+    if (req.params) mongoSanitize.sanitize(req.params);
+    next();
+});
 
 /* ------------------------- */
 /* CORS */

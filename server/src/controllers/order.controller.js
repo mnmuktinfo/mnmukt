@@ -1,6 +1,7 @@
 const logger = require("../utils/logger");
 const Order = require("../models/Order");
 const { makeOrderId } = require("../utils/orderId");
+const { db } = require("../config/firebaseAdmin");
 
 // ✅ CENTRAL CONSTANTS
 const {
@@ -83,28 +84,46 @@ const mapPaymentMethodToGateway = (paymentMethod) => {
 // VERIFY PRICE
 // ==========================================
 // ==========================================
-// VERIFY PRICE (FIXED)
+// VERIFY PRICE (SECURE BACKEND VERIFICATION)
 // ==========================================
-const verifyOrderAmount = (items, pricing) => {
-  // 1. sum is based on item.totalPrice, which already has the itemDiscount applied
-  const calculatedSubtotal = items.reduce(
-    (sum, item) => sum + (item.totalPrice || 0),
-    0
-  );
+const verifyOrderAmount = async (items, pricing) => {
+  try {
+    let calculatedSubtotal = 0;
 
-  // 2. Add shipping and tax. Do NOT subtract itemDiscount here.
-  const calculatedTotal =
-    calculatedSubtotal +
-    (pricing.shippingCharge || 0) +
-    (pricing.taxAmount || 0) -
-    (pricing.couponDiscount || 0) -     // Keep these if you use promo codes
-    (pricing.prepaidDiscount || 0) -
-    (pricing.bulkDiscount || 0) +
-    (pricing.roundOff || 0);
+    // Fetch authoritative prices from Firestore
+    for (const item of items) {
+      if (!item.productId) return false;
+      const productSnap = await db.collection("products").doc(item.productId).get();
+      if (!productSnap.exists) return false;
+      
+      const productData = productSnap.data();
+      const actualPrice = Number(productData.price || productData.unitPrice || productData.salePrice || 0);
+      
+      // Compare frontend price with backend price
+      if (Math.abs(actualPrice - item.price) > 1) {
+        logger("WARN", `Price manipulation detected for product ${item.productId}. Client sent: ${item.price}, Actual: ${actualPrice}`);
+        return false;
+      }
+      
+      calculatedSubtotal += (actualPrice * item.quantity);
+    }
 
-  // 3. Allow a 1-rupee tolerance instead of 0.01. 
-  // JavaScript floating point math (e.g., 0.1 + 0.2 = 0.300000004) can fail a strict 0.01 check.
-  return Math.abs(calculatedTotal - pricing.total) <= 1;
+    // Add shipping and tax, subtract discounts
+    const calculatedTotal =
+      calculatedSubtotal +
+      (pricing.shippingCharge || 0) +
+      (pricing.taxAmount || 0) -
+      (pricing.couponDiscount || 0) -
+      (pricing.prepaidDiscount || 0) -
+      (pricing.bulkDiscount || 0) +
+      (pricing.roundOff || 0);
+
+    // Allow a 1-rupee tolerance for floating point math
+    return Math.abs(calculatedTotal - pricing.total) <= 1;
+  } catch (error) {
+    logger("ERROR", `Failed to verify order amount: ${error.message}`);
+    return false;
+  }
 };
 
 // ==========================================
@@ -190,12 +209,13 @@ const createOrder = async (req, res) => {
     }
 
     // ==========================
-    // PRICE VALIDATION
+    // PRICE VALIDATION (SECURE)
     // ==========================
-    if (!verifyOrderAmount(items, pricing)) {
+    const isPriceValid = await verifyOrderAmount(items, pricing);
+    if (!isPriceValid) {
       return res.status(400).json({
         success: false,
-        message: "Invalid pricing",
+        message: "Invalid pricing or product not found",
       });
     }
 
@@ -213,18 +233,17 @@ const createOrder = async (req, res) => {
 
       items: items.map((item) => ({
         productId: item.productId,
-        sku: item.sku || "",
         name: item.name,
-        brand: item.brand || "Default",
-        category: item.category || "",
         image: item.image || "",
-        variant: item.variant || {},
+        price: item.price,
         quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        mrp: item.mrp || 0,
-        totalPrice: item.totalPrice,
-        gst: item.gst || {},
-        status: "active",
+        sku: item.sku || "N/A",
+        slug: item.slug || "N/A",
+        originalPrice: item.originalPrice || item.price,
+        category: item.category || "General",
+        selectedSize: item.selectedSize || "onesize",
+        selectedColor: item.selectedColor,
+        lineTotal: item.totalPrice || item.price * item.quantity,
       })),
 
       shippingAddress,

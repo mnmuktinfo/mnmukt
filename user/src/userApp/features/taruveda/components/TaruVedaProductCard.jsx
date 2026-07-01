@@ -57,9 +57,16 @@ const TaruVedaProductCard = ({ product }) => {
 
     try {
       await addToCart({
-        id: product.id,
-        selectedSize: "",
-        selectedQuantity: 1,
+        productId: product.id,
+        name: product.name,
+        price: product.price,
+        originalPrice: product.originalPrice,
+        image: mainImage,
+        category: product.category,
+        slug: product.slug,
+        sku: product.sku,
+        selectedSize: "onesize",
+        quantity: 1,
       });
 
       setIsAdded(true);

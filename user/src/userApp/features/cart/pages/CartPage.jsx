@@ -125,14 +125,13 @@ const CartPage = () => {
           ...product, // Product details from DB
           cartKey: cartItem.cartKey,
           productId: cartItem.productId, // ✅ Ensure productId exists
-          unitPrice: cartItem.unitPrice, // ✅ From CartContext
+          price: cartItem.price, // ✅ From CartContext
           originalPrice: cartItem.originalPrice, // ✅ From CartContext
           quantity: cartItem.quantity, // ✅ FIXED: was selectedQuantity
           selectedSize: cartItem.selectedSize || "",
           selectedColor: cartItem.selectedColor || "",
           category: cartItem.category, // ✅ From CartContext
           slug: cartItem.slug, // ✅ From CartContext
-          price: cartItem.unitPrice ?? product.price, // ✅ Fallback for older data
         };
       })
       .filter(Boolean);
@@ -181,7 +180,7 @@ const CartPage = () => {
 
     selectedItems.forEach((item) => {
       const qty = item.quantity || 1; // ✅ Use correct key
-      const price = item.unitPrice ?? item.price ?? 0; // ✅ Fallback chain
+      const price = item.price || 0; // ✅ Fallback chain
       const mrp = item.originalPrice ?? price; // ✅ Fallback for MRP
 
       subtotal += price * qty;
@@ -196,7 +195,7 @@ const CartPage = () => {
     const platformFee = subtotal > 0 && subtotal < 999 ? 50 : 0;
 
     // Final total
-    const totalPayable = subtotal + platformFee;
+    const totalPayable = subtotal + gstAmount + platformFee;
 
     return {
       subtotal: Math.round(subtotal),

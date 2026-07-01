@@ -27,7 +27,7 @@ const PAGE_SIZE = 20;
     name:           string,
     slug:           string,
     description:    string,
-    banner:         string,
+    image:          string,
     images:         string[],
     price:          number,
     originalPrice:  number,
@@ -66,7 +66,7 @@ export const productService = {
         slug: productData.slug ?? "",
         sku: productData.sku ?? "",
         description: productData.description ?? "",
-        banner: productData.banner ?? "",
+        image: productData.image ?? "",
 
         price: Number(productData.price) || 0,
         originalPrice: Number(productData.originalPrice) || 0,

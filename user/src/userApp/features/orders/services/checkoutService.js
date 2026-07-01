@@ -57,7 +57,7 @@ export const validateCartItems = (items) => {
     }
 
     // Check price
-    const price = item.unitPrice ?? item.price ?? item.salePrice ?? 0;
+    const price = item.price || 0;
     if (price <= 0) {
       errors.push(
         `Item ${index + 1} (${item.name}): Invalid price (₹${price})`
@@ -183,22 +183,14 @@ export const normalizeItems = (items) => {
 
     quantity: Number(item.quantity || 1),
 
-    unitPrice: Number(item.unitPrice ?? item.price ?? item.salePrice ?? 0),
+    unitPrice: Number(item.price || 0), // Mapping to 'price' for the backend, although backend takes 'price', we will map frontend price -> backend price directly. Wait, the frontend context maps to price, backend maps to price.
+    price: Number(item.price || 0),
 
-    mrp: Number(
-      item.originalPrice ||
-        item.mrp ||
-        item.unitPrice ||
-        item.price ||
-        item.salePrice ||
-        0
-    ),
+    originalPrice: Number(item.originalPrice || item.price || 0),
 
     gst: item.gst || {},
 
-    totalPrice:
-      Number(item.quantity || 1) *
-      Number(item.unitPrice ?? item.price ?? item.salePrice ?? 0),
+    totalPrice: Number(item.quantity || 1) * Number(item.price || 0),
   }));
 };
 
@@ -230,8 +222,8 @@ export const calculatePricing = (normalizedItems) => {
     const qty = Number(item.quantity || 1);
     totalQuantity += qty;
 
-    const sellingPrice = Number(item.unitPrice || 0);
-    const mrp = Number(item.mrp || sellingPrice);
+    const sellingPrice = Number(item.price || 0);
+    const mrp = Number(item.originalPrice || sellingPrice);
 
     subtotal += sellingPrice * qty;
     totalMRP += mrp * qty;

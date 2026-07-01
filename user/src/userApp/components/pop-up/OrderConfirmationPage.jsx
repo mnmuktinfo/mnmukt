@@ -243,7 +243,7 @@ const OrderConfirmationPage = () => {
                 {address.fullName || address.name}
               </p>
               <p className="text-[12px] text-gray-600 mt-0.5">
-                {[address.addressLine1 || address.line1, address.city, address.state]
+                {[address.addressLine1, address.city, address.state]
                   .filter(Boolean)
                   .join(", ")}{" "}
                 {(address.postalCode || address.pincode) && (
