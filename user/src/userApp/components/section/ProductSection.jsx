@@ -14,12 +14,12 @@ const ProductSection = ({
 }) => {
   const navigate = useNavigate();
 
-  if (!loading && (!products || products.length === 0)) return null;
-
-  // ✅ show only 4 products
+  // ✅ show only 4 products — hook runs on every render, no early return above it
   const visibleProducts = useMemo(() => {
     return products.slice(0, 4);
   }, [products]);
+
+  if (!loading && (!products || products.length === 0)) return null;
 
   return (
     <section
@@ -33,24 +33,22 @@ const ProductSection = ({
               {title}
 
               {/* Sun only for new section */}
-              {title && (
-                <svg
-                  className="w-8 h-8 md:w-10 md:h-10"
-                  viewBox="0 0 100 100"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg">
-                  <circle
-                    cx="50"
-                    cy="50"
-                    r="18"
-                    fill="#FDE047"
-                    fillOpacity="0.6"
-                  />
-                  <g stroke="#FDE047" strokeWidth="2" strokeLinecap="round">
-                    <path d="M50 15v10M50 75v10M85 50H75M25 50H15M74.7 25.3l-7.1 7.1M32.4 67.6l-7.1 7.1M74.7 74.7l-7.1-7.1M32.4 32.4l-7.1-7.1" />
-                  </g>
-                </svg>
-              )}
+              <svg
+                className="w-8 h-8 md:w-10 md:h-10"
+                viewBox="0 0 100 100"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg">
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="18"
+                  fill="#FDE047"
+                  fillOpacity="0.6"
+                />
+                <g stroke="#FDE047" strokeWidth="2" strokeLinecap="round">
+                  <path d="M50 15v10M50 75v10M85 50H75M25 50H15M74.7 25.3l-7.1 7.1M32.4 67.6l-7.1 7.1M74.7 74.7l-7.1-7.1M32.4 32.4l-7.1-7.1" />
+                </g>
+              </svg>
             </h2>
           )}
 
