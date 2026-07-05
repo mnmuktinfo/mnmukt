@@ -1,173 +1,108 @@
+// src/features/orders/context/OrderContext.jsx
 import React, { createContext, useContext, useState, useCallback } from "react";
 
-const OrderContext = createContext();
+const OrderContext = createContext(null);
 
-/**
- * Order Provider - Manages order data globally
- * Stores both current order and order history
- */
+const safeStorage = {
+  get: (key) => {
+    try {
+      return typeof window !== "undefined" ? localStorage.getItem(key) : null;
+    } catch {
+      return null;
+    }
+  },
+  set: (key, value) => {
+    try {
+      if (typeof window !== "undefined") localStorage.setItem(key, value);
+    } catch {
+      /* quota exceeded or storage disabled — non-fatal, context still holds the order */
+    }
+  },
+  remove: (key) => {
+    try {
+      if (typeof window !== "undefined") localStorage.removeItem(key);
+    } catch {
+      /* no-op */
+    }
+  },
+};
+
 export const OrderProvider = ({ children }) => {
-  // Current order being processed
   const [currentOrder, setCurrentOrder] = useState(null);
-
-  // Order history for reference
   const [orderHistory, setOrderHistory] = useState([]);
 
-  /**
-   * Store new order in context
-   * Called immediately after order creation
-   */
   const storeOrder = useCallback((orderData) => {
-    if (!orderData?.orderId) {
-      console.error("Invalid order data - missing orderId");
-      return;
-    }
+    if (!orderData?.orderId) return;
 
-    const enrichedOrder = {
-      ...orderData,
-      storedAt: new Date().toISOString(),
-    };
-
-    // Update current order
+    const enrichedOrder = { ...orderData, storedAt: new Date().toISOString() };
     setCurrentOrder(enrichedOrder);
-
-    // Add to history
-    setOrderHistory((prev) => {
-      // Avoid duplicates
-      const filtered = prev.filter((o) => o.orderId !== orderData.orderId);
-      return [enrichedOrder, ...filtered];
-    });
-
-    // Also store in localStorage as backup
-    try {
-      localStorage.setItem(
-        `order_${orderData.orderId}`,
-        JSON.stringify(enrichedOrder),
-      );
-    } catch (e) {
-      console.warn("Failed to store order in localStorage", e);
-    }
-
-    console.log("✅ Order stored in context:", orderData.orderId);
+    setOrderHistory((prev) => [
+      enrichedOrder,
+      ...prev.filter((o) => o.orderId !== orderData.orderId),
+    ]);
+    safeStorage.set(
+      `order_${orderData.orderId}`,
+      JSON.stringify(enrichedOrder),
+    );
   }, []);
 
-  /**
-   * Get specific order from history
-   */
   const getOrder = useCallback(
     (orderId) => {
       if (!orderId) return null;
-
-      // Check context first (fastest)
       const contextOrder = orderHistory.find((o) => o.orderId === orderId);
-      if (contextOrder) {
-        return contextOrder;
-      }
+      if (contextOrder) return contextOrder;
 
-      // Fallback to localStorage
+      const stored = safeStorage.get(`order_${orderId}`);
+      if (!stored) return null;
       try {
-        const stored = localStorage.getItem(`order_${orderId}`);
-        if (stored) {
-          return JSON.parse(stored);
-        }
-      } catch (e) {
-        console.warn("Failed to retrieve order from localStorage", e);
+        return JSON.parse(stored);
+      } catch {
+        return null;
       }
-
-      return null;
     },
     [orderHistory],
   );
 
-  /**
-   * Update specific order in context
-   * Used after payment verification
-   */
   const updateOrder = useCallback((orderId, updates) => {
-    if (!orderId) {
-      console.error("Order ID required for update");
-      return;
-    }
+    if (!orderId) return;
 
-    setCurrentOrder((prev) => {
-      if (!prev || prev.orderId !== orderId) return prev;
-      return { ...prev, ...updates };
-    });
-
+    setCurrentOrder((prev) =>
+      prev?.orderId === orderId ? { ...prev, ...updates } : prev,
+    );
     setOrderHistory((prev) =>
-      prev.map((order) =>
-        order.orderId === orderId ? { ...order, ...updates } : order,
-      ),
+      prev.map((o) => (o.orderId === orderId ? { ...o, ...updates } : o)),
     );
 
-    // Update localStorage
-    try {
-      const stored = localStorage.getItem(`order_${orderId}`);
-      if (stored) {
-        const updated = JSON.parse(stored);
-        localStorage.setItem(
+    const stored = safeStorage.get(`order_${orderId}`);
+    if (stored) {
+      try {
+        safeStorage.set(
           `order_${orderId}`,
-          JSON.stringify({
-            ...updated,
-            ...updates,
-          }),
+          JSON.stringify({ ...JSON.parse(stored), ...updates }),
         );
+      } catch {
+        /* corrupted entry — ignore */
       }
-    } catch (e) {
-      console.warn("Failed to update order in localStorage", e);
-    }
-
-    console.log("✅ Order updated:", orderId);
-  }, []);
-
-  /**
-   * Get current order (the one being processed)
-   */
-  const getCurrentOrder = useCallback(() => {
-    return currentOrder;
-  }, [currentOrder]);
-
-  /**
-   * Clear current order (after successful checkout)
-   */
-  const clearCurrentOrder = useCallback(() => {
-    setCurrentOrder(null);
-  }, []);
-
-  /**
-   * Get all orders from history
-   */
-  const getOrderHistory = useCallback(() => {
-    return orderHistory;
-  }, [orderHistory]);
-
-  /**
-   * Clear specific order from localStorage
-   */
-  const clearOrderFromStorage = useCallback((orderId) => {
-    try {
-      localStorage.removeItem(`order_${orderId}`);
-    } catch (e) {
-      console.warn("Failed to clear order from localStorage", e);
     }
   }, []);
+
+  const getCurrentOrder = useCallback(() => currentOrder, [currentOrder]);
+  const clearCurrentOrder = useCallback(() => setCurrentOrder(null), []);
+  const getOrderHistory = useCallback(() => orderHistory, [orderHistory]);
+  const clearOrderFromStorage = useCallback(
+    (orderId) => safeStorage.remove(`order_${orderId}`),
+    [],
+  );
 
   const value = {
-    // Current order
     currentOrder,
     getCurrentOrder,
     clearCurrentOrder,
-
-    // Order history
     orderHistory,
     getOrderHistory,
-
-    // CRUD operations
     storeOrder,
     getOrder,
     updateOrder,
-
-    // Storage
     clearOrderFromStorage,
   };
 
@@ -176,13 +111,8 @@ export const OrderProvider = ({ children }) => {
   );
 };
 
-/**
- * Hook to use Order context
- */
 export const useOrder = () => {
   const context = useContext(OrderContext);
-  if (!context) {
-    throw new Error("useOrder must be used within OrderProvider");
-  }
+  if (!context) throw new Error("useOrder must be used within OrderProvider");
   return context;
 };

@@ -1,110 +1,180 @@
+// src/features/orders/services/orderService.js
 import axios from "axios";
 import { auth } from "../../../../config/firebaseAuth";
-import { normalizeItems, calculatePricing } from "./checkoutService";
+import { buildFallbackSku } from "./itemUtils";
 
-/* ================================================
-   AXIOS INSTANCE
-================================================ */
+// Fail loudly in production if the API URL was never configured, instead of
+// silently pointing a live build at localhost. In dev, falling back to
+// localhost is convenient, so we only enforce this in prod builds.
+const resolveBaseUrl = () => {
+  const configured = import.meta.env.VITE_API_URL;
+  if (configured) return configured;
+
+  if (import.meta.env.PROD) {
+    throw new Error(
+      "VITE_API_URL is not set. Refusing to fall back to localhost in production.",
+    );
+  }
+  return "http://localhost:5000/api/v1";
+};
+
 const API = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1",
+  baseURL: resolveBaseUrl(),
   timeout: 15000,
 });
 
-/* ================================================
-   AUTH TOKEN
-================================================ */
 const getAuthToken = async () => {
   try {
     const user = auth.currentUser;
-    if (!user) return null;
-    return await user.getIdToken();
-  } catch (err) {
-    console.error("Auth token error:", err);
-    return null;
+    return user ? await user.getIdToken() : null;
+  } catch {
+    return null; // guests fall through with no token — backend must allow this
   }
 };
 
 const getAuthHeaders = async () => {
   const token = await getAuthToken();
-
-  const headers = {
-    "Content-Type": "application/json",
-  };
-
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
+  const headers = { "Content-Type": "application/json" };
+  if (token) headers.Authorization = `Bearer ${token}`;
   return headers;
 };
 
-/* ================================================
-   ERROR HANDLER
-================================================ */
 const handleApiError = (error, defaultMsg) => {
-  const msg =
-    error.response?.data?.message ||
-    error.message ||
-    defaultMsg;
-
-  console.error("ORDER API ERROR:", {
-    status: error.response?.status,
-    data: error.response?.data,
-    message: msg,
-  });
-
+  const msg = error.response?.data?.message || error.message || defaultMsg;
+  if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console
+    console.error("ORDER API ERROR:", {
+      status: error.response?.status,
+      data: error.response?.data,
+    });
+  }
   throw new Error(msg);
 };
 
-/* ================================================
-   CREATE ORDER (CLEAN + BACKEND SAFE)
-================================================ */
-/* ================================================
-   CREATE ORDER (AXIOS API CALL)
-================================================ */
+/**
+ * POST /orders
+ * Auth optional — Bearer token for logged-in users, or guest fields for guests.
+ *
+ * NOTE: the backend recalculates subtotal/total from `items` itself
+ * (pre('validate')), so `pricing` here is just a best-effort hint.
+ *
+ * NOTE: on success the backend also seeds the order's timeline with a
+ * "pending" entry itself, e.g.
+ *   order.addTimeline(ORDER_STATUS.PENDING, "Order placed — awaiting payment", {
+ *     type: ACTOR_TYPE.CUSTOMER,
+ *     id: uid || "guest",
+ *   });
+ * so the frontend should never construct that first timeline entry locally —
+ * always read `timeline` back from GET /orders/status/:orderId instead.
+ */
 export const createOrder = async (orderData) => {
   try {
-    console.log("📦 Formatting order for backend validation...");
-
-    // 1. Destructure the payload coming from buildOrderPayload
     const {
-      customer,
-      shippingAddress,
-      paymentMethod,
+      customer = {},
+      shippingAddress = {},
+      paymentMethod = "",
       items = [],
-      pricing,
-      source = "web",
+      pricing = {},
       customerNote = "",
-    } = orderData;
+    } = orderData || {};
 
-    // 2. Flatten the payload so it perfectly matches the Backend Schema
+    // Use Firebase auth as source of truth for guest detection everywhere
+    // in this file (createOrder previously used `!firebaseUser`, while
+    // createPaymentOrder used `!firebaseUser?.uid` — same intent, two
+    // slightly different checks; unified here).
+    const firebaseUser = auth.currentUser;
+    const isGuest = !firebaseUser?.uid;
+
+    const normalizedPaymentMethod = String(paymentMethod).trim().toLowerCase();
+    const allowedPaymentMethods = ["razorpay", "cod"];
+
+    if (!allowedPaymentMethods.includes(normalizedPaymentMethod)) {
+      throw new Error(`Unsupported payment method: ${paymentMethod}`);
+    }
+
+    if (!Array.isArray(items) || items.length === 0) {
+      throw new Error("Cannot create an order with no items");
+    }
+
+    const sanitizedItems = items.map((item, index) => {
+      const quantity = Math.max(1, Number(item.quantity) || 1);
+      const price = Math.max(0, Number(item.price) || 0);
+
+      return {
+        ...item,
+        productId: item.productId || item._id || item.id || "",
+        sku: buildFallbackSku(item, index),
+        name: item.name?.trim() || "",
+        image: item.image || item.thumbnail || item.banner || "",
+        quantity,
+        price,
+        originalPrice: Math.max(0, Number(item.originalPrice || item.price) || 0),
+        totalPrice: quantity * price,
+      };
+    });
+
     const payload = {
-      // Flatten customer data
-      userId: customer?.userId || null,
-      customerEmail: customer?.email || shippingAddress?.email || null,
-      customerName: customer?.name || shippingAddress?.fullName || null,
-      isGuest: customer?.isGuest ?? true,
+      items: sanitizedItems,
 
-      // Pass items and address
-      items,
-      shippingAddress,
-      paymentMethod,
-      source,
-      customerNote,
+      // orderService.js — createOrder's shippingAddress payload
+shippingAddress: {
+  fullName: shippingAddress?.fullName?.trim() || "",
+  email: shippingAddress?.email?.trim() || "",
+  phone: shippingAddress?.phone?.trim() || "",
+  addressLine1: shippingAddress?.addressLine1?.trim() || "",
+  addressLine2: shippingAddress?.addressLine2?.trim() || "",
+  city: shippingAddress?.city?.trim() || "",
+  district: shippingAddress?.district?.trim() || "",  
+  state: shippingAddress?.state?.trim() || "",
+  postalCode: shippingAddress?.postalCode?.trim() || "",
+  landmark: shippingAddress?.landmark?.trim() || "",
+  tag: shippingAddress?.tag?.trim() || "Home",         
+  country: shippingAddress?.country?.trim() || "India",
+},
 
-      // Map frontend pricing keys to strict backend pricing keys
       pricing: {
-        ...pricing,
-        // The backend validation usually demands 'shippingCharge' and 'total'
-        shippingCharge: pricing.deliveryFee || pricing.shippingCharge || 0,
-        total: pricing.totalPayable || pricing.total || 0,
+        subtotal: Math.max(0, Number(pricing.subtotal) || 0),
+        discount: Math.max(0, Number(pricing.discount) || 0),
+        shipping: Math.max(
+          0,
+          Number(pricing.shipping ?? pricing.shippingCharge ?? pricing.deliveryFee) || 0,
+        ),
+        tax: Math.max(0, Number(pricing.tax) || 0),
+        total: Math.max(0, Number(pricing.total ?? pricing.totalPayable) || 0),
       },
+
+      paymentMethod: normalizedPaymentMethod,
+      customerNote: customerNote?.trim() || "",
+
+      customerEmail:
+        customer?.email?.trim() ||
+        shippingAddress?.email?.trim() ||
+        firebaseUser?.email?.trim() ||
+        "",
+
+      customerName:
+        customer?.name?.trim() ||
+        shippingAddress?.fullName?.trim() ||
+        firebaseUser?.displayName?.trim() ||
+        "",
     };
 
-    console.log("🚀 SENDING PAYLOAD TO BACKEND:", JSON.stringify(payload, null, 2));
+    if (isGuest && !payload.customerEmail) {
+      throw new Error("Guest email missing");
+    }
 
-    // 3. Make the API Call
-    const headers = await getAuthHeaders(); // Ensure this function is imported/available
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.log("FINAL ORDER PAYLOAD:", {
+        ...payload,
+        // Avoid dumping full address/email/phone to the console even in dev,
+        // where console history often gets pasted into chat/tickets.
+        shippingAddress: { city: payload.shippingAddress.city, postalCode: payload.shippingAddress.postalCode },
+        customerEmail: payload.customerEmail ? "[present]" : "[missing]",
+      });
+    }
+
+    const headers = await getAuthHeaders();
     const { data } = await API.post("/orders", payload, { headers });
 
     if (!data?.data?.orderId) {
@@ -113,31 +183,46 @@ export const createOrder = async (orderData) => {
 
     return data.data;
   } catch (error) {
-    // This will print the EXACT 4 validation errors in your console so you can see what failed
-    console.error("❌ VALIDATION ERRORS:", error.response?.data?.errors);
     handleApiError(error, "Failed to create order");
   }
 };
 
-/* ================================================
-   PAYMENT ORDER (RAZORPAY)
-================================================ */
-export const createPaymentOrder = async ({ orderId, amount }) => {
+/**
+ * POST /payments/create-order
+ * Auth optional. Do NOT send `amount` — the backend always charges
+ * order.pricing.total from the DB and ignores any client-supplied amount.
+ * `customerEmail` is required for guests only; logged-in users are
+ * authorized via the Bearer token.
+ */
+export const createPaymentOrder = async ({ orderId, customerEmail } = {}) => {
   try {
-    if (!orderId || !amount) {
-      throw new Error("OrderId and amount required");
+    if (!orderId) {
+      throw new Error("orderId required");
+    }
+
+    const firebaseUser = auth.currentUser;
+    const isGuest = !firebaseUser?.uid;
+
+    const payload = {
+      orderId,
+      customerEmail: customerEmail?.trim() || firebaseUser?.email?.trim() || "",
+    };
+
+    if (isGuest && !payload.customerEmail) {
+      throw new Error("Email required for guest payment");
+    }
+
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.log("PAYMENT PAYLOAD:", {
+        orderId,
+        isGuest,
+        customerEmail: payload.customerEmail ? "[present]" : "[missing]",
+      });
     }
 
     const headers = await getAuthHeaders();
-
-    const { data } = await API.post(
-      "/payments/create-order",
-      {
-        orderId,
-        amount: Number(amount),
-      },
-      { headers }
-    );
+    const { data } = await API.post("/payments/create-order", payload, { headers });
 
     if (!data?.data?.id) {
       throw new Error("Payment order failed");
@@ -149,89 +234,145 @@ export const createPaymentOrder = async ({ orderId, amount }) => {
   }
 };
 
-/* ================================================
-   VERIFY PAYMENT
-================================================ */
+/**
+ * POST /payments/verify
+ * Called from the Razorpay Checkout `handler` callback.
+ * payload: { orderId, razorpay_order_id, razorpay_payment_id, razorpay_signature, customerEmail? }
+ */
 export const verifyPayment = async (payload) => {
   try {
+    if (!payload?.orderId || !payload?.razorpay_payment_id) {
+      throw new Error("Missing orderId or payment ID for verification");
+    }
     const headers = await getAuthHeaders();
-
-    const { data } = await API.post(
-      "/payments/verify",
-      payload,
-      { headers }
-    );
-
+    const { data } = await API.post("/payments/verify", payload, { headers });
     return data;
   } catch (error) {
     handleApiError(error, "Payment verification failed");
   }
 };
 
-/* ================================================
-   GET ORDER DETAILS
-================================================ */
+// GET /orders/:id — logged-in users only, own orders
 export const getOrderDetails = async (orderId) => {
   try {
-    const token = await getAuthToken();
-
-    if (!token) {
-      throw new Error("Login required");
-    }
-
-    const { data } = await API.get(`/orders/${orderId}`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
+    if (!orderId) throw new Error("orderId required");
+    const headers = await getAuthHeaders();
+    const { data } = await API.get(`/orders/${orderId}`, { headers });
     return data.data;
   } catch (error) {
     handleApiError(error, "Failed to fetch order");
   }
 };
 
-/* ================================================
-   USER ORDERS
-================================================ */
-export const getUserOrders = async () => {
+// GET /orders?page=&limit=&status= — logged-in users only
+export const getUserOrders = async ({ page = 1, limit = 20, status } = {}) => {
   try {
     const token = await getAuthToken();
+    if (!token) throw new Error("Login required");
 
-    if (!token) {
-      throw new Error("Login required");
-    }
-
+    const params = { page, limit, ...(status && { status }) };
     const { data } = await API.get("/orders", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { Authorization: `Bearer ${token}` },
+      params,
     });
-
     return data?.data || [];
   } catch (error) {
     handleApiError(error, "Failed to fetch orders");
   }
 };
 
-/* ================================================
-   ORDER STATUS (GUEST SAFE)
-================================================ */
+/**
+ * GET /orders/status/:orderId
+ * Logged-in: Bearer token used, `email` query param omitted.
+ * Guest: `email` query param required, no auth header.
+ * Returns live `timeline` — including the backend-seeded "pending" entry —
+ * so poll this after a reload instead of trusting local state.
+ */
 export const getOrderStatus = async (orderId, email) => {
   try {
-    const { data } = await API.get(
-      `/orders/status/${orderId}?email=${encodeURIComponent(email || "")}`
-    );
+    if (!orderId) throw new Error("orderId required");
 
+    const token = await getAuthToken();
+    const config = token
+      ? { headers: { Authorization: `Bearer ${token}` } }
+      : { params: { email: email || "" } };
+
+    if (!token && !email) {
+      throw new Error("Email required to look up a guest order");
+    }
+
+    const { data } = await API.get(`/orders/status/${orderId}`, config);
     return data.data;
   } catch (error) {
     handleApiError(error, "Failed to fetch status");
   }
 };
 
-/* ================================================
-   EXPORT SERVICE
-================================================ */
+/**
+ * PATCH /orders/:id — logged-in only.
+ * Only allowed while pending/confirmed and before a shipment exists.
+ * payload: { shippingAddress?, customerNote? }
+ */
+export const updateOrder = async (orderId, updates) => {
+  try {
+    if (!orderId) throw new Error("orderId required");
+
+    const token = await getAuthToken();
+    if (!token) throw new Error("Login required");
+
+    const { data } = await API.patch(`/orders/${orderId}`, updates, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return data.data;
+  } catch (error) {
+    handleApiError(error, "Failed to update order");
+  }
+};
+
+/**
+ * PATCH /orders/:id/cancel — logged-in only.
+ * Only allowed before the order is shipped.
+ * payload: { reason }
+ */
+export const cancelOrder = async (orderId, reason) => {
+  try {
+    if (!orderId) throw new Error("orderId required");
+
+    const token = await getAuthToken();
+    if (!token) throw new Error("Login required");
+
+    const { data } = await API.patch(
+      `/orders/${orderId}/cancel`,
+      { reason },
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    return data.data;
+  } catch (error) {
+    handleApiError(error, "Failed to cancel order");
+  }
+};
+
+// Shipping serviceability check (calls your backend, which calls Shiprocket)
+export const checkServiceability = async (pincode, options = {}) => {
+  try {
+    if (!pincode) throw new Error("Pincode required");
+
+    const { data } = await API.get(`/shipping/serviceability/${pincode}`, {
+      signal: options.signal,
+    });
+    return data;
+  } catch (error) {
+    // Let AbortError/CanceledError propagate untouched — useShippingServiceability
+    // specifically checks err.name for these and treats them as "not a real
+    // error, just a superseded request." Wrapping them in a generic Error
+    // here would break that check.
+    if (error.name === "AbortError" || error.name === "CanceledError") {
+      throw error;
+    }
+    handleApiError(error, "Failed to check delivery availability");
+  }
+};
+
 export const orderService = {
   createOrder,
   createPaymentOrder,
@@ -239,4 +380,7 @@ export const orderService = {
   getOrderDetails,
   getUserOrders,
   getOrderStatus,
+  updateOrder,
+  cancelOrder,
+  checkServiceability,
 };

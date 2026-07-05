@@ -1,3 +1,5 @@
+"use strict";
+
 const crypto = require("crypto");
 const logger = require("../utils/logger");
 
@@ -5,341 +7,254 @@ const Order = require("../models/Order");
 const razorpayService = require("../services/razorpay.service");
 const { sendOrderConfirmationEmail } = require("../services/resend.email");
 
-// ✅ CENTRAL CONSTANTS
 const {
   ORDER_STATUS,
   PAYMENT_STATUS,
   PAYMENT_GATEWAY,
   ACTOR_TYPE,
-  ORDER_FLAGS,
 } = require("../constants");
 
-// =========================================================
-// CREATE RAZORPAY ORDER
-// =========================================================
-const createRazorpayOrder = async (req, res) => {
-  try {
-    let { amount, currency = "INR", orderId, customerEmail } = req.body;
+const asyncHandler = (fn) => (req, res, next) =>
+  Promise.resolve(fn(req, res, next)).catch(next);
 
-    if (!amount || isNaN(amount) || amount <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid amount provided",
-      });
+/* =========================================================
+   SHARED HELPERS
+========================================================= */
+function checkOrderAccess(order, req, customerEmail) {
+  if (req.isAuthenticated && req.user?.uid) {
+    if (order.customer.uid !== req.user.uid) {
+      logger("WARN", "Unauthorized payment attempt", { orderId: order.orderId, userId: req.user.uid });
+      return { code: 403, message: "Access denied" };
     }
+    return null;
+  }
 
-    if (!orderId) {
-      return res.status(400).json({
-        success: false,
-        message: "Order ID is required",
-      });
+  if (order.flags?.isGuest) {
+    if (!customerEmail) return { code: 400, message: "Email required for guest payment" };
+    if (order.customer.email.toLowerCase() !== customerEmail.toLowerCase()) {
+      return { code: 403, message: "Email mismatch" };
     }
+    return null;
+  }
 
-    const amountInPaise = Math.round(Number(amount) * 100);
+  return { code: 401, message: "Authentication required" };
+}
 
-    // =====================================================
-    // FIND ORDER
-    // =====================================================
-    const order = await Order.findOne({
-      orderId: orderId.toUpperCase(),
-      isDeleted: false,
-    });
+function verifySignature(payload, signature, secret) {
+  if (!signature || !secret) return false;
+  const expected = crypto.createHmac("sha256", secret).update(payload).digest("hex");
+  const expectedBuf = Buffer.from(expected, "utf8");
+  const givenBuf = Buffer.from(signature, "utf8");
+  if (expectedBuf.length !== givenBuf.length) return false;
+  return crypto.timingSafeEqual(expectedBuf, givenBuf);
+}
 
-    if (!order) {
-      return res.status(404).json({
-        success: false,
-        message: "Order not found",
-      });
-    }
+/* =========================================================
+   CREATE RAZORPAY ORDER
+========================================================= */
+const createRazorpayOrder = asyncHandler(async (req, res) => {
+  const { orderId, customerEmail, amount: clientAmount } = req.body;
 
-    // =====================================================
-    // AUTH CHECK
-    // =====================================================
-    if (req.isAuthenticated && req.user?.uid) {
-      if (order.customer.uid !== req.user.uid) {
-        logger("WARN", "Unauthorized payment attempt", {
-          orderId,
-          userId: req.user.uid,
-        });
+  if (!orderId) {
+    return res.status(400).json({ success: false, message: "Order ID is required" });
+  }
 
-        return res.status(403).json({
-          success: false,
-          message: "Access denied",
-        });
-      }
-    } else if (order.flags?.isGuest) {
-      if (!customerEmail) {
-        return res.status(400).json({
-          success: false,
-          message: "Email required for guest payment",
-        });
-      }
+  const order = await Order.findOne({ orderId: orderId.toUpperCase(), isDeleted: false });
+  if (!order) {
+    return res.status(404).json({ success: false, message: "Order not found" });
+  }
 
-      if (order.customer.email.toLowerCase() !== customerEmail.toLowerCase()) {
-        return res.status(403).json({
-          success: false,
-          message: "Email mismatch",
-        });
-      }
-    } else {
-      return res.status(401).json({
-        success: false,
-        message: "Authentication required",
-      });
-    }
+  const authError = checkOrderAccess(order, req, customerEmail);
+  if (authError) return res.status(authError.code).json({ success: false, message: authError.message });
 
-    // =====================================================
-    // AMOUNT VALIDATION
-    // =====================================================
-    const expectedAmount = order.pricing?.total || 0;
+  if (order.payment?.status === PAYMENT_STATUS.PAID) {
+    return res.status(400).json({ success: false, message: "Order already paid" });
+  }
+  if ([ORDER_STATUS.CANCELLED, ORDER_STATUS.REFUNDED].includes(order.orderStatus)) {
+    return res.status(400).json({ success: false, message: `Cannot pay for ${order.orderStatus} order` });
+  }
 
-    if (Math.abs(expectedAmount - amount) > 1) {
-      return res.status(400).json({
-        success: false,
-        message: "Amount mismatch",
-      });
-    }
+  // The charge amount is always derived from the server-side order total —
+  // never trust a client-supplied `amount` to decide what gets charged.
+  const expectedAmount = Number(order.pricing?.total || 0);
+  if (!expectedAmount || expectedAmount <= 0) {
+    logger("ERROR", `Order ${orderId} has invalid pricing.total: ${expectedAmount}`);
+    return res.status(500).json({ success: false, message: "Order pricing is invalid; contact support" });
+  }
+  if (clientAmount !== undefined && Math.abs(expectedAmount - Number(clientAmount)) > 1) {
+    // Not fatal — the client value is never used for the charge — but worth
+    // knowing about, since it usually means a stale cart or client tampering.
+    logger("WARN", "Client amount does not match server total", { orderId, clientAmount, expectedAmount });
+  }
 
-    // =====================================================
-    // PAYMENT STATUS CHECK
-    // =====================================================
-    if (order.payment?.status === PAYMENT_STATUS.PAID) {
-      return res.status(400).json({
-        success: false,
-        message: "Order already paid",
-      });
-    }
+  const amountInPaise = Math.round(expectedAmount * 100);
 
-    if (
-      [ORDER_STATUS.CANCELLED, ORDER_STATUS.REFUNDED].includes(
-        order.orderStatus
-      )
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: `Cannot pay for ${order.orderStatus} order`,
-      });
-    }
-
-    // =====================================================
-    // CREATE RAZORPAY ORDER
-    // =====================================================
-    const razorpayOrder = await razorpayService.createOrder({
-      amount: amountInPaise,
-      currency,
-      receipt: orderId,
-      notes: {
-        orderId,
-        customerId: order.customer.uid || "guest",
-        isGuest: order.flags?.isGuest || false,
-      },
-    });
-
-    if (!razorpayOrder?.id) {
-      throw new Error("Razorpay order creation failed");
-    }
-
-    // =====================================================
-    // SAVE PAYMENT META
-    // =====================================================
-    order.payment = order.payment || {};
-    order.payment.gateway = PAYMENT_GATEWAY.RAZORPAY;
-    order.payment.status = PAYMENT_STATUS.PENDING;
-    order.payment.gatewayMeta = {
-      ...(order.payment.gatewayMeta || {}),
-      razorpay_order_id: razorpayOrder.id,
-    };
-
-    order.markModified("payment");
-
-    await order.save();
-
-    logger("INFO", "Razorpay order created", {
+  const razorpayOrder = await razorpayService.createOrder({
+    amount: amountInPaise,
+    currency: "INR",
+    receipt: orderId,
+    notes: {
       orderId,
-      razorpayOrderId: razorpayOrder.id,
-    });
+      customerId: order.customer.uid || "guest",
+      isGuest: order.flags?.isGuest || false,
+    },
+  });
 
+  if (!razorpayOrder?.id) {
+    throw new Error("Razorpay order creation failed");
+  }
+
+  order.payment = order.payment || {};
+  order.payment.gateway = PAYMENT_GATEWAY.RAZORPAY;
+  order.payment.status = PAYMENT_STATUS.PENDING;
+  order.payment.gatewayMeta = {
+    ...(order.payment.gatewayMeta || {}),
+    razorpay_order_id: razorpayOrder.id,
+  };
+  order.markModified("payment");
+
+  await order.save();
+
+  logger("INFO", "Razorpay order created", { orderId, razorpayOrderId: razorpayOrder.id });
+
+  return res.json({ success: true, data: razorpayOrder });
+});
+
+/* =========================================================
+   VERIFY PAYMENT (client-side callback)
+
+   Shipping is manual now — this endpoint only confirms payment and moves
+   the order to "confirmed". No courier is booked here; an admin does that
+   later via PATCH /admin/:id/status once the order is ready to ship.
+========================================================= */
+const verifyRazorpayPayment = asyncHandler(async (req, res) => {
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, orderId, customerEmail } = req.body;
+
+  if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !orderId) {
+    return res.status(400).json({ success: false, message: "Missing payment data" });
+  }
+
+  const signaturePayload = `${razorpay_order_id}|${razorpay_payment_id}`;
+  if (!verifySignature(signaturePayload, razorpay_signature, process.env.RAZORPAY_KEY_SECRET)) {
+    logger("WARN", "Razorpay signature mismatch", { orderId, razorpay_order_id });
+    return res.status(400).json({ success: false, message: "Invalid signature" });
+  }
+
+  const order = await Order.findOne({ orderId: orderId.toUpperCase(), isDeleted: false });
+  if (!order) {
+    return res.status(404).json({ success: false, message: "Order not found" });
+  }
+
+  const authError = checkOrderAccess(order, req, customerEmail);
+  if (authError) return res.status(authError.code).json({ success: false, message: authError.message });
+
+  if (order.payment?.gatewayMeta?.razorpay_order_id !== razorpay_order_id) {
+    return res.status(400).json({ success: false, message: "Order ID mismatch" });
+  }
+
+  // Idempotent — safe if the client retries, or the webhook (below) already
+  // confirmed this payment first.
+  if (order.payment?.status === PAYMENT_STATUS.PAID) {
     return res.json({
       success: true,
-      data: razorpayOrder,
-    });
-  } catch (error) {
-    logger("ERROR", error.message);
-
-    return res.status(500).json({
-      success: false,
-      message: error.message,
+      message: "Payment already verified",
+      data: { orderId: order.orderId, orderStatus: order.orderStatus, paymentStatus: order.payment.status },
     });
   }
-};
 
-// =========================================================
-// VERIFY PAYMENT
-// =========================================================
-const verifyRazorpayPayment = async (req, res) => {
-  try {
-    const {
-      razorpay_order_id,
-      razorpay_payment_id,
-      razorpay_signature,
-      orderId,
-      customerEmail,
-    } = req.body;
+  order.payment.status = PAYMENT_STATUS.PAID;
+  order.payment.paidAt = new Date();
+  order.payment.amountPaid = order.pricing?.total || 0;
+  order.payment.gatewayMeta = {
+    ...(order.payment.gatewayMeta || {}),
+    razorpay_payment_id,
+    razorpay_signature,
+  };
+  order.markModified("payment");
 
-    if (
-      !razorpay_order_id ||
-      !razorpay_payment_id ||
-      !razorpay_signature ||
-      !orderId
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Missing payment data",
-      });
-    }
+  order.addTimeline(ORDER_STATUS.CONFIRMED, "Payment verified via Razorpay", {
+    type: ACTOR_TYPE.SYSTEM,
+    id: "razorpay",
+    name: "Razorpay",
+  });
 
-    // =====================================================
-    // VERIFY SIGNATURE
-    // =====================================================
-    const body = `${razorpay_order_id}|${razorpay_payment_id}`;
+  await order.save();
 
-    const generatedSignature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-      .update(body)
-      .digest("hex");
+  sendOrderConfirmationEmail(order).catch((err) => {
+    logger("ERROR", `Email sending failed on verify: ${err.message}`);
+  });
 
-    if (generatedSignature !== razorpay_signature) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid signature",
-      });
-    }
+  return res.json({
+    success: true,
+    message: "Payment verified",
+    data: { orderId: order.orderId, orderStatus: order.orderStatus, paymentStatus: order.payment.status },
+  });
+});
 
-    // =====================================================
-    // FIND ORDER
-    // =====================================================
-    const order = await Order.findOne({
-      orderId: orderId.toUpperCase(),
-      isDeleted: false,
-    });
+/* =========================================================
+   WEBHOOK — server-to-server fallback in case the client
+   never calls verifyRazorpayPayment (closed tab, dropped
+   network, etc). Register this URL in the Razorpay dashboard.
 
-    if (!order) {
-      return res.status(404).json({
-        success: false,
-        message: "Order not found",
-      });
-    }
+   IMPORTANT: mount this route with express.raw({ type: "application/json" })
+   instead of express.json() — Razorpay signs the raw body bytes.
 
-    // =====================================================
-    // AUTH CHECK
-    // =====================================================
-    if (req.isAuthenticated && req.user?.uid) {
-      if (order.customer.uid !== req.user.uid) {
-        return res.status(403).json({
-          success: false,
-          message: "Unauthorized",
-        });
-      }
-    } else if (order.flags?.isGuest) {
-      if (!customerEmail) {
-        return res.status(400).json({
-          success: false,
-          message: "Email required",
-        });
-      }
+   Shipping is manual — same as verifyRazorpayPayment, this only confirms
+   payment. No courier is booked here.
+========================================================= */
+const handleRazorpayWebhook = asyncHandler(async (req, res) => {
+  const signature = req.headers["x-razorpay-signature"];
+  const rawBody = req.body; // Buffer
 
-      if (order.customer.email.toLowerCase() !== customerEmail.toLowerCase()) {
-        return res.status(403).json({
-          success: false,
-          message: "Email mismatch",
-        });
-      }
-    }
-
-    // =====================================================
-    // VERIFY ORDER ID MATCH
-    // =====================================================
-    if (
-      order.payment?.gatewayMeta?.razorpay_order_id !== razorpay_order_id
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Order ID mismatch",
-      });
-    }
-
-    // =====================================================
-    // IDEMPOTENCY CHECK
-    // =====================================================
-    if (order.payment?.status === PAYMENT_STATUS.PAID) {
-      return res.json({
-        success: true,
-        message: "Payment already verified",
-        data: {
-          orderId: order.orderId,
-          orderStatus: order.orderStatus,
-          paymentStatus: order.payment.status,
-        },
-      });
-    }
-
-    // =====================================================
-    // UPDATE ORDER
-    // =====================================================
-    order.payment = order.payment || {};
-    order.payment.status = PAYMENT_STATUS.PAID;
-    order.payment.paidAt = new Date();
-    order.payment.amountPaid = order.pricing?.total || 0;
-
-    order.payment.gatewayMeta = {
-      ...(order.payment.gatewayMeta || {}),
-      razorpay_payment_id,
-      razorpay_signature,
-    };
-
-    order.orderStatus = ORDER_STATUS.CONFIRMED;
-
-    order.markModified("payment");
-
-    if (typeof order.addTimeline === "function") {
-      order.addTimeline(
-        ORDER_STATUS.CONFIRMED,
-        "Payment verified via Razorpay",
-        {
-          type: ACTOR_TYPE.SYSTEM,
-          id: "razorpay",
-          name: "Razorpay",
-        }
-      );
-    }
-
-    await order.save();
-    
-    // Trigger Email Asynchronously
-    sendOrderConfirmationEmail(order).catch((err) => {
-       logger("ERROR", `Email sending failed on verify: ${err.message}`);
-    });
-
-    return res.json({
-      success: true,
-      message: "Payment verified",
-      data: {
-        orderId: order.orderId,
-        orderStatus: order.orderStatus,
-        paymentStatus: order.payment.status,
-      },
-    });
-  } catch (error) {
-    logger("ERROR", error.message);
-
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+  if (!verifySignature(rawBody, signature, process.env.RAZORPAY_WEBHOOK_SECRET)) {
+    logger("WARN", "Razorpay webhook signature invalid");
+    return res.status(400).json({ success: false });
   }
-};
+
+  const event = JSON.parse(rawBody.toString("utf8"));
+
+  if (event.event !== "payment.captured") {
+    return res.status(200).json({ success: true }); // ack, ignore other events
+  }
+
+  const payment = event.payload?.payment?.entity;
+  const razorpayOrderId = payment?.order_id;
+  if (!razorpayOrderId) return res.status(200).json({ success: true });
+
+  const order = await Order.findOne({
+    "payment.gatewayMeta.razorpay_order_id": razorpayOrderId,
+    isDeleted: false,
+  });
+
+  if (!order || order.payment?.status === PAYMENT_STATUS.PAID) {
+    return res.status(200).json({ success: true }); // already handled, or not ours
+  }
+
+  order.payment.status = PAYMENT_STATUS.PAID;
+  order.payment.paidAt = new Date();
+  order.payment.amountPaid = order.pricing?.total || 0;
+  order.payment.gatewayMeta = {
+    ...(order.payment.gatewayMeta || {}),
+    razorpay_payment_id: payment.id,
+  };
+  order.markModified("payment");
+
+  order.addTimeline(ORDER_STATUS.CONFIRMED, "Payment captured via Razorpay webhook", {
+    type: ACTOR_TYPE.SYSTEM,
+    id: "razorpay-webhook",
+  });
+
+  await order.save();
+
+  sendOrderConfirmationEmail(order).catch((err) => {
+    logger("ERROR", `Email sending failed (webhook): ${err.message}`);
+  });
+
+  return res.status(200).json({ success: true });
+});
 
 module.exports = {
   createRazorpayOrder,
   verifyRazorpayPayment,
+  handleRazorpayWebhook,
 };

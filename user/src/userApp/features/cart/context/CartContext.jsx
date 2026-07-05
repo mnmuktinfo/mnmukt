@@ -5,6 +5,7 @@ import {
   useState,
   useCallback,
 } from "react";
+
 import {
   getCartDB,
   addCartDB,
@@ -15,22 +16,47 @@ import {
 
 const CartContext = createContext();
 
+const isDev = process.env.NODE_ENV === "development";
+
+const log = (...args) => {
+  if (isDev) {
+    console.log("[Cart]", ...args);
+  }
+};
+
+const errorLog = (...args) => {
+  if (isDev) {
+    console.error("[Cart Error]", ...args);
+  }
+};
+
 export const CartProvider = ({ children }) => {
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState(null);
 
+  /* ============================================
+     LOAD CART
+  ============================================ */
+
   useEffect(() => {
     const loadCart = async () => {
       try {
+        setLoading(true);
+
         const data = await getCartDB();
+
         setCart(data ?? []);
+
+        log("Cart loaded:", data);
+
         setError(null);
       } catch (err) {
-        console.error("❌ Failed to load cart:", err);
-        setError(err.message);
+        errorLog("Load failed:", err);
+
         setCart([]);
+        setError(err.message);
       } finally {
         setLoading(false);
       }
@@ -40,36 +66,65 @@ export const CartProvider = ({ children }) => {
   }, []);
 
   /* ============================================
-     VALIDATE PRODUCT DATA BEFORE ADDING
-     ============================================ */
+     VALIDATE ITEM
+  ============================================ */
+
   const validateItem = (item) => {
     const required = ["productId", "name", "image", "price", "slug", "sku"];
-    const missing = required.filter((field) => !item[field] && item[field] !== 0);
 
-    if (missing.length > 0) {
-      console.error(`Cannot add to cart. Missing fields: ${missing.join(", ")}`, item);
+    const missing = required.filter(
+      (field) => !item[field] && item[field] !== 0,
+    );
+
+    if (missing.length) {
+      errorLog(`Missing fields: ${missing.join(", ")}`, item);
+
       return false;
     }
+
     return true;
   };
 
   /* ============================================
-     ADD TO CART - WITH VALIDATION
-     ============================================ */
+     ADD TO CART
+  ============================================ */
+
   const addToCart = useCallback(async (cartItemData) => {
     setSyncing(true);
+
     try {
       if (!cartItemData) {
-        throw new Error("Invalid product for cart addition");
+        throw new Error("Invalid product");
       }
 
-      // Handle both cases: id (legacy) vs productId (new)
       const productId = cartItemData.productId || cartItemData.id;
-      const selectedSize = cartItemData.selectedSize || "onesize";
-      const quantity = cartItemData.quantity || cartItemData.selectedQuantity || 1;
 
-      if (!productId || !selectedSize) {
-        throw new Error("Invalid product or size for cart addition");
+      const selectedSize =
+        cartItemData.selectedSize || cartItemData.variant?.size || "onesize";
+
+      const quantity =
+        cartItemData.quantity || cartItemData.selectedQuantity || 1;
+
+      const normalizedItem = {
+        ...cartItemData,
+
+        productId,
+
+        sku:
+          cartItemData.sku ||
+          `SKU-${String(productId).substring(0, 6).toUpperCase()}`,
+
+        slug: cartItemData.slug || "",
+
+        name: cartItemData.name || "",
+
+        image: cartItemData.image || "",
+
+        price: Number(cartItemData.price || 0),
+      };
+
+      if (!validateItem(normalizedItem)) {
+        throw new Error("Product data incomplete");
       }
 
       const cartKey = `${productId}_${selectedSize}`;
@@ -82,53 +137,77 @@ export const CartProvider = ({ children }) => {
         let updated;
 
         if (existingIndex !== -1) {
-          // ✅ Item exists, increment quantity
           updated = [...prev];
+
+          const existing = updated[existingIndex];
+
+          const newQuantity = existing.quantity + quantity;
+
           updated[existingIndex] = {
-            ...updated[existingIndex],
-            quantity: updated[existingIndex].quantity + quantity,
+            ...existing,
+
+            quantity: newQuantity,
+
+            totalPrice: existing.price * newQuantity,
           };
 
-          updateCartDB(cartKey, updated[existingIndex])
-            .then(() => setError(null))
-            .catch((err) => {
-              console.error("DB update error:", err);
-              setError("Failed to update cart");
-            });
+          updateCartDB(cartKey, updated[existingIndex]);
+
+          log("Quantity updated:", updated[existingIndex]);
         } else {
-          // ✅ New item to cart - ensure all fields present
           const newItem = {
             cartKey,
-            productId,
-            name: cartItemData.name,
-            image: cartItemData.image,
-            price: cartItemData.price,
-            originalPrice: cartItemData.originalPrice ?? cartItemData.price,
-            category: cartItemData.category || cartItemData.categoryId || "General",
-            slug: cartItemData.slug,
+
+            productId: String(productId),
+
+            sku: normalizedItem.sku,
+
+            slug: normalizedItem.slug,
+
+            name: normalizedItem.name,
+
+            image: normalizedItem.image,
+
+            brand: cartItemData.brand || "",
+
+            category:
+              cartItemData.category || cartItemData.categoryId || "General",
+
+            variant: {
+              size: selectedSize,
+              color: cartItemData.selectedColor || "",
+            },
+
             quantity,
-            selectedSize,
-            selectedColor: cartItemData.selectedColor || null,
-            meta: { sku: cartItemData.sku || `SKU-${productId.substring(0,6).toUpperCase()}` },
+
+            price: normalizedItem.price,
+
+            originalPrice: Number(
+              cartItemData.originalPrice || normalizedItem.price,
+            ),
+
+            totalPrice: normalizedItem.price * quantity,
+
             addedAt: new Date().toISOString(),
           };
 
           updated = [...prev, newItem];
 
-          addCartDB(newItem)
-            .then(() => setError(null))
-            .catch((err) => {
-              console.error("DB add error:", err);
-              setError("Failed to add to cart");
-            });
+          addCartDB(newItem);
+
+          log("Added new item:", newItem);
         }
 
         return updated;
       });
+
+      setError(null);
     } catch (err) {
-      console.error("❌ Add to cart error:", err);
+      errorLog("Add to cart:", err);
+
       setError(err.message);
-      throw err; // Re-throw for ProductCard to handle
+
+      throw err;
     } finally {
       setSyncing(false);
     }
@@ -136,32 +215,43 @@ export const CartProvider = ({ children }) => {
 
   /* ============================================
      UPDATE QUANTITY
-     ============================================ */
-  const updateQuantity = useCallback((cartKey, quantity) => {
-    if (quantity < 1) {
-      console.warn("⚠️ Quantity must be at least 1");
-      return;
-    }
+  ============================================ */
 
+  const updateQuantity = useCallback(async (cartKey, quantity) => {
     setSyncing(true);
+
     try {
+      if (quantity <= 0) {
+        remove(cartKey);
+        return;
+      }
+
       setCart((prev) => {
         const updated = prev.map((item) =>
-          item.cartKey === cartKey ? { ...item, quantity } : item,
+          item.cartKey === cartKey
+            ? {
+                ...item,
+                quantity,
+
+                totalPrice: item.price * quantity,
+              }
+            : item,
         );
 
         const item = updated.find((i) => i.cartKey === cartKey);
+
         if (item) {
-          updateCartDB(cartKey, item)
-            .then(() => setError(null))
-            .catch((err) => {
-              console.error("DB update error:", err);
-              setError("Failed to update quantity");
-            });
+          updateCartDB(cartKey, item);
         }
+
+        log("Quantity updated:", item);
 
         return updated;
       });
+    } catch (err) {
+      errorLog("Quantity update:", err);
+
+      setError("Failed updating quantity");
     } finally {
       setSyncing(false);
     }
@@ -169,53 +259,44 @@ export const CartProvider = ({ children }) => {
 
   /* ============================================
      UPDATE SIZE
-     ============================================ */
-  const updateSize = useCallback((cartKey, newSize) => {
-    if (!newSize) {
-      console.warn("⚠️ Size is required");
-      return;
-    }
+  ============================================ */
+
+  const updateSize = useCallback(async (cartKey, newSize) => {
+    if (!newSize) return;
 
     setSyncing(true);
+
     try {
       setCart((prev) => {
         const item = prev.find((i) => i.cartKey === cartKey);
-        if (!item) {
-          console.warn("⚠️ Cart item not found:", cartKey);
-          return prev;
-        }
+
+        if (!item) return prev;
 
         const newKey = `${item.productId}_${newSize}`;
-        const filtered = prev.filter((i) => i.cartKey !== cartKey);
-        const existing = filtered.find((i) => i.cartKey === newKey);
 
-        if (existing) {
-          // ✅ Merge with existing size
-          existing.quantity += item.quantity;
-          updateCartDB(newKey, existing)
-            .then(() => setError(null))
-            .catch((err) => {
-              console.error("DB update error:", err);
-              setError("Failed to update size");
-            });
-          return filtered;
-        }
+        const filtered = prev.filter((i) => i.cartKey !== cartKey);
 
         const updatedItem = {
           ...item,
+
           cartKey: newKey,
-          selectedSize: newSize,
+
+          variant: {
+            ...item.variant,
+            size: newSize,
+          },
         };
 
-        addCartDB(updatedItem)
-          .then(() => setError(null))
-          .catch((err) => {
-            console.error("DB add error:", err);
-            setError("Failed to update size");
-          });
+        removeCartDB(cartKey).then(() => addCartDB(updatedItem));
+
+        log("Size updated:", updatedItem);
 
         return [...filtered, updatedItem];
       });
+    } catch (err) {
+      errorLog("Size update:", err);
+
+      setError("Failed updating size");
     } finally {
       setSyncing(false);
     }
@@ -223,17 +304,19 @@ export const CartProvider = ({ children }) => {
 
   /* ============================================
      REMOVE
-     ============================================ */
-  const remove = useCallback((cartKey) => {
+  ============================================ */
+
+  const remove = useCallback(async (cartKey) => {
     setSyncing(true);
+
     try {
       setCart((prev) => prev.filter((i) => i.cartKey !== cartKey));
-      removeCartDB(cartKey)
-        .then(() => setError(null))
-        .catch((err) => {
-          console.error("DB remove error:", err);
-          setError("Failed to remove from cart");
-        });
+
+      await removeCartDB(cartKey);
+
+      log("Removed:", cartKey);
+    } catch (err) {
+      errorLog("Remove:", err);
     } finally {
       setSyncing(false);
     }
@@ -241,59 +324,60 @@ export const CartProvider = ({ children }) => {
 
   /* ============================================
      CLEAR
-     ============================================ */
-  const clear = useCallback(() => {
+  ============================================ */
+
+  const clear = useCallback(async () => {
     setSyncing(true);
+
     try {
       setCart([]);
-      clearCartDB()
-        .then(() => setError(null))
-        .catch((err) => {
-          console.error("DB clear error:", err);
-          setError("Failed to clear cart");
-        });
+
+      await clearCartDB();
+
+      log("Cart cleared");
+    } catch (err) {
+      errorLog("Clear:", err);
     } finally {
       setSyncing(false);
     }
   }, []);
 
-  /* ============================================
-     GET CART TOTAL
-     ============================================ */
-  const getTotal = useCallback(() => {
-    return cart.reduce((sum, item) => {
-      return sum + (item.price || 0) * (item.quantity || 0);
-    }, 0);
-  }, [cart]);
+  const getTotal = useCallback(
+    () => cart.reduce((sum, item) => sum + item.totalPrice, 0),
+    [cart],
+  );
 
-  /* ============================================
-     GET CART COUNT
-     ============================================ */
-  const getCount = useCallback(() => {
-    return cart.reduce((sum, item) => sum + (item.quantity || 0), 0);
-  }, [cart]);
+  const getCount = useCallback(
+    () => cart.reduce((sum, item) => sum + item.quantity, 0),
+    [cart],
+  );
 
-  const value = {
-    cart,
-    loading,
-    syncing,
-    error,
-    addToCart,
-    updateQuantity,
-    updateSize,
-    remove,
-    clear,
-    getTotal,
-    getCount,
-  };
-
-  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
+  return (
+    <CartContext.Provider
+      value={{
+        cart,
+        loading,
+        syncing,
+        error,
+        addToCart,
+        updateQuantity,
+        updateSize,
+        remove,
+        clear,
+        getTotal,
+        getCount,
+      }}>
+      {children}
+    </CartContext.Provider>
+  );
 };
 
 export const useCart = () => {
   const context = useContext(CartContext);
+
   if (!context) {
     throw new Error("useCart must be used within CartProvider");
   }
+
   return context;
 };

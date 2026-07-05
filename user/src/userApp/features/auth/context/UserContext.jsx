@@ -506,16 +506,49 @@ export const AuthProvider = ({ children }) => {
   const saveAddress = useCallback(
     async (address) => {
       dispatch({ type: "ACTION_START" });
+
       try {
         const uid = state.user?.uid;
-        if (!uid) throw new Error("User not found");
 
-        const saved = await saveAddressService(uid, address);
+        if (!uid) {
+          throw new Error("User not found");
+        }
+
+        // Normalize address structure
+        const normalizedAddress = {
+          fullName: address?.fullName || state.user?.name || "",
+
+          email: address?.email || state.user?.email || "",
+
+          phone: address?.phone || state.user?.phone || "",
+
+          addressLine1: address?.addressLine1 || "",
+
+          addressLine2: address?.addressLine2 || "",
+
+          city: address?.city || "",
+
+          state: address?.state || "",
+
+          postalCode: address?.postalCode || "",
+
+          landmark: address?.landmark || "",
+
+          country: address?.country || "India",
+
+          isDefault: address?.isDefault ?? true,
+        };
+
+        const saved = await saveAddressService(uid, normalizedAddress);
+
         let newAddress = state.address;
 
         if (saved.isDefault) {
           newAddress = saved;
-          await updateProfileData(uid, { defaultAddressId: saved.id });
+
+          await updateProfileData(uid, {
+            defaultAddressId: saved.id,
+          });
         }
 
         dispatch({
@@ -523,7 +556,12 @@ export const AuthProvider = ({ children }) => {
           user: state.user,
           address: newAddress,
         });
-        writeCache({ user: state.user, address: newAddress });
+
+        writeCache({
+          user: state.user,
+          address: newAddress,
+        });
+
         return saved;
       } catch (err) {
         handleError(dispatch, err);

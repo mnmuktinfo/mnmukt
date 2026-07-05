@@ -1,620 +1,482 @@
-const logger = require("../utils/logger");
-const Order = require("../models/Order");
-const { makeOrderId } = require("../utils/orderId");
-const { db } = require("../config/firebaseAdmin");
+"use strict";
 
-// ✅ CENTRAL CONSTANTS
+const crypto = require("crypto");
+const Order = require("../models/Order");
+const logger = require("../utils/logger");
+
+/**
+ * Expected shape of ../constants (adjust names to match your actual file):
+ * ORDER_STATUS:   { PENDING, CONFIRMED, SHIPPED, OUT_FOR_DELIVERY, DELIVERED, CANCELLED, REFUNDED }
+ * PAYMENT_STATUS: { PENDING, PAID, FAILED, REFUNDED }
+ * PAYMENT_GATEWAY:{ RAZORPAY }   // COD removed — Razorpay is the only supported gateway
+ * ACTOR_TYPE:     { SYSTEM, CUSTOMER, ADMIN }
+ */
 const {
   ORDER_STATUS,
-  PAYMENT_GATEWAY,
   PAYMENT_STATUS,
-  ORDER_SOURCE,
+  PAYMENT_GATEWAY,
   ACTOR_TYPE,
-  ORDER_FLAGS,
 } = require("../constants");
 
-// ==========================================
-// ALLOWED STATUS TRANSITIONS (CONSTANT-BASED)
-// ==========================================
-const ALLOWED_TRANSITIONS = {
-  [ORDER_STATUS.PENDING]: [
-    ORDER_STATUS.CONFIRMED,
-    ORDER_STATUS.CANCELLED,
-    ORDER_STATUS.ON_HOLD,
-  ],
+/* =========================================================
+   ASYNC WRAPPER — every route handler funnels errors to
+   Express's error middleware instead of hanging/crashing.
+========================================================= */
+const asyncHandler = (fn) => (req, res, next) =>
+  Promise.resolve(fn(req, res, next)).catch(next);
 
-  [ORDER_STATUS.CONFIRMED]: [
-    ORDER_STATUS.PROCESSING,
-    ORDER_STATUS.CANCELLED,
-  ],
+/* =========================================================
+   ID HELPERS
+========================================================= */
+const isObjectId = (id) => typeof id === "string" && /^[0-9a-fA-F]{24}$/.test(id);
 
-  [ORDER_STATUS.PROCESSING]: [
-    ORDER_STATUS.PACKED,
-    ORDER_STATUS.CANCELLED,
-  ],
+async function findOrderByAnyId(id) {
+  return Order.findOne({
+    $or: [{ _id: isObjectId(id) ? id : null }, { orderId: id.toUpperCase() }],
+    isDeleted: false,
+  });
+}
 
-  [ORDER_STATUS.PACKED]: [
-    ORDER_STATUS.SHIPPED,
-  ],
+async function generateOrderId() {
+  const date = new Date();
+  const datePart = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`;
 
-  [ORDER_STATUS.SHIPPED]: [
-    ORDER_STATUS.OUT_FOR_DELIVERY,
-  ],
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const random = crypto.randomBytes(4).toString("hex").toUpperCase();
+    const candidate = `ORD${datePart}${random}`;
+    // eslint-disable-next-line no-await-in-loop
+    const exists = await Order.exists({ orderId: candidate });
+    if (!exists) return candidate;
+  }
+  throw new Error("Failed to generate a unique order ID after 5 attempts");
+}
 
-  [ORDER_STATUS.OUT_FOR_DELIVERY]: [
-    ORDER_STATUS.DELIVERED,
-  ],
+/* =========================================================
+   PAYLOAD -> SCHEMA MAPPERS
+========================================================= */
+function mapItemsToSchema(items = []) {
+  return items.map((item) => ({
+    productId: item.productId,
+    name: item.name,
+    image: item.image,
+    price: item.price,
+    quantity: item.quantity,
+    sku: item.sku,
+    slug: item.slug || item.productId,
+    selectedSize: item.variant?.size || "onesize",
+    selectedColor: item.variant?.color || undefined,
+  }));
+}
 
-  [ORDER_STATUS.DELIVERED]: [
-    ORDER_STATUS.RETURNED,
-  ],
+function validateItems(items) {
+  if (!Array.isArray(items) || items.length === 0) {
+    return "Order must contain at least one item";
+  }
+  for (const item of items) {
+    if (!item.productId || !item.price || !item.quantity) {
+      return "Each item requires productId, price, and quantity";
+    }
+    if (Number(item.price) <= 0 || Number(item.quantity) <= 0) {
+      return "Item price and quantity must be positive";
+    }
+  }
+  return null;
+}
 
-  [ORDER_STATUS.RETURNED]: [
-    ORDER_STATUS.REFUNDED,
-  ],
-
-  [ORDER_STATUS.REFUNDED]: [],
-  [ORDER_STATUS.CANCELLED]: [],
-  [ORDER_STATUS.ON_HOLD]: [
-    ORDER_STATUS.CONFIRMED,
-    ORDER_STATUS.CANCELLED,
-  ],
-};
-
-// ==========================================
-// PAYMENT METHOD → GATEWAY MAPPING
-// ==========================================
-const mapPaymentMethodToGateway = (paymentMethod) => {
-  const mapping = {
-    razorpay: PAYMENT_GATEWAY.RAZORPAY,
-    cod: PAYMENT_GATEWAY.COD,
-    whatsapp: PAYMENT_GATEWAY.COD,
-    upi: PAYMENT_GATEWAY.RAZORPAY,
-    stripe: PAYMENT_GATEWAY.STRIPE,
-    phonepe: PAYMENT_GATEWAY.PHONEPE,
-    paytm: PAYMENT_GATEWAY.PAYTM,
-    cashfree: PAYMENT_GATEWAY.CASHFREE,
-    bank_transfer: PAYMENT_GATEWAY.BANK_TRANSFER,
+function mapPricingToSchema(pricing = {}) {
+  return {
+    subtotal: Number(pricing.subtotal || 0),
+    discount: Number(
+      (pricing.itemDiscount || 0) +
+      (pricing.couponDiscount || 0) +
+      (pricing.prepaidDiscount || 0) +
+      (pricing.bulkDiscount || 0)
+    ),
+    tax: Number(pricing.taxAmount || 0),
+    shipping: Number(pricing.shippingCharge || 0),
+    total: Number(pricing.total || 0),
   };
+}
 
-  return mapping[paymentMethod] || PAYMENT_GATEWAY.COD;
-};
+// Razorpay-only now — gateway is always "razorpay", payment starts pending
+// and is flipped to "paid" in payment.controller.js after verification.
+function mapPaymentToSchema() {
+  return {
+    gateway: PAYMENT_GATEWAY.RAZORPAY,
+    status: PAYMENT_STATUS.PENDING,
+    amountPaid: 0,
+    currency: "INR",
+    gatewayMeta: {},
+  };
+}
 
-// ==========================================
-// VERIFY PRICE
-// ==========================================
-// ==========================================
-// VERIFY PRICE (SECURE BACKEND VERIFICATION)
-// ==========================================
-const verifyOrderAmount = async (items, pricing) => {
-  try {
-    let calculatedSubtotal = 0;
+/* =========================================================
+   OWNERSHIP GUARD
+   A logged-in user can only touch their own orders; guests are
+   matched by email at the route level (getOrderStatus), never here.
+========================================================= */
+async function findOwnedOrder(idOrOrderId, req) {
+  const query = { isDeleted: false };
 
-    // Fetch authoritative prices from Firestore
-    for (const item of items) {
-      if (!item.productId) return false;
-      const productSnap = await db.collection("products").doc(item.productId).get();
-      if (!productSnap.exists) return false;
-      
-      const productData = productSnap.data();
-      const actualPrice = Number(productData.price || productData.unitPrice || productData.salePrice || 0);
-      
-      // Compare frontend price with backend price
-      if (Math.abs(actualPrice - item.price) > 1) {
-        logger("WARN", `Price manipulation detected for product ${item.productId}. Client sent: ${item.price}, Actual: ${actualPrice}`);
-        return false;
-      }
-      
-      calculatedSubtotal += (actualPrice * item.quantity);
-    }
-
-    // Add shipping and tax, subtract discounts
-    const calculatedTotal =
-      calculatedSubtotal +
-      (pricing.shippingCharge || 0) +
-      (pricing.taxAmount || 0) -
-      (pricing.couponDiscount || 0) -
-      (pricing.prepaidDiscount || 0) -
-      (pricing.bulkDiscount || 0) +
-      (pricing.roundOff || 0);
-
-    // Allow a 1-rupee tolerance for floating point math
-    return Math.abs(calculatedTotal - pricing.total) <= 1;
-  } catch (error) {
-    logger("ERROR", `Failed to verify order amount: ${error.message}`);
-    return false;
+  if (isObjectId(idOrOrderId)) {
+    query._id = idOrOrderId;
+  } else {
+    query.orderId = idOrOrderId.toUpperCase();
   }
-};
 
-// ==========================================
-// CREATE ORDER
-// ==========================================
-const createOrder = async (req, res) => {
-  try {
-    const {
-      orderId: clientOrderId,
-      items,
-      shippingAddress,
-      pricing,
-      paymentMethod,
-      source = ORDER_SOURCE.WEB,
-      customerNote = "",
-      customerEmail,
-      customerName,
-      isGuest = false,
-    } = req.body;
+  const order = await Order.findOne(query);
+  if (!order) return null;
 
-    let customer = null;
-    let orderUserId = null;
-    let isGuestOrder = isGuest;
+  if (order.customer.uid && order.customer.uid !== req.user?.uid) {
+    return "forbidden";
+  }
 
-    // ==========================
-    // AUTH USER
-    // ==========================
-    if (req.isAuthenticated && req.user?.uid) {
-      customer = {
-        uid: req.user.uid,
-        name:
-          req.user.name ||
-          req.user.displayName ||
-          shippingAddress.fullName,
-        email: req.user.email || customerEmail || "",
-        phone: req.user.phone || shippingAddress.phone,
-      };
+  return order;
+}
 
-      orderUserId = req.user.uid;
-      isGuestOrder = false;
+/* =========================================================
+   CREATE ORDER (guest + logged-in)
+   POST /api/v1/orders
+
+   Razorpay-only, manual shipping: this endpoint only creates the order
+   and marks it "awaiting payment". No courier is booked here — an admin
+   adds shipment/tracking details later via PATCH /admin/:id/status once
+   the order is actually ready to ship.
+========================================================= */
+async function createOrder(req, res) {
+  const {
+    customerEmail,
+    customerName,
+    items,
+    shippingAddress,
+    customerNote,
+    pricing,
+  } = req.body;
+
+  const itemsError = validateItems(items);
+  if (itemsError) {
+    return res.status(400).json({ success: false, message: itemsError });
+  }
+  if (!shippingAddress?.fullName || !shippingAddress?.phone || !shippingAddress?.postalCode) {
+    return res.status(400).json({ success: false, message: "Complete shipping address is required" });
+  }
+
+  // If a valid Bearer token was presented, optionalAuthMiddleware attaches req.user.
+  // Anything the client claims about guest status is advisory only — the verified
+  // token is what decides uid.
+  const uid = req.user?.uid || null;
+  const resolvedIsGuest = !uid;
+
+  if (resolvedIsGuest && !customerEmail) {
+    return res.status(400).json({ success: false, message: "Email is required for guest checkout" });
+  }
+
+  const orderId = await generateOrderId();
+
+  const order = new Order({
+    orderId,
+    customer: {
+      uid,
+      name: customerName || shippingAddress.fullName,
+      email: req.user?.email || customerEmail,
+      phone: shippingAddress.phone,
+    },
+    items: mapItemsToSchema(items),
+    shippingAddress,
+    pricing: mapPricingToSchema(pricing),
+    payment: mapPaymentToSchema(),
+    customerNote,
+    flags: { isGuest: resolvedIsGuest },
+  });
+
+  order.addTimeline(ORDER_STATUS.PENDING, "Order placed — awaiting payment", {
+    type: ACTOR_TYPE.CUSTOMER,
+    id: uid || "guest",
+  });
+
+  await order.save();
+
+  return res.status(201).json({
+    success: true,
+    data: {
+      orderId: order.orderId,
+      orderStatus: order.orderStatus,
+      paymentStatus: order.payment.status,
+      trackingUrl: order.getTrackingUrl ? order.getTrackingUrl() : null,
+    },
+  });
+}
+
+/* =========================================================
+   GET MY ORDERS (authenticated)
+   GET /api/v1/orders
+========================================================= */
+async function getAllOrders(req, res) {
+  const page = Math.max(Number(req.query.page) || 1, 1);
+  const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
+  const { status } = req.query;
+
+  const query = { "customer.uid": req.user.uid, isDeleted: false };
+  if (status) {
+    if (!Object.values(ORDER_STATUS).includes(status)) {
+      return res.status(400).json({ success: false, message: "Invalid status filter" });
     }
+    query.orderStatus = status;
+  }
 
-    // ==========================
-    // GUEST USER
-    // ==========================
-    else if (isGuest || req.isGuest) {
-      if (!customerEmail || !customerName) {
-        return res.status(400).json({
-          success: false,
-          message: "Guest users must provide email and name",
-        });
-      }
+  const [orders, total] = await Promise.all([
+    Order.find(query).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
+    Order.countDocuments(query),
+  ]);
 
-      customer = {
-        uid: null,
-        name: customerName,
-        email: customerEmail,
-        phone: shippingAddress.phone,
-      };
+  return res.json({
+    success: true,
+    data: orders,
+    pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+  });
+}
 
-      orderUserId = null;
-      isGuestOrder = true;
-    } else {
-      return res.status(401).json({
-        success: false,
-        message: "Authentication or guest email required",
-      });
-    }
+/* =========================================================
+   GET SINGLE ORDER (authenticated, owner-only)
+   GET /api/v1/orders/:id
+========================================================= */
+async function getOrderById(req, res) {
+  const order = await findOwnedOrder(req.params.id, req);
 
-    // ==========================
-    // ORDER ID
-    // ==========================
-    const orderId =
-      clientOrderId || makeOrderId(customer.name || "guest");
+  if (!order) return res.status(404).json({ success: false, message: "Order not found" });
+  if (order === "forbidden") return res.status(403).json({ success: false, message: "Access denied" });
 
-    const existingOrder = await Order.findOne({ orderId });
+  return res.json({ success: true, data: order });
+}
 
-    if (existingOrder) {
-      return res.status(409).json({
-        success: false,
-        message: "Order already exists",
-      });
-    }
+/* =========================================================
+   UPDATE ORDER (authenticated, owner-only)
+   Restricted to fields that are safe post-creation.
+   PATCH /api/v1/orders/:id
+========================================================= */
+async function updateOrder(req, res) {
+  const order = await findOwnedOrder(req.params.id, req);
 
-    // ==========================
-    // PRICE VALIDATION (SECURE)
-    // ==========================
-    const isPriceValid = await verifyOrderAmount(items, pricing);
-    if (!isPriceValid) {
+  if (!order) return res.status(404).json({ success: false, message: "Order not found" });
+  if (order === "forbidden") return res.status(403).json({ success: false, message: "Access denied" });
+
+  const editableStatuses = [ORDER_STATUS.PENDING, ORDER_STATUS.CONFIRMED];
+  if (!editableStatuses.includes(order.orderStatus)) {
+    return res.status(400).json({
+      success: false,
+      message: `Order can no longer be edited (status: ${order.orderStatus})`,
+    });
+  }
+
+  if (req.body.shippingAddress) {
+    // Once a shipment has been recorded against this order, editing the
+    // address here would silently desync from what the courier has on file.
+    if (order.shipments?.length > 0) {
       return res.status(400).json({
         success: false,
-        message: "Invalid pricing or product not found",
+        message: "Shipping address can't be changed after a shipment has been created. Please contact support.",
       });
     }
+    order.shippingAddress = { ...order.shippingAddress.toObject(), ...req.body.shippingAddress };
+  }
+  if (req.body.customerNote !== undefined) {
+    order.customerNote = req.body.customerNote;
+  }
 
-    const gateway = mapPaymentMethodToGateway(paymentMethod);
+  order.addTimeline(order.orderStatus, "Order details updated by customer", {
+    type: ACTOR_TYPE.CUSTOMER,
+    id: req.user.uid,
+  });
 
-    // ==========================
-    // BUILD ORDER
-    // ==========================
-    const order = new Order({
-      orderId,
-      source,
-      displayId: Math.floor(Math.random() * 999999),
+  await order.save();
 
-      customer,
+  return res.json({ success: true, data: order });
+}
 
-      items: items.map((item) => ({
-        productId: item.productId,
-        name: item.name,
-        image: item.image || "",
-        price: item.price,
-        quantity: item.quantity,
-        sku: item.sku || "N/A",
-        slug: item.slug || "N/A",
-        originalPrice: item.originalPrice || item.price,
-        category: item.category || "General",
-        selectedSize: item.selectedSize || "onesize",
-        selectedColor: item.selectedColor,
-        lineTotal: item.totalPrice || item.price * item.quantity,
-      })),
+/* =========================================================
+   CANCEL ORDER (authenticated, owner-only)
+   PATCH /api/v1/orders/:id/cancel
 
-      shippingAddress,
-      pricing,
+   Shipping is manual, so there's no courier API to notify here — if a
+   shipment has already gone out, cancellation is flagged for the admin
+   to handle with the courier directly rather than attempted automatically.
+========================================================= */
+async function cancelOrder(req, res) {
+  const order = await findOwnedOrder(req.params.id, req);
 
-      payment: {
-        gateway,
-        method: paymentMethod,
-        status: PAYMENT_STATUS.PENDING,
-        paidAt: null,
-        amountPaid: 0,
-        currency: "INR",
-        gatewayMeta: {},
-      },
+  if (!order) return res.status(404).json({ success: false, message: "Order not found" });
+  if (order === "forbidden") return res.status(403).json({ success: false, message: "Access denied" });
 
-      orderStatus: ORDER_STATUS.PENDING,
-
-      flags: {
-        [ORDER_FLAGS.IS_COD]: gateway === PAYMENT_GATEWAY.COD,
-        [ORDER_FLAGS.IS_PREPAID]: gateway !== PAYMENT_GATEWAY.COD,
-        [ORDER_FLAGS.IS_GIFT]: false,
-        [ORDER_FLAGS.IS_BULK]: false,
-        [ORDER_FLAGS.IS_GUEST]: isGuestOrder,
-        [ORDER_FLAGS.REQUIRES_REVIEW]: false,
-      },
-
-      shipments: [],
-      refund: { status: "none" },
-      timeline: [],
-      customerNote,
-      adminNote: "",
-      isDeleted: false,
-    });
-
-    // ==========================
-    // TIMELINE
-    // ==========================
-    if (typeof order.addTimeline === "function") {
-      order.addTimeline(
-        ORDER_STATUS.PENDING,
-        "Order placed successfully",
-        {
-          type: ACTOR_TYPE.CUSTOMER,
-          id: orderUserId || "guest",
-          name: customer.name,
-        },
-        { isGuest: isGuestOrder }
-      );
-    }
-
-    await order.save();
-
-    return res.status(201).json({
-      success: true,
-      message: "Order created successfully",
-      data: {
-        orderId: order.orderId,
-        _id: order._id,
-        status: order.orderStatus,
-        total: order.pricing.total,
-        isGuest: isGuestOrder,
-      },
-    });
-  } catch (error) {
-    logger("ERROR", error.message);
-
-    return res.status(500).json({
+  const nonCancellable = [
+    ORDER_STATUS.SHIPPED,
+    ORDER_STATUS.OUT_FOR_DELIVERY,
+    ORDER_STATUS.DELIVERED,
+    ORDER_STATUS.CANCELLED,
+    ORDER_STATUS.REFUNDED,
+  ];
+  if (nonCancellable.includes(order.orderStatus)) {
+    return res.status(400).json({
       success: false,
-      message: error.message,
+      message: `Order cannot be cancelled (status: ${order.orderStatus})`,
     });
   }
-};
 
-// ==========================================
-// UPDATE ORDER STATUS (ADMIN)
-// ==========================================
-const updateOrderStatus = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { orderStatus, courier, trackingNumber, trackingUrl, adminNote } =
-      req.body;
-
-    const order = await Order.findOne({
-      orderId: id,
-      isDeleted: false,
-    });
-
-    if (!order) {
-      return res.status(404).json({
-        success: false,
-        message: "Order not found",
-      });
-    }
-
-    const oldStatus = order.orderStatus;
-
-    // VALIDATE STATUS
-    if (!Object.values(ORDER_STATUS).includes(orderStatus)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid status",
-      });
-    }
-
-    // TRANSITION CHECK
-    if (oldStatus !== orderStatus) {
-      const allowed = ALLOWED_TRANSITIONS[oldStatus] || [];
-
-      if (!allowed.includes(orderStatus)) {
-        return res.status(400).json({
-          success: false,
-          message: `Invalid transition: ${oldStatus} → ${orderStatus}`,
-        });
-      }
-    }
-
-    order.orderStatus = orderStatus;
-
-    if (adminNote) order.adminNote = adminNote;
-
-    if (courier || trackingNumber || trackingUrl) {
-      order.shipments.push({
-        courier: courier || "",
-        trackingNumber: trackingNumber || "",
-        trackingUrl: trackingUrl || "",
-        updatedAt: new Date(),
-      });
-    }
-
-    if (typeof order.addTimeline === "function") {
-      order.addTimeline(
-        orderStatus,
-        `Status changed from ${oldStatus} to ${orderStatus}`,
-        {
-          type: ACTOR_TYPE.ADMIN,
-          id: req.user.uid,
-          name: req.user.name || "Admin",
-        }
-      );
-    }
-
-    await order.save({ validateBeforeSave: false });
-
-    return res.json({
-      success: true,
-      message: "Order updated",
-      data: order,
-    });
-  } catch (error) {
-    logger("ERROR", error.message);
-
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+  if (order.shipments?.length > 0) {
+    order.flags.requiresReview = true;
   }
-};
 
-const getAdminOrders = async (req, res) => {
-  try {
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 15;
-    const skip = (page - 1) * limit;
-    const { search, status } = req.query;
+  order.orderStatus = ORDER_STATUS.CANCELLED;
+  order.addTimeline(ORDER_STATUS.CANCELLED, req.body?.reason || "Cancelled by customer", {
+    type: ACTOR_TYPE.CUSTOMER,
+    id: req.user.uid,
+  });
 
-    const query = { isDeleted: false };
+  await order.save();
 
-    // Filter by status if provided and not "all"
-    if (status && status !== "all") {
-      let dbStatus = status;
-      if (status === "packaging") dbStatus = "processing";
-      if (status === "shipping") dbStatus = "shipped";
-      
-      query.orderStatus = dbStatus;
-    }
+  return res.json({ success: true, data: { orderId: order.orderId, orderStatus: order.orderStatus } });
+}
 
-    // Search query (case-insensitive regex)
-    if (search && search.trim() !== "") {
-      const searchRegex = new RegExp(search.trim(), "i");
-      query.$or = [
-        { orderId: searchRegex },
-        { "customer.name": searchRegex },
-        { "customer.phone": searchRegex },
-        { "customer.email": searchRegex },
-      ];
-    }
+/* =========================================================
+   GUEST + AUTH ORDER STATUS
+   GET /api/v1/orders/status/:orderId?email=...
+========================================================= */
+async function getOrderStatus(req, res) {
+  const { orderId } = req.params;
 
-    // Calculate real-time counts for each status tab
-    const counts = {
-      all: await Order.countDocuments({ isDeleted: false }),
-      pending: await Order.countDocuments({ isDeleted: false, orderStatus: "pending" }),
-      confirmed: await Order.countDocuments({ isDeleted: false, orderStatus: "confirmed" }),
-      processing: await Order.countDocuments({ isDeleted: false, orderStatus: "processing" }),
-      shipped: await Order.countDocuments({ isDeleted: false, orderStatus: "shipped" }),
-      delivered: await Order.countDocuments({ isDeleted: false, orderStatus: "delivered" }),
-      cancelled: await Order.countDocuments({ isDeleted: false, orderStatus: "cancelled" }),
-    };
-
-    const total = await Order.countDocuments(query);
-    const orders = await Order.find(query)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
-
-    return res.json({
-      success: true,
-      data: orders,
-      pagination: {
-        total,
-        page,
-        limit,
-        pages: Math.ceil(total / limit),
-        counts,
-      },
-    });
-  } catch (error) {
-    logger("ERROR", error.message);
-    return res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-const getAdminOrder = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const order = await Order.findOne({ orderId: id.toUpperCase(), isDeleted: false });
-    if (!order) {
-      return res.status(404).json({ success: false, message: "Order not found" });
-    }
-    return res.json({
-      success: true,
-      data: order,
-    });
-  } catch (error) {
-    logger("ERROR", error.message);
-    return res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-const deleteOrder = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const order = await Order.findOne({ orderId: id.toUpperCase(), isDeleted: false });
-    if (!order) {
-      return res.status(404).json({ success: false, message: "Order not found" });
-    }
-    order.isDeleted = true;
-    await order.save({ validateBeforeSave: false });
-    return res.json({
-      success: true,
-      message: "Order deleted successfully",
-    });
-  } catch (error) {
-    logger("ERROR", error.message);
-    return res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-const getAllOrders = async (req, res) => {
-  try {
-    const orders = await Order.find({ "customer.uid": req.user.uid, isDeleted: false }).sort({ createdAt: -1 });
-    return res.json({ success: true, data: orders });
-  } catch (error) {
-    logger("ERROR", error.message);
-    return res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-const getOrderById = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const order = await Order.findOne({ orderId: id.toUpperCase(), "customer.uid": req.user.uid, isDeleted: false });
-    if (!order) {
-      return res.status(404).json({ success: false, message: "Order not found" });
-    }
-    return res.json({ success: true, data: order });
-  } catch (error) {
-    logger("ERROR", error.message);
-    return res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-const updateOrder = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { shippingAddress, customerNote } = req.body;
-    const order = await Order.findOne({ orderId: id.toUpperCase(), "customer.uid": req.user.uid, isDeleted: false });
-    if (!order) {
-      return res.status(404).json({ success: false, message: "Order not found" });
-    }
-    if (shippingAddress) order.shippingAddress = shippingAddress;
-    if (customerNote !== undefined) order.customerNote = customerNote;
-    await order.save({ validateBeforeSave: false });
-    return res.json({ success: true, data: order });
-  } catch (error) {
-    logger("ERROR", error.message);
-    return res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-const cancelOrder = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const order = await Order.findOne({ orderId: id.toUpperCase(), "customer.uid": req.user.uid, isDeleted: false });
-    if (!order) {
-      return res.status(404).json({ success: false, message: "Order not found" });
-    }
-    if (order.orderStatus !== "pending" && order.orderStatus !== "confirmed") {
-      return res.status(400).json({ success: false, message: "Only pending or confirmed orders can be cancelled" });
-    }
-    order.orderStatus = "cancelled";
-    if (typeof order.addTimeline === "function") {
-      order.addTimeline("cancelled", "Order cancelled by customer", {
-        type: ACTOR_TYPE.CUSTOMER,
-        id: req.user.uid,
-        name: order.customer.name,
-      });
-    }
-    await order.save({ validateBeforeSave: false });
-    return res.json({ success: true, data: order });
-  } catch (error) {
-    logger("ERROR", error.message);
-    return res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-const getOrderStatus = async (req, res) => {
-  try {
-    const { orderId } = req.params;
+  let order;
+  if (req.user?.uid) {
+    order = await Order.findOne({ orderId: orderId.toUpperCase(), "customer.uid": req.user.uid, isDeleted: false });
+  } else {
     const { email } = req.query;
-    const order = await Order.findOne({ orderId: orderId.toUpperCase(), isDeleted: false });
-    if (!order) {
-      return res.status(404).json({ success: false, message: "Order not found" });
+    if (!email) {
+      return res.status(400).json({ success: false, message: "Email is required for guest lookup" });
     }
-    const isGuest = order.flags?.isGuest || !order.customer.uid;
-    if (isGuest) {
-      if (!email || email.toLowerCase() !== order.customer.email.toLowerCase()) {
-        return res.status(403).json({ success: false, message: "Unauthorized access to guest order status" });
-      }
-    } else {
-      const ownsOrder = req.isAuthenticated && req.user?.uid === order.customer.uid;
-      const emailMatches = email && email.toLowerCase() === order.customer.email.toLowerCase();
-      if (!ownsOrder && !emailMatches) {
-        return res.status(403).json({ success: false, message: "Unauthorized access to order status" });
-      }
-    }
-    return res.json({
-      success: true,
-      data: {
-        orderId: order.orderId,
-        status: order.orderStatus,
-        customerName: order.customer.name,
-        createdAt: order.createdAt,
-        pricing: order.pricing,
-        timeline: order.timeline,
-      },
-    });
-  } catch (error) {
-    logger("ERROR", error.message);
-    return res.status(500).json({ success: false, message: error.message });
+    order = await Order.findGuestOrder(orderId, email);
   }
-};
+
+  if (!order) return res.status(404).json({ success: false, message: "Order not found" });
+
+  return res.json({
+    success: true,
+    data: {
+      orderId: order.orderId,
+      orderStatus: order.orderStatus,
+      shipments: order.shipments,
+      timeline: order.timeline,
+      pricing: order.pricing,
+    },
+  });
+}
+
+/* =========================================================
+   ADMIN: GET ALL ORDERS
+   GET /api/v1/orders/admin
+========================================================= */
+async function getAdminOrders(req, res) {
+  const page = Math.max(Number(req.query.page) || 1, 1);
+  const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
+  const { status } = req.query;
+
+  const query = { isDeleted: false };
+  if (status) {
+    if (!Object.values(ORDER_STATUS).includes(status)) {
+      return res.status(400).json({ success: false, message: "Invalid status filter" });
+    }
+    query.orderStatus = status;
+  }
+
+  const [orders, total] = await Promise.all([
+    Order.find(query).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
+    Order.countDocuments(query),
+  ]);
+
+  return res.json({
+    success: true,
+    data: orders,
+    pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+  });
+}
+
+/* =========================================================
+   ADMIN: GET SINGLE ORDER
+   GET /api/v1/orders/admin/:id
+========================================================= */
+async function getAdminOrder(req, res) {
+  const order = await findOrderByAnyId(req.params.id);
+  if (!order) return res.status(404).json({ success: false, message: "Order not found" });
+  return res.json({ success: true, data: order });
+}
+
+/* =========================================================
+   ADMIN: UPDATE ORDER STATUS (+ manual shipment entry)
+   PATCH /api/v1/orders/admin/:id/status
+
+   This is the ONLY place shipment/tracking data enters an order now that
+   shipping is manual. courier/trackingNumber/trackingUrl are already
+   validated by orderSchemas.updateStatus (zod) — this used to validate
+   them and then silently drop them. Now it actually saves them.
+========================================================= */
+async function updateOrderStatus(req, res) {
+  const { orderStatus, status, message, courier, trackingNumber, trackingUrl, adminNote } = req.body;
+  const nextStatus = orderStatus || status; // support either key name from the client
+
+  if (!nextStatus || !Object.values(ORDER_STATUS).includes(nextStatus)) {
+    return res.status(400).json({ success: false, message: "Invalid order status" });
+  }
+
+  const order = await findOrderByAnyId(req.params.id);
+  if (!order) return res.status(404).json({ success: false, message: "Order not found" });
+
+  // If the admin supplied any shipment info, record it as a shipment entry.
+  if (courier || trackingNumber || trackingUrl) {
+    order.shipments.push({
+      courier: courier || "",
+      trackingNumber: trackingNumber || "",
+      trackingUrl: trackingUrl || "",
+    });
+  }
+
+  if (adminNote !== undefined) {
+    order.adminNote = adminNote;
+  }
+
+  order.addTimeline(nextStatus, message || `Status updated to ${nextStatus}`, {
+    type: ACTOR_TYPE.ADMIN,
+    id: req.user.uid,
+    name: req.user.name || "",
+  });
+
+  await order.save();
+
+  return res.json({
+    success: true,
+    data: { orderId: order.orderId, orderStatus: order.orderStatus, shipments: order.shipments },
+  });
+}
+
+/* =========================================================
+   ADMIN: SOFT DELETE
+   DELETE /api/v1/orders/admin/:id
+========================================================= */
+async function deleteOrder(req, res) {
+  const order = await findOrderByAnyId(req.params.id);
+  if (!order) return res.status(404).json({ success: false, message: "Order not found" });
+
+  order.isDeleted = true;
+  await order.save();
+
+  return res.json({ success: true, data: { orderId: order.orderId } });
+}
 
 module.exports = {
-  createOrder,
-  updateOrderStatus,
-  getAdminOrders,
-  getAdminOrder,
-  deleteOrder,
-  getAllOrders,
-  getOrderById,
-  updateOrder,
-  cancelOrder,
-  getOrderStatus,
+  createOrder: asyncHandler(createOrder),
+  getAllOrders: asyncHandler(getAllOrders),
+  getOrderById: asyncHandler(getOrderById),
+  updateOrder: asyncHandler(updateOrder),
+  cancelOrder: asyncHandler(cancelOrder),
+  updateOrderStatus: asyncHandler(updateOrderStatus),
+  deleteOrder: asyncHandler(deleteOrder),
+  getAdminOrders: asyncHandler(getAdminOrders),
+  getAdminOrder: asyncHandler(getAdminOrder),
+  getOrderStatus: asyncHandler(getOrderStatus),
 };

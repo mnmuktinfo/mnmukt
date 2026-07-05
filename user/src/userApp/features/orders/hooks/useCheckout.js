@@ -1,8 +1,7 @@
-// src/hooks/useCheckout.js
+// src/features/orders/hooks/useCheckout.js
 import { useState, useRef, useCallback } from "react";
 import { useAuth } from "../../auth/context/UserContext";
-import { useOrder } from "../context/Ordercontext";
-
+import { useOrder } from "../context/OrderContext";
 import {
   validateAddress,
   normalizeItems,
@@ -13,164 +12,201 @@ import {
   verifyPaymentAsync,
   loadRazorpayScript,
   getErrorMessage,
-} from "../services/checkoutService";
-
+} from "../services/checkout/checkoutService";          
 import {
   ERROR_MESSAGES,
   UI_MESSAGES,
   PAYMENT_GATEWAY,
   PAYMENT_STATUS,
-} from "../constants/appConstants";
+  ORDER_STATUS,
+} from "../services/schema";
 
+ 
 export const useCheckout = () => {
-  const { user } = useAuth();
+  const { user, address } = useAuth();
   const { storeOrder, updateOrder } = useOrder();
 
-  // STATE
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [loadingMessage, setLoadingMessage] = useState("");
 
-  // REFS
   const orderIdRef = useRef(null);
   const checkoutRef = useRef(false);
 
-  // prevent double submit
-  const isCheckoutInProgress = useCallback(() => checkoutRef.current, []);
-
-  const setCheckoutInProgress = useCallback((value) => {
-    checkoutRef.current = value;
-  }, []);
-
-  // ===============================
-  // ADDRESS VALIDATION
-  // ===============================
+  /* ========================================
+     ADDRESS VALIDATION
+  ======================================== */
   const performAddressValidation = useCallback((addressData) => {
     const validation = validateAddress(addressData);
-
     if (!validation.isValid) {
-      const firstError =
-        Object.values(validation.errors)[0] ||
-        ERROR_MESSAGES.CHECKOUT_FAILED;
-
-      setError(firstError);
+      setError(Object.values(validation.errors)[0] || ERROR_MESSAGES.CHECKOUT_FAILED);
     }
-
     return validation;
   }, []);
 
-  // ===============================
-  // ORDER CREATION
-  // ===============================
-  const performOrderCreation = useCallback(
-    async ({ items, shippingAddress, paymentMethod, source }) => {
-      setLoadingMessage(UI_MESSAGES.CREATING_ORDER);
+  /* ========================================
+     BUILD CUSTOMER
+  ======================================== */
+  const buildCustomer = useCallback(
+    (shippingAddress = {}) => {
+      const mergedAddress = { ...address, ...shippingAddress };
 
-      const customer = user?.uid
+      return user?.uid
         ? {
             userId: user.uid,
-            email: user.email || "",
-            name: user.name || "",
+            email: user.email || mergedAddress.email || "",
+            name: user.name || mergedAddress.fullName || "",
             isGuest: false,
           }
         : {
             userId: null,
-            email: shippingAddress.email || "",
-            name: shippingAddress.fullName || "",
+            email: mergedAddress.email || "",
+            name: mergedAddress.fullName || "",
             isGuest: true,
           };
+    },
+    [user, address],
+  );
 
+  /* ========================================
+     CREATE ORDER
+  ======================================== */
+  const performOrderCreation = useCallback(
+    async ({ items, shippingAddress, paymentMethod, customerNote, pricing }) => {
+      setLoadingMessage(UI_MESSAGES.CREATING_ORDER);
+
+      const mergedAddress = {
+        ...address,
+        ...shippingAddress,
+        email: shippingAddress?.email || user?.email || address?.email || "",
+        fullName: shippingAddress?.fullName || user?.name || address?.fullName || "",
+        phone: shippingAddress?.phone || address?.phone || "",
+      };
+
+      const customer = buildCustomer(mergedAddress);
       const normalizedItems = normalizeItems(items);
-      const pricing = calculatePricing(normalizedItems);
+
+      // Use the confirmed pricing passed in by the caller (e.g. CartDrawer,
+      // which resolves the real PIN-based shipping charge via
+      // useShippingServiceability) rather than silently recomputing a
+      // generic tier-based estimate. Only fall back when nothing was passed.
+      const finalPricing = pricing ?? calculatePricing(normalizedItems);
 
       const payload = buildOrderPayload({
-        items: normalizedItems,
-        shippingAddress,
+        items: normalizedItems, // already normalized — buildOrderPayload must not re-normalize
+        shippingAddress: mergedAddress,
         paymentMethod,
         customer,
-        pricing,
-        source,
+        pricing: finalPricing,
+        customerNote,
       });
 
-      const order = await createOrderAsync(payload);
+      if (import.meta.env.DEV) {
+  console.log("CHECKOUT PAYLOAD:", {
+    ...payload,
+    shippingAddress: {
+      city: payload.shippingAddress.city,
+      postalCode: payload.shippingAddress.postalCode,
+    },
+    customer: {
+      ...payload.customer,
+      email: payload.customer?.email ? "[present]" : "[missing]",
+      name: payload.customer?.name ? "[present]" : "[missing]",
+    },
+  });
+}
 
+      const order = await createOrderAsync(payload);
       orderIdRef.current = order.orderId;
 
-      // store in context
       storeOrder({
         orderId: order.orderId,
+        orderStatus: order.orderStatus || ORDER_STATUS.PENDING,
         customer,
-        shippingAddress,
+        shippingAddress: mergedAddress,
         items: normalizedItems,
-        pricing,
+        pricing: finalPricing,
         createdAt: new Date().toISOString(),
-        isGuest: !user?.uid,
-        paymentStatus: PAYMENT_STATUS.PENDING,
+        isGuest: customer.isGuest,
+        paymentStatus:
+          order.paymentStatus ||
+          (paymentMethod === PAYMENT_GATEWAY.COD
+            ? PAYMENT_STATUS.COD_PENDING
+            : PAYMENT_STATUS.PENDING),
+        trackingUrl: order.trackingUrl || null,
       });
 
       return order;
     },
-    [user, storeOrder]
+    [user, address, buildCustomer, storeOrder],
   );
 
-  // ===============================
-  // RAZORPAY PAYMENT
-  // ===============================
+  /* ========================================
+     RAZORPAY
+  ======================================== */
   const performRazorpayPayment = useCallback(
-    async (orderId, amount, prefillData) => {
+    async (orderId, prefillData) => {
       setLoadingMessage(UI_MESSAGES.LOADING_PAYMENT);
 
       const scriptLoaded = await loadRazorpayScript();
-
       if (!scriptLoaded) {
         throw new Error(ERROR_MESSAGES.PAYMENT_GATEWAY_FAILED);
       }
 
       setLoadingMessage(UI_MESSAGES.PREPARING_PAYMENT);
 
-      const paymentOrder = await createPaymentOrderAsync(orderId, amount);
+      const paymentOrder = await createPaymentOrderAsync({
+        orderId,
+        customerEmail: prefillData?.email,
+      });
 
       return new Promise((resolve, reject) => {
         try {
           const razorpay = new window.Razorpay({
-            key:
-              import.meta.env.VITE_RAZORPAY_KEY_ID || "",
-            amount: Math.round(amount * 100),
-            currency: "INR",
+            key: import.meta.env.VITE_RAZORPAY_KEY_ID || "",
+            amount: paymentOrder.amount,
+            currency: paymentOrder.currency,
+            order_id: paymentOrder.id,
             name: import.meta.env.VITE_STORE_NAME || "Store",
             description: `Order #${orderId}`,
-            order_id: paymentOrder.id,
-
             prefill: {
               name: prefillData?.name || "",
               email: prefillData?.email || "",
               contact: prefillData?.phone || "",
             },
-
             theme: { color: "#000000" },
 
             handler: async (response) => {
               try {
                 setLoadingMessage(UI_MESSAGES.VERIFYING_PAYMENT);
 
-                await verifyPaymentAsync({
+                const verifyResult = await verifyPaymentAsync({
+                  orderId,
                   razorpay_order_id: response.razorpay_order_id,
                   razorpay_payment_id: response.razorpay_payment_id,
                   razorpay_signature: response.razorpay_signature,
-                  orderId,
+                  customerEmail: prefillData?.email,
                 });
 
+                const verified = verifyResult?.data || {};
+
                 updateOrder(orderId, {
-                  paymentStatus: PAYMENT_STATUS.PAID,
+                  orderStatus: verified.orderStatus || ORDER_STATUS.CONFIRMED,
+                  paymentStatus: verified.paymentStatus || PAYMENT_STATUS.PAID,
                   paymentId: response.razorpay_payment_id,
                   paymentVerifiedAt: new Date().toISOString(),
                 });
 
-                setLoadingMessage("");
                 resolve({ success: true, orderId });
               } catch (err) {
-                setLoadingMessage("");
+                // Payment likely succeeded on Razorpay's side but our
+                // verification call failed (network blip, etc). Surface the
+                // error to the caller rather than leaving the promise
+                // hanging — the order stays "pending" and can be
+                // reconciled via getOrderStatus / webhook on reload.
                 reject(err);
+              } finally {
+                setLoadingMessage("");
               }
             },
 
@@ -189,64 +225,53 @@ export const useCheckout = () => {
         }
       });
     },
-    [updateOrder]
+    [updateOrder],
   );
 
-  // ===============================
-  // MAIN CHECKOUT FLOW
-  // ===============================
+  /* ========================================
+     CHECKOUT
+  ======================================== */
   const performCheckout = useCallback(
     async ({
       items,
       shippingAddress,
       paymentMethod = PAYMENT_GATEWAY.RAZORPAY,
-      source = "web",
+      customerNote = "",
+      pricing,
+      // shippingInfo is accepted for call-signature parity with callers that
+      // resolve a confirmed courier/ETA via useShippingServiceability.
+      // It isn't persisted separately today because `pricing.deliveryFee`
+      // already carries the confirmed number — reserved for future use
+      // (e.g. storing courier name / promised delivery date on the order).
+      shippingInfo, // eslint-disable-line no-unused-vars
     }) => {
-      if (checkoutRef.current) return;
+      if (checkoutRef.current) {
+        return { success: false, error: "Checkout already in progress" };
+      }
 
       checkoutRef.current = true;
       setIsLoading(true);
       setError("");
 
       try {
-        // 1. validate
         const validation = performAddressValidation(shippingAddress);
-
         if (!validation.isValid) {
-          checkoutRef.current = false;
-          setIsLoading(false);
-
-          return {
-            success: false,
-            error: validation.errors,
-          };
+          return { success: false, error: validation.errors };
         }
 
-        // 2. create order
         const order = await performOrderCreation({
           items,
           shippingAddress,
           paymentMethod,
-          source,
+          customerNote,
+          pricing,
         });
 
-        // 3. payment
-        const normalizedItems = normalizeItems(items);
-        const pricing = calculatePricing(normalizedItems);
-
         if (paymentMethod === PAYMENT_GATEWAY.RAZORPAY) {
-          await performRazorpayPayment(
-            order.orderId,
-            pricing.totalPayable, // ✅ FIXED: Changed from pricing.total to pricing.totalPayable
-            {
-              name: shippingAddress.fullName,
-              email: shippingAddress.email,
-              phone: shippingAddress.phone,
-            }
-          );
-        } else if (paymentMethod === PAYMENT_GATEWAY.COD) {
-          updateOrder(order.orderId, {
-            paymentStatus: PAYMENT_STATUS.PENDING,
+          await performRazorpayPayment(order.orderId, {
+            name: shippingAddress?.fullName || user?.name || address?.fullName,
+            email: shippingAddress?.email || user?.email || address?.email,
+            phone: shippingAddress?.phone || address?.phone,
           });
         }
 
@@ -255,33 +280,20 @@ export const useCheckout = () => {
         return {
           success: true,
           orderId: order.orderId,
+          trackingUrl: order.trackingUrl,
         };
       } catch (err) {
         const msg = getErrorMessage(err);
-
         setError(msg);
-        setLoadingMessage("");
-
-        return {
-          success: false,
-          error: msg,
-        };
+        return { success: false, error: msg };
       } finally {
         setIsLoading(false);
         checkoutRef.current = false;
       }
     },
-    [
-      performAddressValidation,
-      performOrderCreation,
-      performRazorpayPayment,
-      updateOrder,
-    ]
+    [user, address, performAddressValidation, performOrderCreation, performRazorpayPayment],
   );
 
-  // ===============================
-  // RESET
-  // ===============================
   const resetCheckout = useCallback(() => {
     setIsLoading(false);
     setError("");
@@ -291,17 +303,12 @@ export const useCheckout = () => {
   }, []);
 
   return {
-    // state
     isLoading,
     error,
     loadingMessage,
     orderId: orderIdRef.current,
-
-    // actions
     performCheckout,
     resetCheckout,
     performAddressValidation,
-    isCheckoutInProgress,
-    setCheckoutInProgress,
   };
 };

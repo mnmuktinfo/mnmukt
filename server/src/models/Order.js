@@ -1,573 +1,406 @@
-"use strict";
+// "use strict";
 
-const mongoose = require("mongoose");
+// const mongoose = require("mongoose");
+// const { Schema } = mongoose;
+
+// /* =========================================================
+//    CONSTANTS
+// ========================================================= */
+
+// const ORDER_STATUS = Object.freeze([
+//   "pending",
+//   "confirmed",
+//   "processing",
+//   "shipped",
+//   "out_for_delivery",
+//   "delivered",
+//   "cancelled",
+//   "returned",
+//   "refunded",
+// ]);
+
+// const PAYMENT_GATEWAY = Object.freeze([
+//   "razorpay",
+//   "stripe",
+//   "phonepe",
+//   "cod",
+// ]);
+
+// // Round to 2 decimals — avoids floating point drift (e.g. 499.999999999994)
+// // which can otherwise mismatch payment gateway amounts.
+// const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+
+// /* =========================================================
+//    SUB SCHEMAS
+//    Kept intentionally lean — these are arrays that grow per order,
+//    so every extra field multiplies with items/shipments count.
+// ========================================================= */
+
+// const orderItemSchema = new Schema(
+//   {
+//     productId: { type: String, required: [true, "Product ID is required"] },
+//     name: { type: String, required: [true, "Product name is required"] },
+//     image: { type: String, required: [true, "Product image is required"] },
+//     sku: { type: String, required: [true, "SKU is required"] },
+//     slug: { type: String, required: [true, "Product slug is required"] },
+//     price: {
+//       type: Number,
+//       required: [true, "Price is required"],
+//       min: [0, "Price cannot be negative"],
+//     },
+//     quantity: {
+//       type: Number,
+//       required: [true, "Quantity is required"],
+//       min: [1, "Quantity must be at least 1"],
+//     },
+//     selectedSize: { type: String, default: "onesize" },
+//     selectedColor: { type: String, default: "" },
+//   },
+//   { _id: true, timestamps: false }
+// );
+
+// const shipmentSchema = new Schema(
+//   {
+//     courier: { type: String, default: "" },
+//     awb: { type: String, default: "" },
+//     trackingNumber: { type: String, default: "" },
+//     trackingUrl: { type: String, default: "" },
+//     estimatedDelivery: { type: Date, default: null },
+//   },
+//   { _id: false }
+// );
+
+// const timelineEntrySchema = new Schema(
+//   {
+//     status: { type: String, required: true },
+//     message: { type: String, default: "" },
+
+//     // Who triggered this status change — system / admin / customer.
+//     // Kept as Mixed instead of a strict sub-schema so controllers can pass
+//     // { type, id, name } without you having to touch this file every time
+//     // a new actor shape is needed.
+//     actor: { type: Schema.Types.Mixed, default: {} },
+
+//     createdAt: { type: Date, default: Date.now },
+//   },
+//   { _id: false }
+// );
+
+// /* =========================================================
+//    MAIN ORDER SCHEMA
+// ========================================================= */
+
+// const orderSchema = new Schema(
+//   {
+//     orderId: {
+//       type: String,
+//       required: [true, "Order ID is required"],
+//       unique: true, // unique: true already creates an index
+//       uppercase: true,
+//       trim: true,
+//     },
+
+//     // Order status is the single source of truth for order state
+//     orderStatus: {
+//       type: String,
+//       enum: ORDER_STATUS,
+//       default: "pending",
+//       index: true,
+//     },
+
+//     // Guest vs logged-in customer support
+//     customer: {
+//       uid: { type: String, default: null },
+//       name: { type: String, required: [true, "Customer name is required"], trim: true },
+//       email: {
+//         type: String,
+//         required: [true, "Customer email is required"],
+//         lowercase: true,
+//         trim: true,
+//         match: [/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/, "Invalid email"],
+//       },
+//       phone: {
+//         type: String,
+//         required: [true, "Customer phone is required"],
+//         match: [/^\+?[\d\s-()]{10,}$/, "Invalid phone number"],
+//       },
+//     },
+
+//     // Flags used across the controllers for guest tracking and manual
+//     // review flagging (e.g. when a third-party service call fails).
+//     flags: {
+//       isGuest: { type: Boolean, default: false },
+//       requiresReview: { type: Boolean, default: false },
+//     },
+
+//     items: {
+//       type: [orderItemSchema],
+//       required: [true, "Order must have at least one item"],
+//       validate: [(items) => items.length > 0, "Order must contain items"],
+//     },
+// customerNote: { type: String, default: "" },
+// adminNote: { type: String, default: "" },
+//     // Shipping address — required because you can't fulfil a physical
+//     // order without one. Drop `required` only if you also sell
+//     // digital-only products through this same schema.
+//     shippingAddress: {
+//       fullName: { type: String, required: [true, "Recipient name is required"] },
+//       phone: { type: String, required: [true, "Recipient phone is required"] },
+//       addressLine1: { type: String, required: [true, "Address is required"] },
+//       addressLine2: { type: String, default: "" },
+//       city: { type: String, required: [true, "City is required"] },
+//       state: { type: String, required: [true, "State is required"] },
+//       postalCode: { type: String, required: [true, "Postal code is required"] },
+//       country: { type: String, default: "India" },
+//     },
+
+//     // Pricing is auto-calculated from items in pre('validate') below —
+//     // callers don't need to pass subtotal/total manually.
+//     pricing: {
+//       subtotal: { type: Number, default: 0, min: 0 },
+//       discount: { type: Number, default: 0, min: 0 },
+//       tax: { type: Number, default: 0, min: 0 },
+//       shipping: { type: Number, default: 0, min: 0 },
+//       total: { type: Number, required: true, min: 0 },
+//     },
+
+//     payment: {
+//       gateway: { type: String, enum: PAYMENT_GATEWAY, default: "cod" },
+
+//       status: {
+//         type: String,
+//         enum: ["pending", "paid", "failed", "refunded"],
+//         default: "pending",
+//         index: true,
+//       },
+
+//       transactionId: { type: String, default: "", index: true },
+
+//       amountPaid: { type: Number, default: 0, min: 0 },
+
+//       paidAt: { type: Date, default: null },
+
+//       currency: { type: String, default: "INR", uppercase: true },
+
+//       // Gateway-specific data: razorpay_order_id, razorpay_payment_id,
+//       // razorpay_signature, webhook payload snippets, etc. Needed because
+//       // verifyRazorpayPayment / the webhook handler compare
+//       // payment.gatewayMeta.razorpay_order_id against the incoming request —
+//       // without this field that check always fails.
+//       gatewayMeta: { type: Schema.Types.Mixed, default: {} },
+//     },
+
+//     shipments: { type: [shipmentSchema], default: [] },
+//     timeline: { type: [timelineEntrySchema], default: [] },
+
+//     isDeleted: { type: Boolean, default: false, index: true },
+//   },
+//   { timestamps: true }
+// );
+
+// /* =========================================================
+//    INDEXES — only the ones production queries actually need
+// ========================================================= */
+
+// orderSchema.index({ "customer.uid": 1, createdAt: -1 });     // user's orders
+// orderSchema.index({ "customer.email": 1, createdAt: -1 });   // guest lookup
+// orderSchema.index({ isDeleted: 1, orderStatus: 1, createdAt: -1 }); // admin listing
+
+// /* =========================================================
+//    METHODS
+// ========================================================= */
+
+// orderSchema.methods.calculatePricing = function () {
+//   const subtotal = this.items.reduce(
+//     (sum, item) => sum + (item.price || 0) * (item.quantity || 0),
+//     0
+//   );
+
+//   this.pricing.subtotal = round2(subtotal);
+
+//   this.pricing.total = round2(
+//     Math.max(
+//       0,
+//       (this.pricing.subtotal || 0) -
+//         (this.pricing.discount || 0) +
+//         (this.pricing.tax || 0) +
+//         (this.pricing.shipping || 0)
+//     )
+//   );
+
+//   return this.pricing;
+// };
+
+// /**
+//  * Adds a timeline entry and updates orderStatus.
+//  * `actor` is optional — pass { type, id, name } to record who/what
+//  * triggered the change (system / admin / customer). Skips the push if
+//  * the status hasn't actually changed since the last entry.
+//  */
+// orderSchema.methods.addTimeline = function (status, message = "", actor = {}) {
+//   const last = this.timeline[this.timeline.length - 1];
+
+//   if (last?.status === status) return;
+
+//   this.timeline.push({
+//     status,
+//     message,
+//     actor,
+//     createdAt: new Date(),
+//   });
+
+//   this.orderStatus = status;
+// };
+
+// orderSchema.methods.isGuestOrder = function () {
+//   return this.flags?.isGuest || !this.customer?.uid;
+// };
+
+// /* =========================================================
+//    PRE VALIDATE HOOK
+//    Runs BEFORE required-field validation — pricing.total is
+//    `required`, so it must be computed here, not in pre('save')
+//    (which runs after validation and would be too late).
+// ========================================================= */
+
+// orderSchema.pre("validate", function () {
+//   if (this.isNew || this.isModified("items")) {
+//     this.calculatePricing();
+//   }
+
+//   if (this.isNew && this.timeline.length === 0) {
+//     this.timeline.push({ status: "pending", message: "Order created" });
+//   }
+
+//   if (this.isNew) {
+//     this.flags = this.flags || {};
+//     if (this.flags.isGuest === undefined) {
+//       this.flags.isGuest = !this.customer?.uid;
+//     }
+//   }
+// });
+
+// /* =========================================================
+//    STATICS
+// ========================================================= */
+
+// orderSchema.statics.findGuestOrder = function (orderId, email) {
+//   return this.findOne({
+//     orderId: orderId.toUpperCase(),
+//     "customer.email": email.toLowerCase(),
+//     isDeleted: false,
+//   });
+// };
+
+// orderSchema.statics.findUserOrder = function (orderId, userId) {
+//   return this.findOne({
+//     orderId: orderId.toUpperCase(),
+//     "customer.uid": userId,
+//     isDeleted: false,
+//   });
+// };
+
+// /* =========================================================
+//    MODEL EXPORT
+// ========================================================= */
+
+// module.exports = mongoose.model("Order", orderSchema);
+
+/**
+ * models/order.model.js
+ *
+ * ⚠️ REFERENCE FILE — you already have a production Order model.
+ * Do NOT blindly overwrite your existing file with this one if it has
+ * fields you depend on elsewhere (e.g. invoices, delivery tracking).
+ *
+ * Instead, merge the `payment` sub-schema and `status` enum values below
+ * into your existing Order schema. Those are the only additions
+ * order.service.js / payment.controller.js / webhook.controller.js need:
+ *
+ *   status: { type: String, enum: [...], default: 'PENDING_PAYMENT' }
+ *   payment: PaymentSubSchema  (see below)
+ *
+ * This full file is provided so the feature is runnable end-to-end
+ * out of the box for review/testing purposes.
+ */
+
+import mongoose from 'mongoose';
+
 const { Schema } = mongoose;
 
-/* =========================================================
-   CONSTANTS
-========================================================= */
-
-const ORDER_STATUS = Object.freeze([
-  "pending",
-  "confirmed",
-  "processing",
-  "packed",
-  "shipped",
-  "out_for_delivery",
-  "delivered",
-  "cancelled",
-  "returned",
-  "refunded",
-  "on_hold",
-]);
-
-const PAYMENT_GATEWAY = Object.freeze([
-  "razorpay",
-  "stripe",
-  "phonepe",
-  "paytm",
-  "cashfree",
-  "cod",
-  "bank_transfer",
-  "whatsapp",
-]);
-
-const ACTOR_TYPE = Object.freeze(["system", "admin", "customer"]);
-
-/* =========================================================
-   SUB SCHEMAS
-========================================================= */
-
-const timelineEntrySchema = new Schema(
+const AddressSchema = new Schema(
   {
-    status: { type: String, required: true },
-    message: { type: String, default: "" },
-
-    actor: {
-      type: {
-        type: String,
-        enum: ACTOR_TYPE,
-        default: "system",
-      },
-      id: { type: String, default: "" },
-      name: { type: String, default: "" },
-    },
-
-    meta: { type: Schema.Types.Mixed, default: {} },
-
-    createdAt: { type: Date, default: Date.now },
+    fullName: { type: String, required: true },
+    phone: { type: String, required: true },
+    line1: { type: String, required: true },
+    line2: { type: String },
+    city: { type: String, required: true },
+    state: { type: String, required: true },
+    pincode: { type: String, required: true },
+    country: { type: String, required: true, default: 'India' },
   },
   { _id: false }
 );
 
-const shipmentSchema = new Schema(
+const OrderItemSchema = new Schema(
   {
-    courier: { type: String, default: "" },
-    trackingNumber: { type: String, default: "" },
-    trackingUrl: { type: String, default: "" },
-    updatedAt: { type: Date, default: Date.now },
+    product: { type: Schema.Types.ObjectId, ref: 'Product', required: true },
+    name: { type: String, required: true },
+    price: { type: Number, required: true, min: 0 },
+    quantity: { type: Number, required: true, min: 1 },
   },
   { _id: false }
 );
 
-/* =========================================================
-   ORDER ITEM SCHEMA - STRICT FIELD VALIDATION
-========================================================= */
-
-const orderItemSchema = new Schema(
+// Everything Cashfree-related lives inside this single sub-document so it
+// is trivial to see, at a glance, exactly what payment-gateway data we
+// persist alongside an order.
+const PaymentSubSchema = new Schema(
   {
-    // ✅ Required fields (must come from cart/ProductCard)
-    productId: {
+    provider: { type: String, default: 'cashfree' },
+    cfOrderId: { type: String, index: true },
+    paymentSessionId: { type: String },
+    status: {
       type: String,
-      required: [true, "Product ID is required"],
+      enum: ['PENDING', 'PAID', 'FAILED'],
+      default: 'PENDING',
     },
-    name: {
-      type: String,
-      required: [true, "Product name is required"],
-    },
-    image: {
-      type: String,
-      required: [true, "Product image is required"],
-    },
-    price: {
-      type: Number,
-      required: [true, "Price is required"],
-      min: [0, "Price cannot be negative"],
-    },
-    quantity: {
-      type: Number,
-      required: [true, "Quantity is required"],
-      min: [1, "Quantity must be at least 1"],
-    },
-    sku: {
-      type: String,
-      required: [true, "SKU is required"],
-    },
-    slug: {
-      type: String,
-      required: [true, "Product slug is required"],
-    },
-
-    // ✅ Optional fields (with fallbacks)
-    originalPrice: {
-      type: Number,
-      default: function () {
-        return this.price; // ✅ Fallback to price if not provided
-      },
-      min: [0, "Price cannot be negative"],
-    },
-    category: {
-      type: String,
-      default: "General",
-    },
-    selectedSize: {
-      type: String,
-      default: "onesize",
-    },
-    selectedColor: String,
-
-    // Metadata
-    lineTotal: {
-      type: Number,
-      default: function () {
-        return (this.price || 0) * (this.quantity || 0);
-      },
-    },
+    cfPaymentId: { type: String, index: true },
+    paymentMethod: { type: String },
+    paidAt: { type: Date },
+    failureReason: { type: String },
+    idempotencyKey: { type: String },
+    rawWebhookEvent: { type: Schema.Types.Mixed },
   },
-  { _id: true, timestamps: false }
+  { _id: false }
 );
 
-/* =========================================================
-   MAIN ORDER SCHEMA - WITH STRICT DATA VALIDATION
-========================================================= */
-
-const orderSchema = new Schema(
+const OrderSchema = new Schema(
   {
-    orderId: {
+    orderNumber: { type: String, required: true, unique: true, index: true },
+    user: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    items: { type: [OrderItemSchema], required: true, validate: (v) => v.length > 0 },
+    address: { type: AddressSchema, required: true },
+
+    itemsTotal: { type: Number, required: true, min: 0 },
+    shippingFee: { type: Number, required: true, default: 0, min: 0 },
+    taxTotal: { type: Number, required: true, default: 0, min: 0 },
+    totalAmount: { type: Number, required: true, min: 0 },
+
+    status: {
       type: String,
-      required: [true, "Order ID is required"],
-      unique: true,
+      enum: ['PENDING_PAYMENT', 'PAID', 'FAILED', 'CANCELLED', 'PROCESSING', 'SHIPPED', 'DELIVERED'],
+      default: 'PENDING_PAYMENT',
       index: true,
-      uppercase: true,
     },
 
-    // ✅ GUEST ORDER MARKER
+    payment: { type: PaymentSubSchema, default: () => ({}) },
+
     flags: {
-      type: {
-        isCOD: { type: Boolean, default: false },
-        isPrepaid: { type: Boolean, default: false },
-        isGift: { type: Boolean, default: false },
-        isBulk: { type: Boolean, default: false },
-        isGuest: { type: Boolean, default: false },
-        requiresReview: { type: Boolean, default: false },
-      },
-      default: {},
-    },
-
-    // ✅ Customer info (supports both auth and guest)
-    customer: {
-      uid: {
-        type: String,
-        default: null,
-        index: true,
-      },
-      name: {
-        type: String,
-        required: [true, "Customer name is required"],
-        trim: true,
-      },
-      email: {
-        type: String,
-        required: [true, "Customer email is required"],
-        lowercase: true,
-        index: true,
-        match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, "Invalid email"],
-      },
-      phone: {
-        type: String,
-        match: [/^\+?[\d\s-()]{10,}$/, "Invalid phone number"],
-      },
-    },
-
-    // Display ID (for customer reference)
-    displayId: Number,
-
-    orderStatus: {
-      type: String,
-      enum: ORDER_STATUS,
-      default: "pending",
-      index: true,
-    },
-
-    // Order source (web, mobile, admin, etc.)
-    source: {
-      type: String,
-      enum: ["web", "mobile", "whatsapp", "admin", "api"],
-      default: "web",
-    },
-
-    // ✅ ORDERED ITEMS - WITH VALIDATION
-    items: {
-      type: [orderItemSchema],
-      required: [true, "Order must have at least one item"],
-      validate: [
-        (items) => items.length > 0,
-        "Order must contain items",
-      ],
-    },
-
-    // Shipping address
-    shippingAddress: {
-      type: {
-        fullName: String,
-        phone: String,
-        addressLine1: String,
-        addressLine2: String,
-        city: String,
-        state: String,
-        postalCode: String,
-        country: String,
-      },
-      default: {},
-    },
-
-    // ✅ PRICING BREAKDOWN - CALCULATED FROM ITEMS
-    pricing: {
-      type: {
-        subtotal: {
-          type: Number,
-          default: 0,
-          min: [0, "Subtotal cannot be negative"],
-        },
-        discount: {
-          type: Number,
-          default: 0,
-          min: [0, "Discount cannot be negative"],
-        },
-        tax: {
-          type: Number,
-          default: 0,
-          min: [0, "Tax cannot be negative"],
-        },
-        shipping: {
-          type: Number,
-          default: 0,
-          min: [0, "Shipping cannot be negative"],
-        },
-        total: {
-          type: Number,
-          required: [true, "Total is required"],
-          min: [0, "Total cannot be negative"],
-        },
-      },
-      required: [true, "Pricing is required"],
-    },
-
-    // ✅ PAYMENT INFO
-    payment: {
-      type: {
-        gateway: {
-          type: String,
-          enum: PAYMENT_GATEWAY,
-          default: "cod",
-        },
-        method: String,
-        status: {
-          type: String,
-          enum: ["pending", "paid", "failed", "refunded"],
-          default: "pending",
-        },
-        paidAt: Date,
-        amountPaid: {
-          type: Number,
-          default: 0,
-          min: [0, "Amount cannot be negative"],
-        },
-        currency: {
-          type: String,
-          default: "INR",
-          uppercase: true,
-        },
-        // Gateway metadata (Razorpay, Stripe, etc.)
-        gatewayMeta: {
-          type: Schema.Types.Mixed,
-          default: {},
-        },
-      },
-      default: {},
-    },
-
-    // Refund info
-    refund: {
-      type: {
-        status: {
-          type: String,
-          enum: ["none", "initiated", "completed", "failed"],
-          default: "none",
-        },
-        amount: {
-          type: Number,
-          default: 0,
-          min: [0, "Refund amount cannot be negative"],
-        },
-        reason: String,
-        initiatedAt: Date,
-        completedAt: Date,
-      },
-      default: {},
-    },
-
-    // Shipments (tracking info)
-    shipments: {
-      type: [shipmentSchema],
-      default: [],
-    },
-
-    // Timeline of events
-    timeline: {
-      type: [timelineEntrySchema],
-      default: [],
-    },
-
-    // Notes
-    customerNote: { type: String, default: "" },
-    adminNote: { type: String, default: "" },
-
-    // Soft delete
-    isDeleted: {
-      type: Boolean,
-      default: false,
-      index: true,
+      stockShortageOnFulfillment: { type: Boolean, default: false },
     },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
-/* =========================================================
-   INDEXES (for efficient queries)
-========================================================= */
-
-// Find user's orders
-orderSchema.index({ "customer.uid": 1, createdAt: -1 });
-
-// Find guest orders by email
-orderSchema.index({ "customer.email": 1, createdAt: -1 });
-
-// Find orders by status
-orderSchema.index({ orderStatus: 1, createdAt: -1 });
-
-// Find orders by payment status
-orderSchema.index({ "payment.status": 1, createdAt: -1 });
-
-// Soft delete queries
-
-// Payment gateway orders (for reconciliation)
-orderSchema.index({ "payment.gateway": 1, createdAt: -1 });
-
-/* =========================================================
-   METHODS
-========================================================= */
-
-/**
- * VALIDATE ITEMS BEFORE SAVE
- * ✅ Ensures all required item fields are present
- */
-orderSchema.methods.validateItems = function () {
-  const requiredFields = [
-    "productId",
-    "name",
-    "image",
-    "price",
-    "quantity",
-    "sku",
-    "slug",
-  ];
-
-  const invalidItems = this.items.filter((item) => {
-    const missing = requiredFields.filter(
-      (field) =>
-        item[field] === undefined || item[field] === null || item[field] === ""
-    );
-    return missing.length > 0;
-  });
-
-  if (invalidItems.length > 0) {
-    throw new Error(
-      `❌ Order validation failed: ${invalidItems.length} item(s) have missing fields`
-    );
-  }
-
-  return true;
-};
-
-/**
- * CALCULATE PRICING FROM ITEMS
- * ✅ Automatically calculates subtotal based on items
- */
-orderSchema.methods.calculatePricing = function () {
-  const subtotal = this.items.reduce((sum, item) => {
-    return sum + (item.price || 0) * (item.quantity || 0);
-  }, 0);
-
-  this.pricing.subtotal = subtotal;
-
-  // Total = subtotal - discount + tax + shipping
-  this.pricing.total =
-    (this.pricing.subtotal || 0) -
-    (this.pricing.discount || 0) +
-    (this.pricing.tax || 0) +
-    (this.pricing.shipping || 0);
-
-  return this.pricing;
-};
-
-/**
- * ADD TIMELINE ENTRY
- * Used for all order status changes
- */
-orderSchema.methods.addTimeline = function (
-  status,
-  message,
-  actor = {},
-  meta = {}
-) {
-  if (!this.timeline) {
-    this.timeline = [];
-  }
-
-  this.timeline.push({
-    status,
-    message,
-    actor: {
-      type: actor.type || "system",
-      id: actor.id || "",
-      name: actor.name || "",
-    },
-    meta,
-    createdAt: new Date(),
-  });
-
-  // Update main order status
-  this.orderStatus = status;
-};
-
-/**
- * CHECK IF ORDER IS GUEST
- */
-orderSchema.methods.isGuestOrder = function () {
-  return this.flags?.isGuest || !this.customer?.uid;
-};
-
-/**
- * GET PAYMENT URL FOR GUEST TRACKING
- */
-orderSchema.methods.getTrackingUrl = function () {
-  return `/order-tracking/${this.orderId}?email=${encodeURIComponent(
-    this.customer.email
-  )}`;
-};
-
-/* =========================================================
-   PRE SAVE HOOKS
-========================================================= */
-
-/**
- * Validate items and calculate pricing before save
- */
-orderSchema.pre("save", function () {
-  // ✅ Validate all items have required fields ONLY for new orders or if items are modified
-  if (this.isNew || this.isModified("items")) {
-    this.validateItems();
-  }
-
-  // ✅ Ensure timeline exists
-  if (!this.timeline) {
-    this.timeline = [];
-  }
-
-  // ✅ Ensure flags exist
-  if (!this.flags) {
-    this.flags = {};
-  }
-
-  // For new orders, set flags based on customer
-  if (this.isNew) {
-    this.flags = {
-      isCOD: this.payment?.gateway === "cod",
-      isPrepaid: this.payment?.gateway !== "cod",
-      isGift: this.flags?.isGift || false,
-      isBulk: this.flags?.isBulk || false,
-      isGuest: !this.customer?.uid, // ✅ Auto-detect guest
-      requiresReview: this.flags?.requiresReview || false,
-    };
-
-    // Add initial timeline entry
-    if (this.timeline.length === 0) {
-      this.timeline.push({
-        status: "pending",
-        message: "Order created",
-        actor: { type: "system" },
-        createdAt: new Date(),
-      });
-    }
-  }
-
-  // ✅ Calculate pricing from items
-  this.calculatePricing();
-
-  // ✅ Ensure email is lowercase
-  if (this.customer?.email) {
-    this.customer.email = this.customer.email.toLowerCase();
-  }
-});
-
-/* =========================================================
-   STATICS
-========================================================= */
-
-/**
- * Find guest order by orderId and email
- */
-orderSchema.statics.findGuestOrder = function (orderId, email) {
-  return this.findOne({
-    orderId: orderId.toUpperCase(),
-    "customer.email": email.toLowerCase(),
-    isDeleted: false,
-  });
-};
-
-/**
- * Find user's order
- */
-orderSchema.statics.findUserOrder = function (orderId, userId) {
-  return this.findOne({
-    orderId: orderId.toUpperCase(),
-    "customer.uid": userId,
-    isDeleted: false,
-  });
-};
-
-/**
- * Count orders by customer (for both guest and auth)
- */
-orderSchema.statics.countByCustomer = function (customerId, isGuest = false) {
-  if (isGuest) {
-    return this.countDocuments({
-      "customer.email": customerId.toLowerCase(),
-      isDeleted: false,
-    });
-  } else {
-    return this.countDocuments({
-      "customer.uid": customerId,
-      isDeleted: false,
-    });
-  }
-};
-
-/* =========================================================
-   MODEL EXPORT
-========================================================= */
-
-module.exports = mongoose.model("Order", orderSchema);
+export default mongoose.models.Order || mongoose.model('Order', OrderSchema);

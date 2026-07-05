@@ -255,7 +255,7 @@ const QuickShopModal = React.memo(
     const handleAction = useCallback(
       async (action) => {
         if (!selectedSize) {
-          window.alert("Please select a size ");
+          window.alert("Please select a size");
           setShowSizeError(true);
           return;
         }
@@ -264,7 +264,14 @@ const QuickShopModal = React.memo(
 
         try {
           setIsProcessing(true);
-          await action({ size: selectedSize, quantity });
+
+          await action({
+            selectedSize, // fixed
+            quantity,
+
+            // optional compatibility field
+            size: selectedSize,
+          });
         } catch (err) {
           console.error("Action error:", err);
         } finally {

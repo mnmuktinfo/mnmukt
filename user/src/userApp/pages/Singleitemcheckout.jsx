@@ -1,78 +1,25 @@
-import { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useAuth } from "../features/auth/context/UserContext";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useCheckout } from "../features/orders/hooks/useCheckout";
-
 import { validateCartItems } from "../features/orders/services/checkoutService";
 import {
   Loader2,
-  ArrowLeft,
-  ShieldCheck,
-  Truck,
-  Lock,
-  Tag,
   CheckCircle2,
-  MapPin,
-  CreditCard,
-  ChevronRight,
-  ChevronDown,
-  Edit2,
   AlertCircle,
+  HelpCircle,
+  ShoppingBag,
+  ShieldCheck,
 } from "lucide-react";
 import {
   EMPTY_ADDRESS_FORM,
   PAYMENT_GATEWAY,
 } from "../features/orders/constants/appConstants";
-const STORE_NAME = import.meta.env.VITE_STORE_NAME || "Premium Store";
 
-/* ─── Step indicator ─────────────────────────────────────── */
-const steps = ["Address", "Payment", "Review"];
-
-const StepBar = ({ current }) => (
-  <div className="flex items-center justify-center gap-0 mb-8">
-    {steps.map((label, i) => {
-      const done = i < current;
-      const active = i === current;
-      return (
-        <div key={label} className="flex items-center">
-          <div className="flex flex-col items-center">
-            <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${
-                done
-                  ? "bg-green-500 text-white"
-                  : active
-                    ? "bg-black text-white ring-4 ring-black/10"
-                    : "bg-gray-100 text-gray-400"
-              }`}>
-              {done ? <CheckCircle2 size={16} /> : i + 1}
-            </div>
-            <span
-              className={`mt-1 text-[10px] font-medium uppercase tracking-wider ${
-                active
-                  ? "text-black"
-                  : done
-                    ? "text-green-500"
-                    : "text-gray-400"
-              }`}>
-              {label}
-            </span>
-          </div>
-          {i < steps.length - 1 && (
-            <div
-              className={`w-16 sm:w-24 h-px mx-1 mb-5 transition-all duration-500 ${
-                done ? "bg-green-400" : "bg-gray-200"
-              }`}
-            />
-          )}
-        </div>
-      );
-    })}
-  </div>
-);
+const STORE_NAME = import.meta.env.VITE_STORE_NAME || "bAbli";
 
 /* ─── Reusable input ──────────────────────────────────────── */
 const InputField = ({
-  label,
   name,
   type = "text",
   placeholder,
@@ -81,41 +28,33 @@ const InputField = ({
   onChange,
   error,
   disabled = false,
+  className = "",
 }) => (
-  <div className="w-full">
-    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-      {label}
-    </label>
+  <div className={`w-full ${className}`}>
     <input
       type={type}
       name={name}
       value={value}
       onChange={onChange}
-      placeholder={placeholder || label}
+      placeholder={placeholder}
       maxLength={maxLength}
       disabled={disabled}
-      className={`w-full px-4 py-3 rounded-lg border text-sm transition-all focus:outline-none focus:ring-2 focus:ring-black/10 disabled:opacity-50 disabled:cursor-not-allowed ${
+      className={`w-full px-3 py-3 rounded-md border text-sm transition-all focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-blue-600 disabled:opacity-50 disabled:cursor-not-allowed placeholder-gray-500 ${
         error
-          ? "border-red-400 bg-red-50/40"
-          : "border-gray-200 focus:border-black bg-white"
+          ? "border-red-500 focus:ring-red-500 focus:border-red-500"
+          : "border-gray-300 bg-white"
       }`}
     />
-    {error && (
-      <span className="text-red-500 text-[11px] mt-1 block font-medium">
-        {error}
-      </span>
-    )}
+    {error && <span className="text-red-500 text-xs mt-1 block">{error}</span>}
   </div>
 );
 
-/* ─── Main Component ──────────────────────────────────────── */
 const SingleItemCheckout = () => {
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  // ── Checkout hook with all logic
   const {
     isLoading,
     error: checkoutError,
@@ -124,7 +63,6 @@ const SingleItemCheckout = () => {
     performAddressValidation,
   } = useCheckout();
 
-  // ── Derive item from state
   const {
     items: stateItems,
     item: legacyItem,
@@ -132,37 +70,32 @@ const SingleItemCheckout = () => {
   } = location.state || {};
   const rawItem = stateItems?.[0] || legacyItem || null;
 
-  // ── Variant & qty from URL
   const selectedSize =
     searchParams.get("variant") || rawItem?.selectedSize || "";
   const selectedQuantity = Number(searchParams.get("qty")) || 1;
 
-  // ── Steps: 0 = Address, 1 = Payment, 2 = Review
-  const [step, setStep] = useState(0);
+  // Split name for UI mapping to match the image, merged for backend
+  const initialFirstName = user?.firstName || "";
+  const initialLastName = user?.lastName || "";
 
-  // ── Address form
   const [shippingAddress, setShippingAddress] = useState({
     ...EMPTY_ADDRESS_FORM,
     email: user?.email || "",
-    fullName: user
-      ? `${user.firstName || ""} ${user.lastName || ""}`.trim()
-      : "",
+    firstName: initialFirstName,
+    lastName: initialLastName,
+    fullName: `${initialFirstName} ${initialLastName}`.trim(),
   });
+
   const [formErrors, setFormErrors] = useState({});
-
-  // ── Payment
   const [paymentMethod, setPaymentMethod] = useState(PAYMENT_GATEWAY.RAZORPAY);
-
-  // ── Coupon (for UI, not integrated with backend yet)
   const [couponCode, setCouponCode] = useState("");
   const [couponApplied, setCouponApplied] = useState(false);
   const [couponDiscount, setCouponDiscount] = useState(0);
 
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, [step]);
+  }, []);
 
-  // ── Normalize item (matches ProductCard shapes)
   const normalizedItem = useMemo(() => {
     if (!rawItem) return null;
     return {
@@ -184,7 +117,6 @@ const SingleItemCheckout = () => {
     };
   }, [rawItem, selectedSize, selectedQuantity]);
 
-  // ── Pricing (for display)
   const pricing = useMemo(() => {
     if (!normalizedItem) return null;
     const subtotal = normalizedItem.unitPrice * normalizedItem.quantity;
@@ -200,11 +132,9 @@ const SingleItemCheckout = () => {
       deliveryFee,
       couponDiscount,
       totalPayable: totalPayable - couponDiscount,
-      discountPercent: totalMRP > 0 ? Math.round((itemDiscount / totalMRP) * 100) : 0,
     };
   }, [normalizedItem, couponDiscount]);
 
-  // ── Guard: no item
   if (!rawItem || !selectedSize) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -212,19 +142,15 @@ const SingleItemCheckout = () => {
           <h2 className="text-xl font-semibold text-gray-900 mb-2">
             Nothing to checkout
           </h2>
-          <p className="text-gray-400 text-sm mb-6">
-            Please select a product and size first.
-          </p>
           <button
             onClick={() => navigate("/")}
-            className="px-8 py-3 bg-black text-white rounded-lg font-medium text-sm hover:bg-gray-800 transition-colors">
+            className="px-8 py-3 bg-[#0058a3] text-white rounded-md font-medium text-sm hover:bg-blue-700 transition-colors">
             Continue Shopping
           </button>
         </div>
       </div>
     );
   }
-
 
   const fetchPinForSingleCheckout = async (pin) => {
     if (!/^[1-9][0-9]{5}$/.test(pin)) return;
@@ -243,29 +169,28 @@ const SingleItemCheckout = () => {
     } catch (err) {}
   };
 
-  // ── Address handlers
   const handleAddressChange = (e) => {
     const { name, value } = e.target;
-    
+
     if (name === "postalCode") {
       if (!/^\d*$/.test(value) || value.length > 6) return;
       if (value.length === 6) fetchPinForSingleCheckout(value);
     }
 
-    setShippingAddress((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setShippingAddress((prev) => {
+      const updated = { ...prev, [name]: value };
+      if (name === "firstName" || name === "lastName") {
+        updated.fullName =
+          `${updated.firstName || ""} ${updated.lastName || ""}`.trim();
+      }
+      return updated;
+    });
 
     if (formErrors[name]) {
-      setFormErrors((prev) => ({
-        ...prev,
-        [name]: null,
-      }));
+      setFormErrors((prev) => ({ ...prev, [name]: null }));
     }
   };
 
-  // ── Coupon handlers
   const applyCoupon = () => {
     if (!couponCode.trim()) return;
     const couponMap = { VIBE5ONLY: 0.05, SAVE10: 0.1 };
@@ -280,24 +205,18 @@ const SingleItemCheckout = () => {
     }
   };
 
-  const removeCoupon = () => {
-    setCouponCode("");
-    setCouponApplied(false);
-    setCouponDiscount(0);
-  };
-
-  // ── Place order (main handler)
   const handleCheckout = async () => {
-    // ✅ Validate address
     const addressValidation = performAddressValidation(shippingAddress);
     if (!addressValidation.isValid) {
       setFormErrors(addressValidation.errors);
+
+      // Scroll to top to show errors if needed
+      window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
 
     setFormErrors({});
 
-    // ✅ Call useCheckout's performCheckout
     const result = await performCheckout({
       items: [normalizedItem],
       shippingAddress,
@@ -312,594 +231,443 @@ const SingleItemCheckout = () => {
     }
   };
 
-  // ─── Mini order summary ───────
-  const OrderSummaryCard = ({ compact = false }) => (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-      {!compact && (
-        <div className="px-5 py-4 border-b border-gray-100 bg-gray-50/60">
-          <h3 className="font-semibold text-gray-900 text-sm uppercase tracking-wider">
-            Order Summary
-          </h3>
-        </div>
-      )}
-      <div className="p-5">
-        {/* Item */}
-        <div className="flex gap-3 mb-5">
-          <div className="relative w-16 h-20 rounded-lg overflow-hidden bg-[#F9F5F6] border border-gray-100 flex-shrink-0">
-            <img
-              src={normalizedItem.image}
-              alt={normalizedItem.name}
-              className="w-full h-full object-cover object-top"
-              onError={(e) => {
-                e.target.src = "/placeholder-image.jpg";
-              }}
-            />
-            <span className="absolute -top-1.5 -right-1.5 bg-gray-600 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
-              {selectedQuantity}
-            </span>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-semibold text-gray-900 text-xs leading-snug line-clamp-2">
-              {normalizedItem.name}
-            </p>
-            <p className="text-[11px] text-gray-400 mt-1">
-              Size: {selectedSize}
-            </p>
-            <p className="text-sm font-bold text-gray-900 mt-1.5">
-              ₹{normalizedItem.totalPrice.toLocaleString("en-IN")}
-            </p>
-          </div>
-        </div>
-
-        {/* Coupon */}
-        <div className="mb-4 pt-4 border-t border-gray-100">
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Tag
-                size={14}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-              />
-              <input
-                type="text"
-                placeholder="Coupon code"
-                value={couponCode}
-                onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                disabled={couponApplied || isLoading}
-                className="w-full pl-8 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-xs uppercase tracking-wider focus:outline-none focus:ring-1 focus:ring-black focus:border-black disabled:opacity-60"
-              />
-            </div>
-            {!couponApplied ? (
-              <button
-                onClick={applyCoupon}
-                disabled={isLoading}
-                className="px-4 py-2.5 bg-black text-white text-xs font-semibold rounded-lg hover:bg-gray-800 disabled:opacity-50 transition-colors">
-                Apply
-              </button>
-            ) : (
-              <button
-                onClick={removeCoupon}
-                disabled={isLoading}
-                className="px-4 py-2.5 bg-gray-200 text-gray-700 text-xs font-semibold rounded-lg hover:bg-gray-300 disabled:opacity-50 transition-colors">
-                Remove
-              </button>
-            )}
-          </div>
-          {couponApplied && (
-            <p className="text-green-600 text-[11px] mt-1.5 font-medium flex items-center gap-1">
-              <CheckCircle2 size={12} /> Coupon applied!
-            </p>
-          )}
-        </div>
-
-        {/* Breakdown */}
-        <div className="space-y-2.5 text-xs pt-3 border-t border-gray-100">
-          <div className="flex justify-between text-gray-500">
-            <span>Subtotal</span>
-            <span>₹{pricing.subtotal.toLocaleString("en-IN")}</span>
-          </div>
-          {pricing.itemDiscount > 0 && (
-            <div className="flex justify-between text-green-600">
-              <span>Discount</span>
-              <span>−₹{pricing.itemDiscount.toLocaleString("en-IN")}</span>
-            </div>
-          )}
-          <div className="flex justify-between text-gray-500">
-            <span>Shipping</span>
-            {pricing.deliveryFee === 0 ? (
-              <span className="text-green-600 font-semibold">FREE</span>
-            ) : (
-              <span>₹{pricing.deliveryFee.toLocaleString("en-IN")}</span>
-            )}
-          </div>
-          {couponDiscount > 0 && (
-            <div className="flex justify-between text-green-600 bg-green-50 px-2 py-1.5 rounded-md -mx-1">
-              <span>Coupon savings</span>
-              <span>−₹{couponDiscount.toLocaleString("en-IN")}</span>
-            </div>
-          )}
-          <div className="flex justify-between items-baseline pt-3 border-t border-gray-200">
-            <div>
-              <p className="font-bold text-gray-900 text-sm">Total</p>
-              <p className="text-[10px] text-gray-400">Incl. all taxes</p>
-            </div>
-            <span className="text-lg font-bold text-gray-900">
-              ₹{pricing.totalPayable.toLocaleString("en-IN")}
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  // ─── Address review chip ────────────
-  const AddressChip = () => (
-    <button
-      onClick={() => setStep(0)}
-      className="w-full flex items-start gap-3 p-4 bg-green-50 border border-green-200 rounded-xl text-left hover:bg-green-100/60 transition-colors group mb-6">
-      <MapPin size={16} className="text-green-600 mt-0.5 flex-shrink-0" />
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-semibold text-green-700 uppercase tracking-wider">
-          Delivering to
-        </p>
-        <p className="text-sm font-medium text-gray-900 mt-0.5 truncate">
-          {shippingAddress.fullName}
-        </p>
-        <p className="text-xs text-gray-500 truncate">
-          {shippingAddress.addressLine1}, {shippingAddress.city} –{" "}
-          {shippingAddress.postalCode}
-        </p>
-      </div>
-      <Edit2
-        size={14}
-        className="text-green-500 flex-shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-      />
-    </button>
-  );
-
-  // ─── STEP 0: Address ──────────────────────────────────────
-  const AddressStep = () => (
-    <div className="space-y-5">
-      <div>
-        <h2 className="text-lg font-bold text-gray-900 mb-1">
-          Where should we deliver?
-        </h2>
-        <p className="text-sm text-gray-400">
-          {user
-            ? `Signed in as ${user.email}`
-            : "No account needed — guest checkout"}
-        </p>
-      </div>
-
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-6 space-y-4">
-        {/* Contact */}
-        <div className="pb-4 border-b border-gray-100">
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
-            Contact
-          </p>
-          <div className="grid sm:grid-cols-2 gap-4">
-            <InputField
-              label="Email"
-              name="email"
-              type="email"
-              placeholder="for order updates"
-              value={shippingAddress.email}
-              onChange={handleAddressChange}
-              error={formErrors.email}
-              disabled={isLoading}
-            />
-            <InputField
-              label="Phone"
-              name="phone"
-              type="tel"
-              maxLength="10"
-              placeholder="10-digit number"
-              value={shippingAddress.phone}
-              onChange={handleAddressChange}
-              error={formErrors.phone}
-              disabled={isLoading}
-            />
-          </div>
-        </div>
-
-        {/* Name & address */}
-        <div>
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
-            Delivery address
-          </p>
-          <div className="space-y-4">
-            <InputField
-              label="Full Name"
-              name="fullName"
-              placeholder="As on ID"
-              value={shippingAddress.fullName}
-              onChange={handleAddressChange}
-              error={formErrors.fullName}
-              disabled={isLoading}
-            />
-
-            <InputField
-              label="Pincode"
-              name="postalCode"
-              maxLength="6"
-              placeholder="6-digit pincode"
-              value={shippingAddress.postalCode}
-              onChange={handleAddressChange}
-              error={formErrors.postalCode}
-              disabled={isLoading}
-            />
-
-            <InputField
-              label="Flat / House / Building"
-              name="addressLine1"
-              value={shippingAddress.addressLine1}
-              onChange={handleAddressChange}
-              error={formErrors.addressLine1}
-              disabled={isLoading}
-            />
-
-            <InputField
-              label="Area / Street / Sector"
-              name="addressLine2"
-              value={shippingAddress.addressLine2}
-              onChange={handleAddressChange}
-              error={formErrors.addressLine2}
-              disabled={isLoading}
-            />
-
-            <div className="grid sm:grid-cols-2 gap-4">
-              <InputField
-                label="City"
-                name="city"
-                value={shippingAddress.city}
-                onChange={handleAddressChange}
-                error={formErrors.city}
-                disabled={isLoading}
-              />
-              <InputField
-                label="State"
-                name="state"
-                value={shippingAddress.state}
-                onChange={handleAddressChange}
-                error={formErrors.state}
-                disabled={isLoading}
-              />
-            </div>
-
-            <InputField
-              label="Landmark (optional)"
-              name="landmark"
-              placeholder="Near Apollo Hospital"
-              value={shippingAddress.landmark}
-              onChange={handleAddressChange}
-              error={formErrors.landmark}
-              disabled={isLoading}
-            />
-          </div>
-        </div>
-      </div>
-
-      <button
-        onClick={() => {
-          if (performAddressValidation(shippingAddress).isValid) {
-            setFormErrors({});
-            setStep(1);
-          } else {
-            setFormErrors(
-              performAddressValidation(shippingAddress).errors || {},
-            );
-          }
-        }}
-        disabled={isLoading}
-        className="w-full bg-black text-white py-4 rounded-xl font-bold text-sm uppercase tracking-widest hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 shadow-lg shadow-black/10">
-        Continue to Payment <ChevronRight size={16} />
-      </button>
-    </div>
-  );
-
-  // ─── STEP 1: Payment ──────────────────────────────────────
-  const PaymentStep = () => (
-    <div className="space-y-5">
-      <AddressChip />
-
-      <div>
-        <h2 className="text-lg font-bold text-gray-900 mb-1">Choose payment</h2>
-        <p className="text-sm text-gray-400">
-          All transactions are 256-bit SSL encrypted
-        </p>
-      </div>
-
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3">
-        {[
-          {
-            value: PAYMENT_GATEWAY.RAZORPAY,
-            title: "UPI / Cards / Netbanking",
-            subtitle: "Pay securely via Razorpay",
-            icon: <ShieldCheck size={18} />,
-          },
-          {
-            value: PAYMENT_GATEWAY.COD,
-            title: "Cash on Delivery",
-            subtitle: "Pay when your order arrives",
-            icon: <Truck size={18} />,
-          },
-        ].map((method) => (
-          <label
-            key={method.value}
-            className={`flex items-center gap-4 p-4 border rounded-xl cursor-pointer transition-all duration-200 ${
-              paymentMethod === method.value
-                ? "border-black bg-black/[0.02] shadow-sm"
-                : "border-gray-200 hover:border-gray-300"
-            }`}>
-            <div
-              className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
-                paymentMethod === method.value
-                  ? "border-black"
-                  : "border-gray-300"
-              }`}>
-              {paymentMethod === method.value && (
-                <div className="w-2.5 h-2.5 rounded-full bg-black" />
-              )}
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-gray-900">
-                {method.title}
-              </p>
-              <p className="text-xs text-gray-400 mt-0.5">{method.subtitle}</p>
-            </div>
-            <span
-              className={
-                paymentMethod === method.value ? "text-black" : "text-gray-300"
-              }>
-              {method.icon}
-            </span>
-            <input
-              type="radio"
-              name="paymentMethod"
-              value={method.value}
-              checked={paymentMethod === method.value}
-              onChange={(e) => setPaymentMethod(e.target.value)}
-              className="sr-only"
-              disabled={isLoading}
-            />
-          </label>
-        ))}
-      </div>
-
-      <button
-        onClick={() => setStep(2)}
-        disabled={isLoading}
-        className="w-full bg-black text-white py-4 rounded-xl font-bold text-sm uppercase tracking-widest hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 shadow-lg shadow-black/10">
-        Review Order <ChevronRight size={16} />
-      </button>
-    </div>
-  );
-
-  // ─── STEP 2: Review & place ────────────────────────────────
-  const ReviewStep = () => (
-    <div className="space-y-5">
-      <AddressChip />
-
-      {/* Payment summary chip */}
-      <button
-        onClick={() => setStep(1)}
-        className="w-full flex items-center gap-3 p-4 bg-blue-50 border border-blue-200 rounded-xl text-left hover:bg-blue-100/60 transition-colors group mb-1">
-        <CreditCard size={16} className="text-blue-500 flex-shrink-0" />
-        <div className="flex-1">
-          <p className="text-xs font-semibold text-blue-700 uppercase tracking-wider">
-            Payment
-          </p>
-          <p className="text-sm font-medium text-gray-900">
-            {paymentMethod === PAYMENT_GATEWAY.RAZORPAY
-              ? "UPI / Card / Netbanking"
-              : "Cash on Delivery"}
-          </p>
-        </div>
-        <Edit2
-          size={14}
-          className="text-blue-400 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-        />
-      </button>
-
-      <div>
-        <h2 className="text-lg font-bold text-gray-900 mb-1">
-          Confirm your order
-        </h2>
-        <p className="text-sm text-gray-400">
-          Please review everything before placing
-        </p>
-      </div>
-
-      {/* Error Alert */}
-      {checkoutError && (
-        <div className="flex gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <AlertCircle
-            size={20}
-            className="text-red-600 flex-shrink-0 mt-0.5"
-          />
-          <div>
-            <p className="text-red-800 text-sm font-medium">Error</p>
-            <p className="text-red-700 text-sm mt-1">{checkoutError}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Item review */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-        <div className="flex gap-4">
-          <div className="relative w-20 h-24 rounded-xl overflow-hidden bg-[#F9F5F6] border border-gray-100 flex-shrink-0">
-            <img
-              src={normalizedItem.image}
-              alt={normalizedItem.name}
-              className="w-full h-full object-cover object-top"
-              onError={(e) => {
-                e.target.src = "/placeholder-image.jpg";
-              }}
-            />
-            <span className="absolute -top-1.5 -right-1.5 bg-gray-600 text-white text-[9px] w-5 h-5 rounded-full flex items-center justify-center font-bold shadow">
-              {selectedQuantity}
-            </span>
-          </div>
-          <div className="flex-1 min-w-0">
-            <h4 className="font-semibold text-gray-900 text-sm leading-snug">
-              {normalizedItem.name}
-            </h4>
-            <p className="text-xs text-gray-400 mt-1">
-              Size: {selectedSize} · Qty: {selectedQuantity}
-            </p>
-            {normalizedItem.mrp > normalizedItem.price && (
-              <p className="text-xs text-gray-400 mt-0.5 line-through">
-                MRP ₹{normalizedItem.mrp.toLocaleString("en-IN")}
-              </p>
-            )}
-            <p className="text-sm font-bold text-gray-900 mt-1">
-              ₹{normalizedItem.totalPrice.toLocaleString("en-IN")}
-            </p>
-          </div>
-        </div>
-
-        {/* Price breakdown */}
-        <div className="mt-5 pt-4 border-t border-gray-100 space-y-2 text-xs">
-          <div className="flex justify-between text-gray-500">
-            <span>Subtotal</span>
-            <span>₹{pricing.subtotal.toLocaleString("en-IN")}</span>
-          </div>
-          {pricing.itemDiscount > 0 && (
-            <div className="flex justify-between text-green-600">
-              <span>Item discount</span>
-              <span>−₹{pricing.itemDiscount.toLocaleString("en-IN")}</span>
-            </div>
-          )}
-          {pricing.deliveryFee > 0 && (
-            <div className="flex justify-between text-gray-500">
-              <span>Shipping</span>
-              <span>₹{pricing.deliveryFee.toLocaleString("en-IN")}</span>
-            </div>
-          )}
-          {couponDiscount > 0 && (
-            <div className="flex justify-between text-green-600">
-              <span>Coupon</span>
-              <span>−₹{couponDiscount.toLocaleString("en-IN")}</span>
-            </div>
-          )}
-          <div className="flex justify-between items-baseline pt-3 border-t border-gray-100">
-            <span className="font-bold text-gray-900 text-sm">
-              Total Payable
-            </span>
-            <span className="font-bold text-gray-900 text-base">
-              ₹{pricing.totalPayable.toLocaleString("en-IN")}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Place order CTA */}
-      <button
-        onClick={handleCheckout}
-        disabled={isLoading}
-        className="w-full bg-black text-white py-4 rounded-xl font-bold text-sm uppercase tracking-widest hover:bg-gray-800 disabled:opacity-70 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg shadow-black/10">
-        {isLoading ? (
-          <>
-            <Loader2 size={18} className="animate-spin" /> Processing…
-          </>
-        ) : (
-          `Pay ₹${pricing.totalPayable.toLocaleString("en-IN")}`
-        )}
-      </button>
-
-      {/* Trust strip */}
-      <div className="flex items-center justify-center gap-8 py-2">
-        <div className="flex flex-col items-center gap-1">
-          <ShieldCheck size={20} className="text-gray-300" strokeWidth={1.5} />
-          <span className="text-[10px] text-gray-400 uppercase font-medium">
-            Secure
-          </span>
-        </div>
-        <div className="flex flex-col items-center gap-1">
-          <Lock size={20} className="text-gray-300" strokeWidth={1.5} />
-          <span className="text-[10px] text-gray-400 uppercase font-medium">
-            256-bit SSL
-          </span>
-        </div>
-        <div className="flex flex-col items-center gap-1">
-          <Truck size={20} className="text-gray-300" strokeWidth={1.5} />
-          <span className="text-[10px] text-gray-400 uppercase font-medium">
-            Fast Delivery
-          </span>
-        </div>
-      </div>
-    </div>
-  );
+  // ── Redirect user to login and return back here
+  const handleSignIn = () => {
+    const currentUrl = location.pathname + location.search;
+    navigate("/login", { state: { returnUrl: currentUrl } });
+  };
 
   return (
-    <div className="min-h-screen bg-[#F8F8F8] font-sans pb-10">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-40 shadow-sm">
-        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => (step === 0 ? navigate(-1) : setStep(step - 1))}
-              disabled={isLoading}
-              className="p-2 -ml-2 text-gray-500 hover:text-black hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed rounded-full transition-colors">
-              <ArrowLeft size={20} />
-            </button>
-            <h1 className="text-base font-bold tracking-tight text-gray-900">
-              Checkout
-            </h1>
-          </div>
-          <div className="flex items-center gap-1.5 text-gray-400 text-xs font-medium">
-            <Lock size={14} />
-            <span className="hidden sm:inline">Secure Checkout</span>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-white font-sans flex flex-col lg:flex-row">
+      {/* ── LEFT COLUMN: Forms ── */}
+      <div className="w-full lg:w-[55%] xl:w-[60%] pt-8 pb-16 px-4 sm:px-8 lg:pl-20 xl:pl-32 lg:pr-12">
+        {/* Header / Logo */}
+        <header className="mb-8 flex justify-between items-center">
+          <h1 className="text-3xl font-light text-pink-500 tracking-wide">
+            {STORE_NAME}
+          </h1>
+          <ShoppingBag className="text-blue-600 lg:hidden" size={24} />
+        </header>
 
-      <main className="max-w-5xl mx-auto px-4 py-8">
-        {/* Step bar */}
-        <StepBar current={step} />
-
-        <div className="grid lg:grid-cols-12 gap-8">
-          {/* ── LEFT: Step content ── */}
-          <div className="lg:col-span-7">
-            {step === 0 && <AddressStep />}
-            {step === 1 && <PaymentStep />}
-            {step === 2 && <ReviewStep />}
-          </div>
-
-          {/* ── RIGHT: sticky order summary (desktop) ── */}
-          <div className="hidden lg:block lg:col-span-5">
-            <div className="sticky top-24">
-              <OrderSummaryCard />
+        {checkoutError && (
+          <div className="mb-6 flex gap-3 p-4 bg-red-50 border border-red-200 rounded-md">
+            <AlertCircle
+              size={20}
+              className="text-red-600 flex-shrink-0 mt-0.5"
+            />
+            <div>
+              <p className="text-red-800 text-sm font-medium">
+                Error processing order
+              </p>
+              <p className="text-red-700 text-sm mt-1">{checkoutError}</p>
             </div>
           </div>
-        </div>
-      </main>
+        )}
 
-      {/* Mobile order summary (collapsible) — shown on step 0 & 1 */}
-      {step < 2 && (
-        <div className="lg:hidden mx-4 mb-6 mt-2">
-          <details className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <summary className="flex items-center justify-between px-5 py-3 cursor-pointer text-sm font-semibold text-gray-700 select-none">
-              <span>
-                Order summary · ₹{pricing.totalPayable.toLocaleString("en-IN")}
+        <div className="space-y-8">
+          {/* Contact Section */}
+          <section>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-medium text-gray-900">Contact</h2>
+              {!user && (
+                <button
+                  onClick={handleSignIn}
+                  className="text-blue-600 hover:underline text-sm font-medium">
+                  Sign in
+                </button>
+              )}
+            </div>
+            <div className="relative">
+              <InputField
+                name="email"
+                type="email"
+                placeholder="Email"
+                value={shippingAddress.email}
+                onChange={handleAddressChange}
+                error={formErrors.email}
+                disabled={isLoading}
+              />
+              <HelpCircle
+                size={18}
+                className="absolute right-3 top-3.5 text-gray-400"
+              />
+            </div>
+            <div className="mt-3 flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="news"
+                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600"
+              />
+              <label
+                htmlFor="news"
+                className="text-sm text-gray-600 cursor-pointer">
+                Email me with news and offers
+              </label>
+            </div>
+          </section>
+
+          {/* Delivery Section */}
+          <section>
+            <h2 className="text-xl font-medium text-gray-900 mb-4">Delivery</h2>
+            <div className="space-y-3">
+              <div className="w-full relative">
+                <select className="w-full px-3 py-3 border border-gray-300 rounded-md bg-white text-sm focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 appearance-none">
+                  <option>India</option>
+                </select>
+                <span className="absolute right-3 top-3.5 text-gray-400 text-xs">
+                  ▼
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <InputField
+                  name="firstName"
+                  placeholder="First name"
+                  value={shippingAddress.firstName}
+                  onChange={handleAddressChange}
+                  error={formErrors.fullName} // Mapping full name error here temporarily
+                  disabled={isLoading}
+                />
+                <InputField
+                  name="lastName"
+                  placeholder="Last name"
+                  value={shippingAddress.lastName}
+                  onChange={handleAddressChange}
+                  disabled={isLoading}
+                />
+              </div>
+
+              <InputField
+                name="addressLine1"
+                placeholder="Address"
+                value={shippingAddress.addressLine1}
+                onChange={handleAddressChange}
+                error={formErrors.addressLine1}
+                disabled={isLoading}
+              />
+
+              <InputField
+                name="addressLine2"
+                placeholder="Apartment, suite, etc. (optional)"
+                value={shippingAddress.addressLine2}
+                onChange={handleAddressChange}
+                disabled={isLoading}
+              />
+
+              <div className="grid grid-cols-3 gap-3">
+                <InputField
+                  name="city"
+                  placeholder="City"
+                  value={shippingAddress.city}
+                  onChange={handleAddressChange}
+                  error={formErrors.city}
+                  disabled={isLoading}
+                />
+                <div className="w-full relative">
+                  <select
+                    name="state"
+                    value={shippingAddress.state}
+                    onChange={handleAddressChange}
+                    className="w-full px-3 py-3 border border-gray-300 rounded-md bg-white text-sm focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 appearance-none">
+                    <option value="" disabled>
+                      State
+                    </option>
+                    <option value="Uttarakhand">Uttarakhand</option>
+                    <option value="Haryana">Haryana</option>
+                    <option value="Delhi">Delhi</option>
+                    {/* Add other states as needed */}
+                  </select>
+                  <span className="absolute right-3 top-3.5 text-gray-400 text-xs">
+                    ▼
+                  </span>
+                </div>
+                <InputField
+                  name="postalCode"
+                  placeholder="PIN code"
+                  maxLength="6"
+                  value={shippingAddress.postalCode}
+                  onChange={handleAddressChange}
+                  error={formErrors.postalCode}
+                  disabled={isLoading}
+                />
+              </div>
+
+              <div className="relative">
+                <InputField
+                  name="phone"
+                  type="tel"
+                  placeholder="Phone"
+                  maxLength="10"
+                  value={shippingAddress.phone}
+                  onChange={handleAddressChange}
+                  error={formErrors.phone}
+                  disabled={isLoading}
+                />
+                <HelpCircle
+                  size={18}
+                  className="absolute right-3 top-3.5 text-gray-400"
+                />
+              </div>
+
+              <div className="mt-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="save-info"
+                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600"
+                  />
+                  <label
+                    htmlFor="save-info"
+                    className="text-sm text-gray-600 cursor-pointer">
+                    Save this information for next time
+                  </label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="text-offers"
+                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600"
+                  />
+                  <label
+                    htmlFor="text-offers"
+                    className="text-sm text-gray-600 cursor-pointer">
+                    Text me with news and offers
+                  </label>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Shipping Method Section */}
+          <section>
+            <h2 className="text-xl font-medium text-gray-900 mb-4">
+              Shipping method
+            </h2>
+            <div className="border border-blue-600 rounded-md bg-blue-50/30 p-4 flex justify-between items-center">
+              <span className="text-sm font-medium text-gray-900">
+                Standard
               </span>
-              <ChevronDown size={16} className="text-gray-400" />
-            </summary>
-            <div className="border-t border-gray-100">
-              <OrderSummaryCard compact />
+              <span className="text-sm font-bold text-gray-900">FREE</span>
             </div>
-          </details>
-        </div>
-      )}
+          </section>
 
-      {/* Full-screen loading overlay */}
+          {/* Payment Section */}
+          <section>
+            <h2 className="text-xl font-medium text-gray-900 mb-1">Payment</h2>
+            <p className="text-sm text-gray-500 mb-4">
+              All transactions are secure and encrypted.
+            </p>
+
+            <div className="border border-gray-300 rounded-md overflow-hidden bg-white">
+              <div className="p-4 border-b border-gray-200 bg-blue-50/20 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="radio"
+                    checked
+                    readOnly
+                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-600"
+                  />
+                  <span className="text-sm font-medium text-gray-900">
+                    Razorpay Secure (UPI, Cards, Int'l Cards, Wallets)
+                  </span>
+                </div>
+                <div className="flex gap-1">
+                  {/* Placeholder for payment icons mapping to screenshot */}
+                  <div className="h-6 w-8 bg-gray-200 rounded text-[9px] flex items-center justify-center font-bold">
+                    UPI
+                  </div>
+                  <div className="h-6 w-8 bg-blue-800 text-white rounded text-[9px] flex items-center justify-center font-bold">
+                    VISA
+                  </div>
+                </div>
+              </div>
+              <div className="p-6 bg-gray-50 flex flex-col items-center text-center justify-center text-sm text-gray-500">
+                <ShieldCheck
+                  size={48}
+                  className="text-gray-300 mb-4"
+                  strokeWidth={1}
+                />
+                <p>
+                  You'll be redirected to Razorpay Secure (UPI, Cards, Int'l
+                  Cards, Wallets) to complete your purchase.
+                </p>
+              </div>
+            </div>
+
+            <h3 className="text-lg font-medium text-gray-900 mt-8 mb-4">
+              Billing address
+            </h3>
+            <div className="border border-gray-300 rounded-md bg-white overflow-hidden">
+              <label className="flex items-center p-4 border-b border-gray-200 cursor-pointer bg-blue-50/20">
+                <input
+                  type="radio"
+                  name="billing"
+                  defaultChecked
+                  className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-600"
+                />
+                <span className="ml-3 text-sm font-medium text-gray-900">
+                  Same as shipping address
+                </span>
+              </label>
+              <label className="flex items-center p-4 cursor-pointer">
+                <input
+                  type="radio"
+                  name="billing"
+                  className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-600"
+                />
+                <span className="ml-3 text-sm font-medium text-gray-900">
+                  Use a different billing address
+                </span>
+              </label>
+            </div>
+          </section>
+
+          {/* CTA */}
+          <button
+            onClick={handleCheckout}
+            disabled={isLoading}
+            className="w-full bg-[#0058a3] text-white py-4 rounded-md font-medium text-lg hover:bg-blue-800 disabled:opacity-70 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 mt-4 shadow-sm">
+            {isLoading ? (
+              <>
+                <Loader2 size={20} className="animate-spin" /> Processing…
+              </>
+            ) : (
+              "Pay now"
+            )}
+          </button>
+
+          {/* Footer links */}
+          <div className="border-t border-gray-200 pt-4 mt-8 flex gap-4 text-xs text-blue-600">
+            <a href="#" className="hover:underline">
+              Refund policy
+            </a>
+            <a href="#" className="hover:underline">
+              Shipping
+            </a>
+            <a href="#" className="hover:underline">
+              Privacy policy
+            </a>
+            <a href="#" className="hover:underline">
+              Terms of service
+            </a>
+            <a href="#" className="hover:underline">
+              Contact
+            </a>
+          </div>
+        </div>
+      </div>
+
+      {/* ── RIGHT COLUMN: Order Summary (Sticky Desktop) ── */}
+      <div className="hidden lg:block lg:w-[45%] xl:w-[40%] bg-[#f5f5f5] pt-8 pb-16 px-8 lg:pr-20 xl:pr-32 border-l border-gray-200">
+        <div className="sticky top-8">
+          {/* Item Row */}
+          <div className="flex gap-4 mb-6 items-center">
+            <div className="relative w-16 h-16 rounded-lg overflow-visible bg-white border border-gray-200 flex-shrink-0">
+              <img
+                src={normalizedItem.image}
+                alt={normalizedItem.name}
+                className="w-full h-full object-cover rounded-lg"
+                onError={(e) => {
+                  e.target.src = "/placeholder-image.jpg";
+                }}
+              />
+              <span className="absolute -top-2 -right-2 bg-gray-500 text-white text-[11px] w-5 h-5 rounded-full flex items-center justify-center font-medium shadow-sm ring-1 ring-white">
+                {selectedQuantity}
+              </span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-gray-900 text-sm leading-snug truncate">
+                {normalizedItem.name}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">{selectedSize}</p>
+            </div>
+            <p className="text-sm font-medium text-gray-900">
+              ₹
+              {normalizedItem.totalPrice.toLocaleString("en-IN", {
+                minimumFractionDigits: 2,
+              })}
+            </p>
+          </div>
+
+          {/* Discount Code */}
+          <div className="flex gap-3 mb-6 pt-6 border-t border-gray-200">
+            <input
+              type="text"
+              placeholder="Discount code or gift card"
+              value={couponCode}
+              onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+              disabled={couponApplied || isLoading}
+              className="flex-1 px-3 py-3 bg-white border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-600 focus:border-blue-600 disabled:opacity-60"
+            />
+            <button
+              onClick={couponApplied ? removeCoupon : applyCoupon}
+              disabled={isLoading || (!couponCode && !couponApplied)}
+              className={`px-4 py-3 text-sm font-medium rounded-md transition-colors ${
+                couponApplied
+                  ? "bg-gray-200 text-gray-800 hover:bg-gray-300"
+                  : "bg-gray-200 text-gray-500 hover:bg-gray-300"
+              }`}>
+              {couponApplied ? "Remove" : "Apply"}
+            </button>
+          </div>
+
+          {/* Totals */}
+          <div className="space-y-3 pt-6 border-t border-gray-200 text-sm">
+            <div className="flex justify-between text-gray-600">
+              <span>Subtotal</span>
+              <span className="font-medium text-gray-900">
+                ₹
+                {pricing.subtotal.toLocaleString("en-IN", {
+                  minimumFractionDigits: 2,
+                })}
+              </span>
+            </div>
+
+            <div className="flex justify-between text-gray-600 items-center">
+              <span className="flex items-center gap-1">
+                Shipping <HelpCircle size={14} className="text-gray-400" />
+              </span>
+              <span className="text-gray-500">
+                {pricing.deliveryFee === 0
+                  ? "FREE"
+                  : `₹${pricing.deliveryFee.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`}
+              </span>
+            </div>
+
+            {couponDiscount > 0 && (
+              <div className="flex justify-between text-green-600">
+                <span>Discount</span>
+                <span>
+                  −₹
+                  {couponDiscount.toLocaleString("en-IN", {
+                    minimumFractionDigits: 2,
+                  })}
+                </span>
+              </div>
+            )}
+
+            <div className="flex justify-between items-center pt-4 mt-2 border-t border-gray-200">
+              <span className="font-medium text-gray-900 text-base">Total</span>
+              <div className="flex items-end gap-2">
+                <span className="text-xs text-gray-500 mb-1">INR</span>
+                <span className="text-xl font-semibold text-gray-900">
+                  ₹
+                  {pricing.totalPayable.toLocaleString("en-IN", {
+                    minimumFractionDigits: 2,
+                  })}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Loading Overlay */}
       {loadingMessage && (
         <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white p-7 rounded-2xl shadow-2xl flex flex-col items-center max-w-xs text-center border border-gray-100">
-            <Loader2 size={36} className="animate-spin text-black mb-4" />
-            <p className="font-semibold text-gray-900">{loadingMessage}</p>
-            <p className="text-xs text-gray-400 mt-2">
-              Please don't refresh or close this page.
-            </p>
+          <div className="bg-white p-6 rounded-lg shadow-xl flex flex-col items-center border border-gray-100">
+            <Loader2 size={32} className="animate-spin text-blue-600 mb-3" />
+            <p className="font-medium text-gray-900">{loadingMessage}</p>
           </div>
         </div>
       )}

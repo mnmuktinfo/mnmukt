@@ -67,8 +67,52 @@ const fetchDefaultAddress = async (uid, addressId) => {
   if (!addressId) return null;
   try {
     const snap = await getDoc(doc(db, "users", uid, "addresses", addressId));
-    return snap.exists() ? { id: snap.id, ...snap.data() } : null;
-  } catch {
+return snap.exists()
+  ? {
+      id: snap.id,
+
+      fullName:
+        snap.data().fullName ||
+        snap.data().name ||
+        "",
+
+      email:
+        snap.data().email || "",
+
+      phone:
+        snap.data().phone || "",
+
+      addressLine1:
+        snap.data().addressLine1 ||
+        snap.data().line1 ||
+        "",
+
+      addressLine2:
+        snap.data().addressLine2 ||
+        snap.data().line2 ||
+        "",
+
+      city:
+        snap.data().city || "",
+
+      state:
+        snap.data().state || "",
+
+      postalCode:
+        snap.data().postalCode ||
+        snap.data().pincode ||
+        "",
+
+      landmark:
+        snap.data().landmark || "",
+
+      country:
+        snap.data().country || "India",
+
+      isDefault:
+        snap.data().isDefault || false,
+    }
+  : null;  } catch {
     return null;
   }
 };
@@ -351,7 +395,59 @@ export const getAddresses = async (uid) => {
     const snap = await getDocs(
       query(collection(db, "users", uid, "addresses"))
     );
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+    return snap.docs.map((d) => {
+      const data = d.data();
+
+      return {
+        id: d.id,
+
+        fullName:
+          data.fullName ||
+          data.name ||
+          "",
+
+        email:
+          data.email || "",
+
+        phone:
+          data.phone || "",
+
+        addressLine1:
+          data.addressLine1 ||
+          data.line1 ||
+          "",
+
+        addressLine2:
+          data.addressLine2 ||
+          data.line2 ||
+          "",
+
+        city:
+          data.city || "",
+
+        state:
+          data.state || "",
+
+        postalCode:
+          data.postalCode ||
+          data.pincode ||
+          "",
+
+        landmark:
+          data.landmark || "",
+
+        country:
+          data.country || "India",
+
+        tag:
+          data.tag || "Home",
+
+        isDefault:
+          data.isDefault || false,
+      };
+    });
+
   } catch (err) {
     handleError(err);
   }
@@ -504,25 +600,72 @@ export const setDefaultAddress = async (uid, addressId) => {
   }
 };
 
-/* ════════════════════════════════════════════════════════════
-   ADDRESS — SAVE (upsert)
-   Convenience function used by EditProfilePage and
-   AddressPage — creates if no id, updates if id present.
-   Accepts the flat form shape used across the app:
-   { id?, name?, phone?, line1, city, state, pincode, tag?, isDefault? }
-════════════════════════════════════════════════════════════ */
+
 
 export const saveAddress = async (uid, address) => {
   try {
-    const { id, ...fields } = address;
+    const { id } = address;
+
+    // Normalize all app address formats
+    const normalizedAddress = {
+      fullName:
+        address.fullName ||
+        address.name ||
+        "",
+
+      email:
+        address.email || "",
+
+      phone:
+        address.phone || "",
+
+      addressLine1:
+        address.addressLine1 ||
+        address.line1 ||
+        "",
+
+      addressLine2:
+        address.addressLine2 ||
+        address.line2 ||
+        "",
+
+      city:
+        address.city || "",
+
+      state:
+        address.state || "",
+
+      postalCode:
+        address.postalCode ||
+        address.pincode ||
+        "",
+
+      landmark:
+        address.landmark || "",
+
+      country:
+        address.country || "India",
+
+      tag:
+        address.tag || "Home",
+
+      isDefault:
+        address.isDefault || false,
+    };
 
     if (id && !id.startsWith("temp-")) {
-      // Existing Firestore doc — update it
-      return updateAddress(uid, id, fields);
+      return updateAddress(
+        uid,
+        id,
+        normalizedAddress
+      );
     }
 
-    // New address — add it
-    return addAddress(uid, fields);
+    return addAddress(
+      uid,
+      normalizedAddress
+    );
+
   } catch (err) {
     handleError(err);
   }

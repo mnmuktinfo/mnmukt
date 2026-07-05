@@ -10,6 +10,8 @@ const {
 
 const orderRoutes = require("./orders.routes");
 const paymentRoutes = require("./payments.routes");
+const shippingRoutes = require("./shipping.routes"); // NEW
+
 
 const router = express.Router();
 
@@ -20,5 +22,6 @@ const router = express.Router();
 router.use("/orders", orderRoutes);
 
 router.use("/payments", paymentLimiter, paymentRoutes);
+router.use("/shipping", shippingRoutes); // NEW
 
 module.exports = router;

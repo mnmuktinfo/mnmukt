@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
+import { useShippingServiceability } from "../features/orders/hooks/useShippingServiceability";
 
 // ─── Heroicons (outline) ─────────────────────────────────────────────────────
 import {
@@ -18,6 +19,9 @@ import {
   CheckCircleIcon,
   XMarkIcon,
   MagnifyingGlassIcon,
+  EyeIcon, // ← add, for the "Sold" badge
+  ChevronLeftIcon, // ← add, for offer carousel arrows
+  ChevronRightIcon, // ← add
 } from "@heroicons/react/24/outline";
 import {
   HeartIcon as HeartSolid,
@@ -179,8 +183,16 @@ const ProductDetailsPage = () => {
   const [notification, setNotification] = useState(null);
   const [isAdding, setIsAdding] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [activeOffer, setActiveOffer] = useState(0);
   const [pincode, setPincode] = useState("");
-  const [pincodeMsg, setPincodeMsg] = useState("");
+  const {
+    shippingInfo,
+    shippingLoading,
+    shippingError,
+    pinStatus,
+    checkPincode: verifyPincode,
+    reset: resetShipping,
+  } = useShippingServiceability();
   const [openSection, setOpenSection] = useState("Description");
   const [copied, setCopied] = useState(false);
 
@@ -196,9 +208,10 @@ const ProductDetailsPage = () => {
     setSelectedSize("");
     setQuantity(1);
     setActiveImageIndex(0);
+    setActiveOffer(0);
     setPincode("");
-    setPincodeMsg("");
     setOpenSection("Description");
+    resetShipping();
 
     const fetchProduct = async () => {
       try {
@@ -297,18 +310,6 @@ const ProductDetailsPage = () => {
     [isLoggedIn, product, selectedSize, quantity, addToCart, navigate, notify],
   );
 
-  const checkPincode = () => {
-    const pin = pincode.trim();
-    if (/^\d{6}$/.test(pin)) {
-      const days = product.shipping?.shipsInDays || "3-5";
-      const isFree = product.shipping?.isFreeShipping;
-      const chargeText = isFree ? "Free Shipping" : `Shipping charges apply`;
-      setPincodeMsg(`✓ Delivery available in ${days} days. ${chargeText}.`);
-    } else {
-      setPincodeMsg("Please enter a valid 6-digit pincode.");
-    }
-  };
-
   const handleShare = async () => {
     const url = window.location.href;
     try {
@@ -349,10 +350,19 @@ const ProductDetailsPage = () => {
     <div className="min-h-screen bg-white font-sans text-gray-900 pb-24 md:pb-0 md:mt-5">
       <Helmet>
         <title>{product.seo?.metaTitle || `${product.name} | Mnmukt`}</title>
-        <meta name="description" content={product.seo?.metaDescription || product.description || `Buy ${product.name} at Mnmukt.`} />
-        {product.seo?.keywords && <meta name="keywords" content={product.seo.keywords} />}
+        <meta
+          name="description"
+          content={
+            product.seo?.metaDescription ||
+            product.description ||
+            `Buy ${product.name} at Mnmukt.`
+          }
+        />
+        {product.seo?.keywords && (
+          <meta name="keywords" content={product.seo.keywords} />
+        )}
       </Helmet>
-      
+
       {/* ── Toast Notification ── */}
       {notification && (
         <Toast {...notification} onClose={() => setNotification(null)} />
@@ -419,6 +429,24 @@ const ProductDetailsPage = () => {
                   {product.category || "Tops"}
                 </span>
               </div>
+              {/* ── 1.5 Sold / Tag Badges ── */}
+              {(product.soldCount > 0 || product.tags?.length > 0) && (
+                <div className="flex items-center gap-2 mb-3 flex-wrap">
+                  {product.soldCount > 0 && (
+                    <span className="inline-flex items-center gap-1.5 bg-pink-50 text-[#e6007e] px-3 py-1 rounded-full text-[12px] font-semibold">
+                      <EyeIcon className="w-3.5 h-3.5" />
+                      {Math.floor(product.soldCount / 10) * 10}+ Sold
+                    </span>
+                  )}
+                  {product.tags?.map((tag) => (
+                    <span
+                      key={tag}
+                      className="inline-flex items-center gap-1 bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-[12px] font-medium">
+                      🔥 {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
 
               {/* ── 2. Title & Share ── */}
               <div className="flex justify-between items-start mb-2">
@@ -476,49 +504,78 @@ const ProductDetailsPage = () => {
               </p>
 
               {/* ── 5. Available Offers (Dynamic) ── */}
+              {/* ── 5. Available Offers (Carousel) ── */}
               {product.offers && product.offers.length > 0 && (
                 <div className="mb-8">
                   <h3 className="text-[15px] text-gray-700 mb-3">
                     Available Offers
                   </h3>
-                  <div className="flex flex-col gap-3">
-                    {product.offers.map((offer, idx) => (
-                      <div key={idx} className="bg-[#f8f8f8] px-4 py-3.5 rounded flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-4">
-                          <svg
-                            className="w-8 h-8 flex-shrink-0"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg">
-                            <path
-                              d="M12 2L14.8 4.7L18.7 4.2L19.9 8L23.4 9.9L21.8 13.5L23.4 17.1L19.9 19L18.7 22.8L14.8 22.3L12 25L9.2 22.3L5.3 22.8L4.1 19L0.6 17.1L2.2 13.5L0.6 9.9L4.1 8L5.3 4.2L9.2 4.7L12 2Z"
-                              fill="black"
-                            />
-                            <text
-                              x="12"
-                              y="16.5"
-                              fill="white"
-                              fontSize="10"
-                              fontWeight="bold"
-                              textAnchor="middle">
-                              %
-                            </text>
-                          </svg>
-                          <div>
-                            <p className="text-[14px] font-bold text-gray-900">
-                              {offer.title}
-                            </p>
-                            <p className="text-[13px] text-gray-500 mt-0.5">
-                              {offer.description}
-                            </p>
-                          </div>
-                        </div>
+
+                  <div className="bg-[#f8f8f8] px-4 py-3.5 rounded flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-4 min-w-0">
+                      <svg
+                        className="w-8 h-8 flex-shrink-0"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <path
+                          d="M12 2L14.8 4.7L18.7 4.2L19.9 8L23.4 9.9L21.8 13.5L23.4 17.1L19.9 19L18.7 22.8L14.8 22.3L12 25L9.2 22.3L5.3 22.8L4.1 19L0.6 17.1L2.2 13.5L0.6 9.9L4.1 8L5.3 4.2L9.2 4.7L12 2Z"
+                          fill="black"
+                        />
+                        <text
+                          x="12"
+                          y="16.5"
+                          fill="white"
+                          fontSize="10"
+                          fontWeight="bold"
+                          textAnchor="middle">
+                          %
+                        </text>
+                      </svg>
+                      <div className="min-w-0">
+                        <p className="text-[14px] font-bold text-gray-900 truncate">
+                          {product.offers[activeOffer]?.title}
+                        </p>
+                        <p className="text-[13px] text-gray-500 mt-0.5 truncate">
+                          {product.offers[activeOffer]?.description}
+                        </p>
                       </div>
-                    ))}
+                    </div>
+
+                    {product.offers.length > 1 && (
+                      <div className="flex items-center gap-1.5 text-[12px] text-gray-500 flex-shrink-0">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setActiveOffer(
+                              (i) =>
+                                (i - 1 + product.offers.length) %
+                                product.offers.length,
+                            )
+                          }
+                          className="p-1 hover:text-gray-900 transition-colors"
+                          aria-label="Previous offer">
+                          <ChevronLeftIcon className="w-4 h-4" />
+                        </button>
+                        <span className="tabular-nums">
+                          {activeOffer + 1} / {product.offers.length}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setActiveOffer(
+                              (i) => (i + 1) % product.offers.length,
+                            )
+                          }
+                          className="p-1 hover:text-gray-900 transition-colors"
+                          aria-label="Next offer">
+                          <ChevronRightIcon className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
-
               {/* ── 6. Color Variants ── */}
               {product.colors?.length > 0 && (
                 <div className="mb-6">
@@ -592,50 +649,249 @@ const ProductDetailsPage = () => {
               )}
 
               {/* ── 8. Pincode Delivery Box (Matches Design) ── */}
-              <div className="mb-8 border border-gray-200 rounded-lg overflow-hidden max-w-[400px]">
-                <div className="bg-black text-white text-[13px] font-medium text-center py-2.5">
+              <div className="mb-8 border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.06)] rounded-xl overflow-hidden max-w-[420px] font-sans">
+                <div className="bg-black text-white text-[13px] font-semibold text-center py-2.5">
                   Enter Pincode to Check The Delivery Date
                 </div>
-                <div className="p-4 bg-white">
-                  <p className="text-[14px] text-gray-800 mb-2">
+
+                <div className="p-4 sm:p-5 bg-white">
+                  <p className="text-[14px] text-gray-800 mb-4">
                     Estimated Delivery
                   </p>
 
-                  {/* Input area with thick black underline */}
-                  <div className="flex items-center justify-between border-b-[1.5px] border-black pb-1.5 mb-2">
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={pincode}
-                      onChange={(e) => {
-                        const val = e.target.value
-                          .replace(/\D/g, "")
-                          .slice(0, 6);
-                        setPincode(val);
-                        if (pincodeMsg) setPincodeMsg("");
-                      }}
-                      onKeyDown={(e) => e.key === "Enter" && checkPincode()}
-                      className="flex-1 text-[14px] bg-transparent outline-none text-gray-900 font-medium placeholder-gray-400"
-                      placeholder="250002"
-                      maxLength={6}
-                    />
-                    <button
-                      onClick={checkPincode}
-                      disabled={pincode.length === 0}
-                      className="text-[13px] font-bold text-black uppercase tracking-wide hover:text-[#e6007e] transition-colors disabled:opacity-40 px-1">
-                      Check
-                    </button>
-                  </div>
+                  {shippingInfo && !shippingError ? (
+                    /* --- SUCCESS STATE (Matches your image) --- */
+                    <div className="flex items-start gap-4">
+                      {/* Left Column: Pincode */}
+                      <div className="flex flex-col w-[120px]">
+                        <div className="flex items-center gap-2 border-b border-black pb-1.5">
+                          <div className="border border-gray-200 rounded text-gray-400 p-[3px] flex items-center justify-center">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="13"
+                              height="13"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round">
+                              <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+                              <circle cx="12" cy="10" r="3" />
+                            </svg>
+                          </div>
+                          <span className="text-[14px] text-gray-500">
+                            {pincode}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            // Add any reset logic here if needed (e.g., clearing shippingInfo state)
+                            setPincode("");
+                          }}
+                          className="text-left text-[12.5px] font-bold text-black mt-2.5 hover:opacity-70 transition-opacity">
+                          Change pincode
+                        </button>
+                      </div>
 
-                  {pincodeMsg && (
-                    <p
-                      className={`text-[12px] font-medium ${pincodeMsg.startsWith("✓") ? "text-green-600" : "text-red-500"}`}>
-                      {pincodeMsg}
-                    </p>
+                      {/* Right Column: Date */}
+                      <div className="flex flex-col flex-1">
+                        <div className="flex items-center gap-2 border-b border-black pb-1.5">
+                          <div className="border border-gray-200 rounded text-gray-400 p-[3px] flex items-center justify-center">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="13"
+                              height="13"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round">
+                              <rect
+                                width="18"
+                                height="18"
+                                x="3"
+                                y="4"
+                                rx="2"
+                                ry="2"
+                              />
+                              <line x1="16" x2="16" y1="2" y2="6" />
+                              <line x1="8" x2="8" y1="2" y2="6" />
+                              <line x1="3" x2="21" y1="10" y2="10" />
+                              <path d="M8 14h.01" />
+                              <path d="M12 14h.01" />
+                              <path d="M16 14h.01" />
+                              <path d="M8 18h.01" />
+                              <path d="M12 18h.01" />
+                              <path d="M16 18h.01" />
+                            </svg>
+                          </div>
+                          <span className="text-[14px] text-gray-500">
+                            {shippingInfo.deliveryDate}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    /* --- INPUT STATE --- */
+                    <div>
+                      <div className="flex items-center justify-between border-b border-black pb-1.5">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={pincode}
+                          onChange={(e) =>
+                            setPincode(
+                              e.target.value.replace(/\D/g, "").slice(0, 6),
+                            )
+                          }
+                          onKeyDown={(e) =>
+                            e.key === "Enter" &&
+                            pincode.length === 6 &&
+                            verifyPincode(pincode)
+                          }
+                          className="flex-1 text-[14px] bg-transparent outline-none text-gray-900 font-medium placeholder-gray-400"
+                          placeholder="Enter Pincode"
+                          maxLength={6}
+                        />
+                        <button
+                          onClick={() => verifyPincode(pincode)}
+                          disabled={pincode.length !== 6 || shippingLoading}
+                          className="text-[13px] font-bold text-black uppercase tracking-wide hover:opacity-70 transition-opacity disabled:opacity-40 px-1">
+                          {shippingLoading ? "Checking..." : "Check"}
+                        </button>
+                      </div>
+
+                      {shippingLoading && (
+                        <p className="text-[12px] text-gray-500 mt-2">
+                          Checking delivery availability...
+                        </p>
+                      )}
+
+                      {!shippingLoading && shippingError && (
+                        <p className="text-[12px] font-medium text-red-500 mt-2">
+                          {shippingError}
+                        </p>
+                      )}
+
+                      {!shippingLoading &&
+                        !shippingError &&
+                        pinStatus === "invalid" && (
+                          <p className="text-[12px] font-medium text-red-500 mt-2">
+                            Not deliverable to this pincode.
+                          </p>
+                        )}
+                    </div>
                   )}
                 </div>
               </div>
+              {shippingLoading && (
+                <p className="text-[12px] text-gray-500">
+                  Checking delivery availability…
+                </p>
+              )}
 
+              {!shippingLoading && shippingError && (
+                <p className="text-[12px] font-medium text-red-500">
+                  {shippingError}
+                </p>
+              )}
+
+              {!shippingLoading &&
+                !shippingError &&
+                pinStatus === "invalid" && (
+                  <p className="text-[12px] font-medium text-red-500">
+                    Not deliverable to this pincode.
+                  </p>
+                )}
+
+              {!shippingLoading && !shippingError && shippingInfo && (
+                <p className="text-[12px] font-medium text-green-600">
+                  ✓ Delivery by {shippingInfo.deliveryDate}.{" "}
+                  {shippingInfo.shippingCharge === 0
+                    ? "Free shipping"
+                    : `Shipping ₹${shippingInfo.shippingCharge}`}
+                </p>
+              )}
+
+              {/* ── 8.5 Quantity Selector ── */}
+              <div className="flex items-center gap-3 mb-4">
+                <span className="text-[14px] text-gray-800">Quantity</span>
+                <div className="flex items-center border border-gray-300 rounded-[4px]">
+                  <button
+                    type="button"
+                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                    disabled={quantity <= 1}
+                    className="px-3 py-2 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    aria-label="Decrease quantity">
+                    <MinusIcon className="w-3.5 h-3.5" />
+                  </button>
+                  <span className="px-4 text-[14px] font-medium text-gray-900 min-w-[2.5rem] text-center">
+                    {quantity}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setQuantity((q) => Math.min(maxQty, q + 1))}
+                    disabled={quantity >= maxQty}
+                    className="px-3 py-2 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    aria-label="Increase quantity">
+                    <PlusIcon className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                {isOutOfStock === false &&
+                  product.stock > 0 &&
+                  product.stock <= 5 && (
+                    <span className="text-[12px] text-orange-600 font-medium">
+                      Only {product.stock} left
+                    </span>
+                  )}
+              </div>
+              {/* ── 9. CTA Buttons ── */}
+              <div className="flex flex-col sm:flex-row gap-3 mb-8">
+                <button
+                  onClick={() => handleAddToCart(false)}
+                  disabled={isAdding || isOutOfStock || alreadyInCart}
+                  className={`flex-1 py-3.5 rounded-[4px] font-bold uppercase tracking-widest text-[13px] transition-all duration-200 border ${
+                    alreadyInCart
+                      ? "bg-gray-200 text-gray-500 border-gray-200 cursor-not-allowed"
+                      : isOutOfStock
+                        ? "bg-gray-300 text-gray-400 border-gray-300 cursor-not-allowed"
+                        : "bg-white text-black border-[#e6007e] hover:bg-pink-50"
+                  }`}>
+                  {isOutOfStock
+                    ? "Out of Stock"
+                    : alreadyInCart
+                      ? "In Bag"
+                      : isAdding
+                        ? "Adding…"
+                        : "Add to Cart"}
+                </button>
+
+                <button
+                  onClick={() => handleAddToCart(true)}
+                  disabled={isAdding || isOutOfStock}
+                  className="flex-1 py-3.5 rounded-[4px] font-bold uppercase tracking-widest text-[13px] bg-black text-white hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all duration-200">
+                  {isOutOfStock ? "Out of Stock" : "Buy Now"}
+                </button>
+
+                <button
+                  onClick={handleWishlist}
+                  className={`sm:w-14 py-3.5 border rounded-[4px] flex items-center justify-center transition-all duration-200 ${
+                    wishlisted
+                      ? "border-[#e6007e] text-[#e6007e] bg-pink-50"
+                      : "border-gray-300 text-gray-900 hover:border-[#e6007e] hover:text-[#e6007e]"
+                  }`}
+                  aria-label={
+                    wishlisted ? "Remove from wishlist" : "Add to wishlist"
+                  }>
+                  {wishlisted ? (
+                    <HeartSolid className="w-4 h-4" />
+                  ) : (
+                    <HeartIcon className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
               {/* ── 9. CTA Buttons ── */}
               <div className="flex flex-col sm:flex-row gap-3 mb-8">
                 <button
@@ -678,18 +934,29 @@ const ProductDetailsPage = () => {
                 <div className="mt-8 mb-8">
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                     {product.highlights.map((hl, idx) => (
-                      <div key={idx} className="flex flex-col items-center text-center p-3 bg-gray-50 rounded-lg">
+                      <div
+                        key={idx}
+                        className="flex flex-col items-center text-center p-3 bg-gray-50 rounded-lg">
                         {hl.icon ? (
-                          typeof hl.icon === "string" && hl.icon.startsWith("http") ? (
-                            <img src={hl.icon} alt={hl.title} className="w-8 h-8 mb-2 opacity-80" />
+                          typeof hl.icon === "string" &&
+                          hl.icon.startsWith("http") ? (
+                            <img
+                              src={hl.icon}
+                              alt={hl.title}
+                              className="w-8 h-8 mb-2 opacity-80"
+                            />
                           ) : (
                             <span className="text-2xl mb-1">{hl.icon}</span> // e.g., emoji or mapped icon
                           )
                         ) : (
                           <StarSolid className="w-6 h-6 text-[#da127d] mb-2 opacity-80" />
                         )}
-                        <span className="text-[13px] font-bold text-gray-900 leading-tight mb-1">{hl.title}</span>
-                        <span className="text-[11px] text-gray-500 leading-tight">{hl.description}</span>
+                        <span className="text-[13px] font-bold text-gray-900 leading-tight mb-1">
+                          {hl.title}
+                        </span>
+                        <span className="text-[11px] text-gray-500 leading-tight">
+                          {hl.description}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -731,34 +998,41 @@ const ProductDetailsPage = () => {
                     {openSection === "Description" && (
                       <div className="pb-6 pl-[54px] pr-4 text-[14px] text-gray-700 leading-relaxed animate-in slide-in-from-top-2 fade-in duration-200">
                         {product.description ? (
-                          <div 
+                          <div
                             className="product-description-html"
-                            dangerouslySetInnerHTML={{ __html: product.description }} 
+                            dangerouslySetInnerHTML={{
+                              __html: product.description,
+                            }}
                           />
                         ) : (
                           <p className="mb-5 whitespace-pre-wrap">
-                            Detailed product description goes here. This beautiful piece is crafted with care and designed to make you stand out.
+                            Detailed product description goes here. This
+                            beautiful piece is crafted with care and designed to
+                            make you stand out.
                           </p>
                         )}
-                        {product.specifications && product.specifications.length > 0 && (
-                          <div className="mt-6">
-                            <h4 className="font-bold text-gray-900 mb-3 text-[14px]">
-                              Specifications
-                            </h4>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-8">
-                              {product.specifications.map((spec, idx) => (
-                                <div key={idx} className="flex flex-col border-b border-gray-100 pb-2">
-                                  <span className="text-gray-400 text-[12px] uppercase tracking-wider mb-0.5">
-                                    {spec.label}
-                                  </span>
-                                  <span className="font-medium text-gray-900">
-                                    {spec.value}
-                                  </span>
-                                </div>
-                              ))}
+                        {product.specifications &&
+                          product.specifications.length > 0 && (
+                            <div className="mt-6">
+                              <h4 className="font-bold text-gray-900 mb-3 text-[14px]">
+                                Specifications
+                              </h4>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-8">
+                                {product.specifications.map((spec, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="flex flex-col border-b border-gray-100 pb-2">
+                                    <span className="text-gray-400 text-[12px] uppercase tracking-wider mb-0.5">
+                                      {spec.label}
+                                    </span>
+                                    <span className="font-medium text-gray-900">
+                                      {spec.value}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          )}
                       </div>
                     )}
                   </div>
@@ -796,14 +1070,26 @@ const ProductDetailsPage = () => {
                           <li>Hand wash in cold water</li>
                           <li>Use mild detergent</li>
                           <li>Wash light colors together</li>
-                          <li>Dark colors may bleed; wash separately for the first few washes</li>
-                          <li>Hand-dyed (tie-dye) products might bleed during the first few washes. Kindly wash them separately</li>
+                          <li>
+                            Dark colors may bleed; wash separately for the first
+                            few washes
+                          </li>
+                          <li>
+                            Hand-dyed (tie-dye) products might bleed during the
+                            first few washes. Kindly wash them separately
+                          </li>
                           <li>Do not soak or wring</li>
-                          <li>Dry in shade; avoid direct sunlight to prevent fading</li>
+                          <li>
+                            Dry in shade; avoid direct sunlight to prevent
+                            fading
+                          </li>
                           <li>Avoid ironing on embroidery</li>
                           <li>Iron on low heat if needed</li>
                           <li>No machine wash or dry clean</li>
-                          <li>Avoid strong detergents or fabric softeners to preserve fabric quality</li>
+                          <li>
+                            Avoid strong detergents or fabric softeners to
+                            preserve fabric quality
+                          </li>
                         </ul>
                       </div>
                     )}
@@ -835,27 +1121,85 @@ const ProductDetailsPage = () => {
                       </div>
                     </button>
 
-                      <div className="pb-6 pl-[54px] pr-4 text-[13px] text-gray-700 leading-relaxed animate-in slide-in-from-top-2 fade-in duration-200">
-                        <p className="font-semibold mb-3">NOTE FOR RETURN & EXCHANGE :</p>
-                        <ul className="list-disc pl-4 space-y-1.5 marker:text-gray-400 mb-6">
-                          <li>All 'Black Friday Sale', 'Birthday Sale' or 'Buy 2 Get 1 free' purchases are final and not eligible for return or exchange.</li>
-                          <li>The items should be unused and unwashed for hygiene reasons.</li>
-                          <li>We do not offer cashback. Refunds are only made in terms of a Store Credit.</li>
-                          <li>Items purchased for FREE during an offer, will not be accepted for returns.</li>
-                          <li>The product should have the original packaging and tags in place. Items without the original tags will not be accepted.</li>
-                          <li>Return/Exchange requests that are not raised within 7 DAYS of receiving the product would not be accepted.</li>
-                          <li>The product would be picked in 3-5 days after the return or exchange request is approved.</li>
-                          <li>Return charges would have to be borne by the customer.( Rs150/-)</li>
-                          <li>There are no charges for exchange. Exchanges are for size & design both, subject to availability.</li>
-                          <li>'On Sale' Products are not eligible for Return/Exchange.</li>
-                          <li>The credit note issued, will be valid for 1 year from the date of issuance.</li>
-                          <li>Misprints and colour differences from website images are not considered damaged products. We only sell handcrafted products and these are all signs of authenticity.</li>
-                          <li>Each order is eligible for a return/exchange only once.</li>
-                          <li>The company holds the authority to make the final decision in any case.</li>
-                          <li>Please note, products from our brand bought from other stores or marketplaces like Myntra are not eligible for any return or exchange at our store or on the website.</li>
-                        </ul>
-                        <p className="mb-6 uppercase"><strong>REFUNDS WILL TAKE 7-10 WORKING DAYS.</strong> Please Note: We only do money refunds in case of Wrong or Damaged products being delivered. In any other case, a refund is made only is terms of STORE CREDIT.</p>
-                      </div>
+                    <div className="pb-6 pl-[54px] pr-4 text-[13px] text-gray-700 leading-relaxed animate-in slide-in-from-top-2 fade-in duration-200">
+                      <p className="font-semibold mb-3">
+                        NOTE FOR RETURN & EXCHANGE :
+                      </p>
+                      <ul className="list-disc pl-4 space-y-1.5 marker:text-gray-400 mb-6">
+                        <li>
+                          All 'Black Friday Sale', 'Birthday Sale' or 'Buy 2 Get
+                          1 free' purchases are final and not eligible for
+                          return or exchange.
+                        </li>
+                        <li>
+                          The items should be unused and unwashed for hygiene
+                          reasons.
+                        </li>
+                        <li>
+                          We do not offer cashback. Refunds are only made in
+                          terms of a Store Credit.
+                        </li>
+                        <li>
+                          Items purchased for FREE during an offer, will not be
+                          accepted for returns.
+                        </li>
+                        <li>
+                          The product should have the original packaging and
+                          tags in place. Items without the original tags will
+                          not be accepted.
+                        </li>
+                        <li>
+                          Return/Exchange requests that are not raised within 7
+                          DAYS of receiving the product would not be accepted.
+                        </li>
+                        <li>
+                          The product would be picked in 3-5 days after the
+                          return or exchange request is approved.
+                        </li>
+                        <li>
+                          Return charges would have to be borne by the
+                          customer.( Rs150/-)
+                        </li>
+                        <li>
+                          There are no charges for exchange. Exchanges are for
+                          size & design both, subject to availability.
+                        </li>
+                        <li>
+                          'On Sale' Products are not eligible for
+                          Return/Exchange.
+                        </li>
+                        <li>
+                          The credit note issued, will be valid for 1 year from
+                          the date of issuance.
+                        </li>
+                        <li>
+                          Misprints and colour differences from website images
+                          are not considered damaged products. We only sell
+                          handcrafted products and these are all signs of
+                          authenticity.
+                        </li>
+                        <li>
+                          Each order is eligible for a return/exchange only
+                          once.
+                        </li>
+                        <li>
+                          The company holds the authority to make the final
+                          decision in any case.
+                        </li>
+                        <li>
+                          Please note, products from our brand bought from other
+                          stores or marketplaces like Myntra are not eligible
+                          for any return or exchange at our store or on the
+                          website.
+                        </li>
+                      </ul>
+                      <p className="mb-6 uppercase">
+                        <strong>REFUNDS WILL TAKE 7-10 WORKING DAYS.</strong>{" "}
+                        Please Note: We only do money refunds in case of Wrong
+                        or Damaged products being delivered. In any other case,
+                        a refund is made only is terms of STORE CREDIT.
+                      </p>
+                    </div>
                   </div>
 
                   {/* Shipping Accordion */}
@@ -887,11 +1231,28 @@ const ProductDetailsPage = () => {
                     {openSection === "Shipping" && (
                       <div className="pb-6 pl-[54px] pr-4 text-[13px] text-gray-700 leading-relaxed animate-in slide-in-from-top-2 fade-in duration-200">
                         <ul className="list-disc pl-4 space-y-1.5 marker:text-gray-400">
-                          <li>Babli offers <strong>FREE PAN India shipping</strong> on all orders above 1000/-.</li>
-                          <li>For all orders below 1000/-, it's just a nominal charge of Rs.150/-.</li>
-                          <li>For COD orders, we charge Rs.50/- for COD charges.</li>
-                          <li>Your orders are our priority! We dispatch them within 3-4 working days and you can expect the delivery within 7-10 days.</li>
-                          <li>You'll receive tracking details on registered mail id and whatsapp to keep tabs on your parcel once it's on its way.</li>
+                          <li>
+                            Babli offers{" "}
+                            <strong>FREE PAN India shipping</strong> on all
+                            orders above 1000/-.
+                          </li>
+                          <li>
+                            For all orders below 1000/-, it's just a nominal
+                            charge of Rs.150/-.
+                          </li>
+                          <li>
+                            For COD orders, we charge Rs.50/- for COD charges.
+                          </li>
+                          <li>
+                            Your orders are our priority! We dispatch them
+                            within 3-4 working days and you can expect the
+                            delivery within 7-10 days.
+                          </li>
+                          <li>
+                            You'll receive tracking details on registered mail
+                            id and whatsapp to keep tabs on your parcel once
+                            it's on its way.
+                          </li>
                         </ul>
                       </div>
                     )}

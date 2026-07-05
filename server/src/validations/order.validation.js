@@ -10,29 +10,13 @@ const ORDER_STATUS = [
   "pending",
   "confirmed",
   "processing",
-  "packed",
   "shipped",
   "out_for_delivery",
   "delivered",
   "cancelled",
   "returned",
   "refunded",
-  "on_hold",
 ];
-
-// ✅ MATCHES MONGODB: PAYMENT_GATEWAY enum
-const PAYMENT_GATEWAY = [
-  "razorpay",
-  "stripe",
-  "phonepe",
-  "paytm",
-  "cashfree",
-  "cod",
-  "bank_transfer",
-  "whatsapp",
-];
-
-const ORDER_SOURCE = ["web", "mobile", "whatsapp", "admin", "api"];
 
 /* ===========================================================
    ADDRESS
@@ -53,9 +37,9 @@ const addressSchema = z.object({
 
   country: z.string().trim().default("India"),
 
+  // NOTE: renamed to match the mongoose schema field exactly (was a
+  // "pincode" mismatch in the controller before — postalCode everywhere now)
   postalCode: z.string().regex(/^[1-9][0-9]{5}$/, "Invalid postal code"),
-
-  landmark: z.string().trim().max(200).optional(),
 });
 
 /* ===========================================================
@@ -66,8 +50,6 @@ const variantSchema = z
   .object({
     color: z.string().optional(),
     size: z.string().optional(),
-    weight: z.string().optional(),
-    other: z.string().optional(),
   })
   .partial()
   .optional();
@@ -78,69 +60,36 @@ const variantSchema = z
 
 const orderItemSchema = z.object({
   productId: z.string().min(1),
-
-  sku: z.string().optional(),
-
+  sku: z.string().min(1),
+  slug: z.string().optional(),
   name: z.string().min(1),
-
-  brand: z.string().optional(),
-
-  category: z.string().optional(),
-
   image: z.string().url(),
-
   variant: variantSchema,
-
   quantity: z.number().int().min(1).max(100),
-
   price: z.number().nonnegative(),
-
-  originalPrice: z.number().nonnegative().optional(),
-
-  totalPrice: z.number().nonnegative(),
-
-  // GST at item level
-  gst: z
-    .object({
-      rate: z.number().nonnegative().optional(),
-      amount: z.number().nonnegative().optional(),
-      hsn: z.string().optional(),
-    })
-    .optional(),
 });
 
 /* ===========================================================
    PRICING
-   
-   Supports both naming conventions:
-   - itemDiscount, shippingCharge, taxAmount (model format)
-   - discount, shipping, tax (frontend format)
+   Frontend can send either naming convention; order.controller.js's
+   mapPricingToSchema() normalizes both into the mongoose pricing shape.
 =========================================================== */
 
 const pricingSchema = z.object({
   subtotal: z.number().nonnegative(),
 
-  // Item discount (both field names supported)
   itemDiscount: z.number().nonnegative().optional(),
   discount: z.number().nonnegative().optional(),
-
   couponDiscount: z.number().nonnegative().default(0),
-
   prepaidDiscount: z.number().nonnegative().default(0),
-
   bulkDiscount: z.number().nonnegative().default(0),
 
-  // Shipping (both field names supported)
   shippingCharge: z.number().nonnegative().optional(),
   shipping: z.number().nonnegative().optional(),
 
-  // Tax (both field names supported)
   taxAmount: z.number().nonnegative().optional(),
   tax: z.number().nonnegative().optional(),
 
-  roundOff: z.number().default(0),
-
-  // Total (both field names supported)
   total: z.number().positive(),
   totalPayable: z.number().positive().optional(),
 
@@ -149,43 +98,20 @@ const pricingSchema = z.object({
 
 /* ===========================================================
    CREATE ORDER
-   
-   ✅ UPDATED: Now supports BOTH authenticated and guest users
-   
+
+   Razorpay-only, guest + authenticated users both supported.
+
    For authenticated users:
    - Firebase token in header (middleware sets req.user)
    - Can omit customerEmail, customerName
-   - Will use user profile data
-   
+
    For guest users:
    - No Firebase token
    - Must provide: customerEmail, customerName
-   - isGuest must be true
-   
-   Example guest payload:
-   {
-     items: [...],
-     shippingAddress: {...},
-     pricing: {...},
-     paymentMethod: "razorpay",
-     isGuest: true,
-     customerEmail: "guest@example.com",
-     customerName: "Guest User"
-   }
-   
-   Example auth payload:
-   {
-     items: [...],
-     shippingAddress: {...},
-     pricing: {...},
-     paymentMethod: "razorpay"
-   }
 =========================================================== */
 
 const createSchema = z
   .object({
-    orderId: z.string().min(6).max(50).optional(),
-
     items: z
       .array(orderItemSchema)
       .min(1, "Order must have at least one item"),
@@ -194,41 +120,32 @@ const createSchema = z
 
     pricing: pricingSchema,
 
-    // Payment method
-    paymentMethod: z.enum(PAYMENT_GATEWAY),
+    // Only Razorpay is accepted right now. Switch back to
+    // z.enum([...]) if more gateways are added later.
+    paymentMethod: z.literal("razorpay"),
 
-    // Order source channel
-    source: z.enum(ORDER_SOURCE).default("web"),
-
-    // Optional customer note
     customerNote: z.string().trim().max(500).optional(),
 
-    // ✅ NEW: Guest user fields (optional - only required if isGuest=true)
-    isGuest: z.boolean().default(false),
-    customerEmail: z
-      .string()
-      .email("Invalid email format")
-      .nullable()
-      .optional(),
+    customerEmail: z.string().email("Invalid email format").nullable().optional(),
     customerName: z.string().min(2).max(100).nullable().optional(),
-    userId: z.string().nullable().optional(), // For explicit userId (usually from middleware)
+      userId: z.string().nullable().optional(),
+    isGuest: z.boolean().optional(),
   })
+
+  
   .strict()
   .refine(
     (data) => {
-      // If isGuest is true, must have customerEmail and customerName
-      if (data.isGuest) {
-        return data.customerEmail && data.customerName;
-      }
+      // customerEmail/customerName are only truly required when there's no
+      // authenticated user — that check happens in the controller (it knows
+      // req.user), so this just checks the pair is provided together when present.
+      if (data.customerEmail && !data.customerName) return false;
+      if (data.customerName && !data.customerEmail) return false;
       return true;
     },
-    {
-      message: "Guest users must provide customerEmail and customerName",
-      path: ["isGuest"],
-    }
+    { message: "customerEmail and customerName must be provided together", path: ["customerEmail"] }
   )
   .transform((data) => {
-    // ✅ Normalize pricing field names for consistency
     const pricing = data.pricing;
     return {
       ...data,
@@ -240,7 +157,6 @@ const createSchema = z
         bulkDiscount: pricing.bulkDiscount ?? 0,
         shippingCharge: pricing.shippingCharge ?? pricing.shipping ?? 0,
         taxAmount: pricing.taxAmount ?? pricing.tax ?? 0,
-        roundOff: pricing.roundOff ?? 0,
         total: pricing.total ?? pricing.totalPayable,
         currency: pricing.currency ?? "INR",
       },
@@ -254,24 +170,26 @@ const createSchema = z
 const updateSchema = z
   .object({
     shippingAddress: addressSchema.optional(),
-
     customerNote: z.string().trim().max(500).optional(),
   })
   .strict();
 
 /* ===========================================================
    ADMIN STATUS UPDATE
+   courier/trackingNumber/trackingUrl are now actually persisted by
+   order.controller.js's updateOrderStatus — this is the manual-shipping
+   entry point, so these fields matter.
 =========================================================== */
 
 const updateStatusSchema = z
   .object({
     orderStatus: z.enum(ORDER_STATUS),
 
+    message: z.string().trim().max(500).optional(),
+
     courier: z.string().trim().optional(),
-
     trackingNumber: z.string().trim().optional(),
-
-    trackingUrl: z.string().trim().optional(),
+    trackingUrl: z.string().trim().url().optional(),
 
     adminNote: z.string().trim().max(1000).optional(),
   })
@@ -281,8 +199,17 @@ const updateStatusSchema = z
    PARAM VALIDATION
 =========================================================== */
 
+// For routes like /orders/:id, /orders/admin/:id — accepts either a
+// Mongo _id or a human orderId string.
 const idParamSchema = z.object({
   id: z.string().min(6),
+});
+
+// For /orders/status/:orderId — the param key is `orderId`, not `id`,
+// so it needs its own schema (idParamSchema was being reused incorrectly
+// against a param that doesn't exist on that route).
+const orderIdParamSchema = z.object({
+  orderId: z.string().min(6),
 });
 
 /* ===========================================================
@@ -291,6 +218,7 @@ const idParamSchema = z.object({
 
 const orderSchemas = {
   idParam: idParamSchema,
+  orderIdParam: orderIdParamSchema,
   create: createSchema,
   update: updateSchema,
   updateStatus: updateStatusSchema,

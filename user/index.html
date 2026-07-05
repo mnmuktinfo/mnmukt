@@ -9,23 +9,24 @@
     <meta
       name="description"
       content="Shop premium ethnic wear, kurta sets, salwar suits &amp; organic lifestyle products at Mnmukt. Handcrafted with care, delivered with love." />
-    <meta name="robots" content="index, follow" />
+    <meta
+      name="robots"
+      content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <meta name="googlebot" content="index, follow" />
     <meta name="author" content="Mnmukt" />
+    <meta
+      name="keywords"
+      content="ethnic wear, kurta sets, salwar suits, Indian clothing, organic lifestyle products" />
 
-    <!-- ── CANONICAL ── -->
+    <!-- ── CANONICAL + LOCALE ── -->
     <link rel="canonical" href="https://mnmukt.com/" />
+    <link rel="alternate" hreflang="en-in" href="https://mnmukt.com/" />
+    <link rel="alternate" hreflang="x-default" href="https://mnmukt.com/" />
 
     <!-- ── PERFORMANCE: DNS + Preconnect ── -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 
-    <!--
-      ── PERFORMANCE: Non-blocking font load ──
-      • media="print" + onload trick loads CSS async so it never blocks render.
-      • <noscript> fallback ensures fonts load when JS is disabled.
-      • Only load weights you actually USE — removed Inter 300 & Playfair 600
-        if unused (add back if needed).
-    -->
     <link
       rel="preload"
       as="style"
@@ -42,10 +43,6 @@
     </noscript>
 
     <!-- ── FAVICON ── -->
-    <!--
-      Use .ico or .svg for the main icon — PNG works but .ico has broader support.
-      Provide multiple apple-touch-icon sizes for best PWA/iOS scores.
-    -->
     <link rel="icon" type="image/png" href="/appLogo.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/appLogo.png" />
 
@@ -60,6 +57,7 @@
     <!-- ── OPEN GRAPH + TWITTER CARD ── -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Mnmukt" />
+    <meta property="og:locale" content="en_IN" />
     <meta property="og:title" content="Mnmukt — Premium Ethnic Wear" />
     <meta
       property="og:description"
@@ -68,6 +66,9 @@
     <meta property="og:image" content="https://mnmukt.com/og-cover.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Mnmukt premium ethnic wear collection" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Mnmukt — Premium Ethnic Wear" />
     <meta
@@ -75,17 +76,19 @@
       content="Shop premium ethnic wear, kurta sets, salwar suits &amp; lifestyle products." />
     <meta name="twitter:image" content="https://mnmukt.com/og-cover.png" />
 
-    <!-- ── STRUCTURED DATA ── -->
+    <link
+      rel="stylesheet"
+      href="https://checkout-ui.shiprocket.com/assets/styles/shopify.css" />
+    <script src="https://checkout-ui.shiprocket.com/assets/js/channels/login.js"></script>
+
+    <!-- ── STRUCTURED DATA: Organization ── -->
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
         "@type": "Organization",
         "name": "Mnmukt",
         "url": "https://mnmukt.com/",
-        "logo": {
-          "@type": "ImageObject",
-          "url": "https://mnmukt.com/appLogo.png"
-        },
+        "logo": "https://mnmukt.com/appLogo.png",
         "sameAs": [
           "https://www.instagram.com/mnmukt",
           "https://www.facebook.com/mnmukt"
@@ -93,21 +96,48 @@
       }
     </script>
 
+    <!-- ── STRUCTURED DATA: WebSite + Sitelinks Search Box ──
+         This is what lets Google show a search bar under your listing.
+         The urlTemplate MUST match your actual on-site search route. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "url": "https://mnmukt.com/",
+        "name": "Mnmukt",
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": {
+            "@type": "EntryPoint",
+            "urlTemplate": "https://mnmukt.com/search?q={search_term_string}"
+          },
+          "query-input": "required name=search_term_string"
+        }
+      }
+    </script>
+
     <!--
       ── PERFORMANCE: Critical CSS inline ──
       Paste your above-the-fold CSS here to eliminate render-blocking.
-      Even a tiny reset removes a network round-trip.
     -->
   </head>
 
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!--
+        ── SEO SAFETY NET FOR SPAs ──
+        Because this is a Vite/React app, this div is empty until JS runs.
+        Google can execute JS, but rendering is delayed to a "second wave"
+        of indexing and can be skipped under crawl-budget pressure, and
+        OTHER crawlers (Bing, LinkedIn, WhatsApp preview bots, some AI
+        crawlers) do NOT execute JS at all.
+        Put a small amount of real, crawlable content here as a fallback —
+        e.g. your H1, a short intro paragraph, and links to top category
+        pages. React will overwrite this on hydration, so it costs nothing
+        visually but gives every crawler something to read immediately.
+      -->
+    </div>
 
-    <!--
-      ── PERFORMANCE: Module script (already optimal) ──
-      type="module" is automatically deferred — no need to add defer.
-      Vite will code-split & inject hashed asset links at build time.
-    -->
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
