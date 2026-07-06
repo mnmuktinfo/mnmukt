@@ -4,6 +4,7 @@ import {
   useEffect,
   useState,
   useCallback,
+  useRef,
 } from "react";
 
 import {
@@ -20,13 +21,13 @@ const isDev = process.env.NODE_ENV === "development";
 
 const log = (...args) => {
   if (isDev) {
-    console.log("[Cart]", ...args);
+    console.log("🛒 [Cart]", ...args);
   }
 };
 
 const errorLog = (...args) => {
   if (isDev) {
-    console.error("[Cart Error]", ...args);
+    console.error("🚨 [Cart Error]", ...args);
   }
 };
 
@@ -36,312 +37,319 @@ export const CartProvider = ({ children }) => {
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState(null);
 
-  /* ============================================
-     LOAD CART
-  ============================================ */
-
+  // 1. STATE REF: Always holds the absolute latest cart state to prevent stale closures
+  const cartRef = useRef([]);
   useEffect(() => {
-    const loadCart = async () => {
-      try {
-        setLoading(true);
+    cartRef.current = cart;
+  }, [cart]);
 
-        const data = await getCartDB();
+  // 2. BROADCAST CHANNEL: Syncs cart across multiple browser tabs
+  const channelRef = useRef(null);
 
-        setCart(data ?? []);
+  // 3. TASK QUEUE: Guarantees 1 Flow, 1 Truth. Prevents race conditions on rapid clicks.
+  const taskQueue = useRef(Promise.resolve());
 
-        log("Cart loaded:", data);
+  /* ============================================
+     LOAD CART (Single Source of Truth)
+  ============================================ */
+  const loadCart = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await getCartDB();
+      setCart(data ?? []);
+      log("Cart loaded from DB:", data);
+      setError(null);
+    } catch (err) {
+      errorLog("Load failed:", err);
+      setCart([]);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-        setError(null);
-      } catch (err) {
-        errorLog("Load failed:", err);
-
-        setCart([]);
-        setError(err.message);
-      } finally {
-        setLoading(false);
+  /* ============================================
+     INITIALIZE & CROSS-TAB SYNC
+  ============================================ */
+  useEffect(() => {
+    // Listen for updates from other tabs
+    channelRef.current = new BroadcastChannel("cart_sync_channel");
+    channelRef.current.onmessage = (event) => {
+      if (event.data === "CART_MUTATED") {
+        log("Cross-tab sync triggered, reloading...");
+        loadCart();
       }
     };
 
     loadCart();
+
+    return () => {
+      if (channelRef.current) channelRef.current.close();
+    };
+  }, [loadCart]);
+
+  // Helper to notify other tabs that the DB has changed
+  const broadcastUpdate = () => {
+    if (channelRef.current) {
+      channelRef.current.postMessage("CART_MUTATED");
+    }
+  };
+
+  /* ============================================
+     QUEUE RUNNER
+  ============================================ */
+  const runInQueue = useCallback((task) => {
+    taskQueue.current = taskQueue.current.then(task).catch((err) => {
+      errorLog("Queue Task Failed:", err);
+      setError(err.message || "Action failed");
+    });
+    return taskQueue.current;
   }, []);
 
   /* ============================================
      VALIDATE ITEM
   ============================================ */
-
   const validateItem = (item) => {
     const required = ["productId", "name", "image", "price", "slug", "sku"];
-
     const missing = required.filter(
       (field) => !item[field] && item[field] !== 0,
     );
 
     if (missing.length) {
       errorLog(`Missing fields: ${missing.join(", ")}`, item);
-
       return false;
     }
-
     return true;
   };
 
   /* ============================================
      ADD TO CART
   ============================================ */
+  const addToCart = useCallback(
+    (cartItemData) => {
+      return runInQueue(async () => {
+        setSyncing(true);
 
-  const addToCart = useCallback(async (cartItemData) => {
-    setSyncing(true);
+        try {
+          if (!cartItemData) throw new Error("Invalid product");
 
-    try {
-      if (!cartItemData) {
-        throw new Error("Invalid product");
-      }
+          const productId = cartItemData.productId || cartItemData.id;
+          const selectedSize =
+            cartItemData.selectedSize ||
+            cartItemData.variant?.size ||
+            "onesize";
+          const quantity = Number(
+            cartItemData.quantity || cartItemData.selectedQuantity || 1,
+          );
 
-      const productId = cartItemData.productId || cartItemData.id;
-
-      const selectedSize =
-        cartItemData.selectedSize || cartItemData.variant?.size || "onesize";
-
-      const quantity =
-        cartItemData.quantity || cartItemData.selectedQuantity || 1;
-
-      const normalizedItem = {
-        ...cartItemData,
-
-        productId,
-
-        sku:
-          cartItemData.sku ||
-          `SKU-${String(productId).substring(0, 6).toUpperCase()}`,
-
-        slug: cartItemData.slug || "",
-
-        name: cartItemData.name || "",
-
-        image: cartItemData.image || "",
-
-        price: Number(cartItemData.price || 0),
-      };
-
-      if (!validateItem(normalizedItem)) {
-        throw new Error("Product data incomplete");
-      }
-
-      const cartKey = `${productId}_${selectedSize}`;
-
-      setCart((prev) => {
-        const existingIndex = prev.findIndex(
-          (item) => item.cartKey === cartKey,
-        );
-
-        let updated;
-
-        if (existingIndex !== -1) {
-          updated = [...prev];
-
-          const existing = updated[existingIndex];
-
-          const newQuantity = existing.quantity + quantity;
-
-          updated[existingIndex] = {
-            ...existing,
-
-            quantity: newQuantity,
-
-            totalPrice: existing.price * newQuantity,
+          const normalizedItem = {
+            ...cartItemData,
+            productId,
+            sku:
+              cartItemData.sku ||
+              `SKU-${String(productId).substring(0, 6).toUpperCase()}`,
+            slug: cartItemData.slug || "",
+            name: cartItemData.name || "",
+            image: cartItemData.image || "",
+            price: Number(cartItemData.price || 0),
           };
 
-          updateCartDB(cartKey, updated[existingIndex]);
+          if (!validateItem(normalizedItem)) {
+            throw new Error("Product data incomplete");
+          }
 
-          log("Quantity updated:", updated[existingIndex]);
-        } else {
-          const newItem = {
-            cartKey,
+          const cartKey = `${productId}_${selectedSize}`;
 
-            productId: String(productId),
+          // Read strictly from the REF, guaranteeing we never use stale state
+          const currentCart = cartRef.current;
+          const existing = currentCart.find((item) => item.cartKey === cartKey);
 
-            sku: normalizedItem.sku,
+          let itemToPersist;
+          let updatedCart;
 
-            slug: normalizedItem.slug,
+          if (existing) {
+            const newQuantity = existing.quantity + quantity;
+            itemToPersist = {
+              ...existing,
+              quantity: newQuantity,
+              totalPrice: existing.price * newQuantity,
+            };
+            updatedCart = currentCart.map((item) =>
+              item.cartKey === cartKey ? itemToPersist : item,
+            );
+          } else {
+            itemToPersist = {
+              cartKey,
+              productId: String(productId),
+              sku: normalizedItem.sku,
+              slug: normalizedItem.slug,
+              name: normalizedItem.name,
+              image: normalizedItem.image,
+              brand: cartItemData.brand || "",
+              category:
+                cartItemData.category || cartItemData.categoryId || "General",
+              variant: {
+                size: selectedSize,
+                color: cartItemData.selectedColor || "",
+              },
+              quantity,
+              price: normalizedItem.price,
+              originalPrice: Number(
+                cartItemData.originalPrice || normalizedItem.price,
+              ),
+              totalPrice: normalizedItem.price * quantity,
+              addedAt: new Date().toISOString(),
+            };
+            updatedCart = [...currentCart, itemToPersist];
+          }
 
-            name: normalizedItem.name,
+          // 1. Update DB First (Single Source of Truth)
+          if (existing) {
+            await updateCartDB(cartKey, itemToPersist);
+            log("Quantity updated:", itemToPersist);
+          } else {
+            await addCartDB(itemToPersist);
+            log("Added new item:", itemToPersist);
+          }
 
-            image: normalizedItem.image,
+          // 2. Update React State
+          setCart(updatedCart);
+          setError(null);
 
-            brand: cartItemData.brand || "",
-
-            category:
-              cartItemData.category || cartItemData.categoryId || "General",
-
-            variant: {
-              size: selectedSize,
-              color: cartItemData.selectedColor || "",
-            },
-
-            quantity,
-
-            price: normalizedItem.price,
-
-            originalPrice: Number(
-              cartItemData.originalPrice || normalizedItem.price,
-            ),
-
-            totalPrice: normalizedItem.price * quantity,
-
-            addedAt: new Date().toISOString(),
-          };
-
-          updated = [...prev, newItem];
-
-          addCartDB(newItem);
-
-          log("Added new item:", newItem);
+          // 3. Notify other tabs
+          broadcastUpdate();
+        } finally {
+          setSyncing(false);
         }
-
-        return updated;
       });
-
-      setError(null);
-    } catch (err) {
-      errorLog("Add to cart:", err);
-
-      setError(err.message);
-
-      throw err;
-    } finally {
-      setSyncing(false);
-    }
-  }, []);
+    },
+    [runInQueue],
+  );
 
   /* ============================================
      UPDATE QUANTITY
   ============================================ */
-
-  const updateQuantity = useCallback(async (cartKey, quantity) => {
-    setSyncing(true);
-
-    try {
-      if (quantity <= 0) {
-        remove(cartKey);
-        return;
-      }
-
-      setCart((prev) => {
-        const updated = prev.map((item) =>
-          item.cartKey === cartKey
-            ? {
-                ...item,
-                quantity,
-
-                totalPrice: item.price * quantity,
-              }
-            : item,
-        );
-
-        const item = updated.find((i) => i.cartKey === cartKey);
-
-        if (item) {
-          updateCartDB(cartKey, item);
+  const updateQuantity = useCallback(
+    (cartKey, quantity) => {
+      return runInQueue(async () => {
+        if (quantity <= 0) {
+          await removeDBLogic(cartKey); // Extracted logic
+          return;
         }
 
-        log("Quantity updated:", item);
+        setSyncing(true);
+        try {
+          const currentCart = cartRef.current;
+          const item = currentCart.find((i) => i.cartKey === cartKey);
+          if (!item) return;
 
-        return updated;
+          const updatedItem = {
+            ...item,
+            quantity,
+            totalPrice: item.price * quantity,
+          };
+
+          const updatedCart = currentCart.map((i) =>
+            i.cartKey === cartKey ? updatedItem : i,
+          );
+
+          await updateCartDB(cartKey, updatedItem);
+          setCart(updatedCart);
+          broadcastUpdate();
+
+          log("Quantity updated:", updatedItem);
+        } finally {
+          setSyncing(false);
+        }
       });
-    } catch (err) {
-      errorLog("Quantity update:", err);
-
-      setError("Failed updating quantity");
-    } finally {
-      setSyncing(false);
-    }
-  }, []);
+    },
+    [runInQueue],
+  );
 
   /* ============================================
      UPDATE SIZE
   ============================================ */
+  const updateSize = useCallback(
+    (cartKey, newSize) => {
+      return runInQueue(async () => {
+        if (!newSize) return;
 
-  const updateSize = useCallback(async (cartKey, newSize) => {
-    if (!newSize) return;
+        setSyncing(true);
+        try {
+          const currentCart = cartRef.current;
+          const item = currentCart.find((i) => i.cartKey === cartKey);
+          if (!item) return;
 
-    setSyncing(true);
+          const newKey = `${item.productId}_${newSize}`;
+          const updatedItem = {
+            ...item,
+            cartKey: newKey,
+            variant: { ...item.variant, size: newSize },
+          };
 
-    try {
-      setCart((prev) => {
-        const item = prev.find((i) => i.cartKey === cartKey);
+          const updatedCart = [
+            ...currentCart.filter((i) => i.cartKey !== cartKey),
+            updatedItem,
+          ];
 
-        if (!item) return prev;
+          await removeCartDB(cartKey);
+          await addCartDB(updatedItem);
 
-        const newKey = `${item.productId}_${newSize}`;
+          setCart(updatedCart);
+          broadcastUpdate();
 
-        const filtered = prev.filter((i) => i.cartKey !== cartKey);
-
-        const updatedItem = {
-          ...item,
-
-          cartKey: newKey,
-
-          variant: {
-            ...item.variant,
-            size: newSize,
-          },
-        };
-
-        removeCartDB(cartKey).then(() => addCartDB(updatedItem));
-
-        log("Size updated:", updatedItem);
-
-        return [...filtered, updatedItem];
+          log("Size updated:", updatedItem);
+        } finally {
+          setSyncing(false);
+        }
       });
-    } catch (err) {
-      errorLog("Size update:", err);
-
-      setError("Failed updating size");
-    } finally {
-      setSyncing(false);
-    }
-  }, []);
+    },
+    [runInQueue],
+  );
 
   /* ============================================
      REMOVE
   ============================================ */
-
-  const remove = useCallback(async (cartKey) => {
+  // Separated to be reusable inside the queue without causing deadlocks
+  const removeDBLogic = async (cartKey) => {
     setSyncing(true);
-
     try {
-      setCart((prev) => prev.filter((i) => i.cartKey !== cartKey));
-
       await removeCartDB(cartKey);
-
+      setCart((prev) => prev.filter((i) => i.cartKey !== cartKey));
+      broadcastUpdate();
       log("Removed:", cartKey);
-    } catch (err) {
-      errorLog("Remove:", err);
     } finally {
       setSyncing(false);
     }
-  }, []);
+  };
+
+  const remove = useCallback(
+    (cartKey) => {
+      return runInQueue(() => removeDBLogic(cartKey));
+    },
+    [runInQueue],
+  );
 
   /* ============================================
      CLEAR
   ============================================ */
+  const clear = useCallback(() => {
+    return runInQueue(async () => {
+      setSyncing(true);
+      try {
+        await clearCartDB();
+        setCart([]);
+        broadcastUpdate();
+        log("Cart cleared");
+      } finally {
+        setSyncing(false);
+      }
+    });
+  }, [runInQueue]);
 
-  const clear = useCallback(async () => {
-    setSyncing(true);
-
-    try {
-      setCart([]);
-
-      await clearCartDB();
-
-      log("Cart cleared");
-    } catch (err) {
-      errorLog("Clear:", err);
-    } finally {
-      setSyncing(false);
-    }
-  }, []);
-
+  /* ============================================
+     DERIVED STATE
+  ============================================ */
   const getTotal = useCallback(
     () => cart.reduce((sum, item) => sum + item.totalPrice, 0),
     [cart],
@@ -374,10 +382,8 @@ export const CartProvider = ({ children }) => {
 
 export const useCart = () => {
   const context = useContext(CartContext);
-
   if (!context) {
     throw new Error("useCart must be used within CartProvider");
   }
-
   return context;
 };

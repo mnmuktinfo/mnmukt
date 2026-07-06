@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { useAuth } from "../features/auth/context/UserContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { orderService } from "../features/orders/services/orderService";
+import { orderService } from "../features/orders/services/api/orderService";
 import OrderCard from "../features/orders/components/OrderCard";
 import AuthRedirect from "../features/orders/components/AuthRedirect";
 import { useNavigate } from "react-router-dom";

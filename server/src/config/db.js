@@ -1,55 +1,35 @@
-const mongoose = require("mongoose");
-const logger = require("../utils/logger");
+'use strict';
 
-const connectDB = async () => {
-  try {
-    const mongoURI = process.env.MONGODB_URI;
+const mongoose = require('mongoose');
+const { env } = require('./env');
+const { logger } = require('../utils/logger');
 
-    if (!mongoURI) {
-      throw new Error("MONGODB_URI is not defined in .env");
-    }
+mongoose.set('strictQuery', true);
 
-    const conn = await mongoose.connect(mongoURI);
+async function connectDB() {
+  mongoose.connection.on('connected', () => {
+    logger.info('MongoDB connected');
+  });
 
-    logger("INFO", "✅ MongoDB Connected Successfully");
+  mongoose.connection.on('error', (err) => {
+    logger.error({ err }, 'MongoDB connection error');
+  });
 
-    console.log("======================================");
-    console.log("🍃 MongoDB Connected");
-    console.log(`📂 Database : ${conn.connection.name}`);
-    console.log(`🌐 Host     : ${conn.connection.host}`);
-    console.log(`🚪 Port     : ${conn.connection.port}`);
-    console.log(`📦 ReadyState : ${conn.connection.readyState}`);
-    console.log("======================================");
+  mongoose.connection.on('disconnected', () => {
+    logger.warn('MongoDB disconnected');
+  });
 
-    mongoose.connection.on("connected", () => {
-      logger("INFO", "MongoDB connection established");
-    });
+  await mongoose.connect(env.MONGO_URI, {
+    maxPoolSize: 20,
+    serverSelectionTimeoutMS: 10000,
+    autoIndex: !env.IS_PROD, // build indexes manually in prod via migration/script
+  });
 
-    mongoose.connection.on("disconnected", () => {
-      logger("WARN", "MongoDB disconnected");
-    });
+  return mongoose.connection;
+}
 
-    mongoose.connection.on("error", (err) => {
-      logger("ERROR", err.message);
-    });
+async function disconnectDB() {
+  await mongoose.connection.close();
+}
 
-    process.on("SIGINT", async () => {
-      await mongoose.connection.close();
-      logger("INFO", "MongoDB connection closed");
-      process.exit(0);
-    });
-
-    return conn;
-  } catch (error) {
-    logger("ERROR", `MongoDB Connection Failed: ${error.message}`);
-
-    console.error("======================================");
-    console.error("❌ MongoDB Connection Failed");
-    console.error(error.message);
-    console.error("======================================");
-
-    process.exit(1);
-  }
-};
-
-module.exports = connectDB;
+module.exports = { connectDB, disconnectDB };

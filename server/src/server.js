@@ -1,125 +1,50 @@
-require("dotenv").config();
+'use strict';
 
-const app = require("./app");
-const connectDB = require("./config/db");
-const logger = require("./utils/logger");
-const mongoose = require("mongoose");
-
-const PORT = process.env.PORT || 5000;
-const SHUTDOWN_TIMEOUT = 10000; // 10 seconds
+const { app } = require('./app');
+const { env } = require('./config/env');
+const { connectDB, disconnectDB } = require('./config/db');
+const { logger } = require('./utils/logger');
 
 let server;
-let isShuttingDown = false;
 
-async function startServer() {
-    try {
-        await connectDB();
-        logger("INFO", "MongoDB connected");
+async function start() {
+  await connectDB();
 
-        server = app.listen(PORT, () => {
-            logger("INFO", `Server running on port ${PORT}`);
-        });
-
-        // Handle server errors
-        server.on("error", (error) => {
-            logger("ERROR", `Server error: ${error.message}`);
-            if (error.code === "EADDRINUSE") {
-                logger("ERROR", `Port ${PORT} is already in use`);
-            }
-            process.exit(1);
-        });
-
-    } catch (error) {
-        logger("ERROR", `Failed to start server: ${error.message}`);
-        process.exit(1);
-    }
+  server = app.listen(env.PORT, () => {
+    logger.info(`Server running on port ${env.PORT} [${env.NODE_ENV}]`);
+  });
 }
 
-startServer();
+async function shutdown(signal) {
+  logger.info(`${signal} received — shutting down gracefully`);
 
-/* ======================== */
-/* Graceful Shutdown */
-/* ======================== */
-
-const shutdown = async (signal) => {
-    // Prevent multiple shutdown attempts
-    if (isShuttingDown) {
-        logger("WARN", "Shutdown already in progress...");
-        return;
+  try {
+    if (server) {
+      await new Promise((resolve) => server.close(resolve));
     }
 
-    isShuttingDown = true;
-    logger("WARN", `${signal} received. Starting graceful shutdown...`);
+    await disconnectDB();
 
-    // Set timeout to force exit if graceful shutdown takes too long
-    const shutdownTimer = setTimeout(() => {
-        logger("ERROR", "Graceful shutdown timeout. Force exiting...");
-        process.exit(1);
-    }, SHUTDOWN_TIMEOUT);
+    process.exit(0);
+  } catch (err) {
+    logger.error({ err }, 'Error during shutdown');
+    process.exit(1);
+  }
+}
 
-    try {
-        // Stop accepting new requests
-        if (server) {
-            server.close(async () => {
-                logger("INFO", "HTTP server closed");
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
-                // Close database connection
-                try {
-                    await mongoose.connection.close();
-                    logger("INFO", "MongoDB connection closed");
-                } catch (error) {
-                    logger("ERROR", `Error closing MongoDB: ${error.message}`);
-                }
-
-                clearTimeout(shutdownTimer);
-                process.exit(0);
-            });
-
-            // If server doesn't close within timeout, force it
-            server.setTimeout(SHUTDOWN_TIMEOUT);
-        } else {
-            logger("WARN", "Server not started yet");
-            await mongoose.connection.close();
-            clearTimeout(shutdownTimer);
-            process.exit(0);
-        }
-    } catch (error) {
-        logger("ERROR", `Error during shutdown: ${error.message}`);
-        clearTimeout(shutdownTimer);
-        process.exit(1);
-    }
-};
-
-// Graceful shutdown signals
-process.on("SIGINT", () => shutdown("SIGINT"));
-process.on("SIGTERM", () => shutdown("SIGTERM"));
-
-/* ======================== */
-/* Unhandled Errors */
-/* ======================== */
-
-process.on("uncaughtException", async (error) => {
-    logger("ERROR", `Uncaught Exception: ${error.message}`);
-    logger("ERROR", error.stack);
-
-    // Attempt graceful shutdown
-    await shutdown("UNCAUGHT_EXCEPTION");
+process.on('unhandledRejection', (reason) => {
+  logger.error({ reason }, 'Unhandled promise rejection');
 });
 
-process.on("unhandledRejection", async (reason, promise) => {
-    logger("ERROR", `Unhandled Rejection at ${promise}: ${reason}`);
-    if (reason instanceof Error) {
-        logger("ERROR", reason.stack);
-    }
-
-    // Attempt graceful shutdown
-    await shutdown("UNHANDLED_REJECTION");
+process.on('uncaughtException', (err) => {
+  logger.error({ err }, 'Uncaught exception — exiting');
+  process.exit(1);
 });
 
-/* ======================== */
-/* Process-level Error Handler */
-/* ======================== */
-
-process.on("warning", (warning) => {
-    logger("WARN", `Process Warning: ${warning.name} - ${warning.message}`);
+start().catch((err) => {
+  logger.error({ err }, 'Failed to start server');
+  process.exit(1);
 });

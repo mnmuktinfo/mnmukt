@@ -1,20 +1,10 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { orderService } from "../services/orderService";
+import { ShippingService } from "../services/api/shipping.service";
 import { VALIDATION_RULES } from "../services/schema";
 
 const DEBOUNCE_MS = 400;
+const isDev = typeof import.meta !== 'undefined' ? import.meta.env?.DEV : process.env.NODE_ENV !== 'production';
 
-/**
- * Single source of truth for "is this PIN code deliverable" checks.
- * Handles debouncing, request cancellation (so a fast typer never sees a
- * stale response overwrite a newer one), and exposes a derived `pinStatus`
- * ("idle" | "loading" | "valid" | "invalid") for badge UI.
- *
- * Usage:
- *   const shipping = useShippingServiceability();
- *   shipping.checkPincode(value); // call on every postalCode change
- *   shipping.reset();             // call when opening a fresh form / modal
- */
 export function useShippingServiceability() {
   const [shippingInfo, setShippingInfo] = useState(null);
   const [shippingLoading, setShippingLoading] = useState(false);
@@ -23,63 +13,91 @@ export function useShippingServiceability() {
   const debounceRef = useRef(null);
   const abortRef = useRef(null);
 
-  const runCheck = useCallback((pincode) => {
-    if (abortRef.current) abortRef.current.abort();
+  const runCheck = useCallback(async (pincode) => {
+    // 1. Cancel previous request if user is typing fast
+    abortRef.current?.abort();
+
     const controller = new AbortController();
     abortRef.current = controller;
 
-    setShippingLoading(true);
-    setShippingError(null);
+    try {
+      const response = await ShippingService.checkServiceability(pincode, {
+        signal: controller.signal,
+      });
 
-    orderService
-      .checkServiceability(pincode, { signal: controller.signal })
-      .then((data) => {
-        if (data?.success) {
-          setShippingInfo(data.data);
-        } else {
-          setShippingInfo(null);
-          setShippingError("Delivery not available for this PIN code");
-        }
-      })
-      .catch((err) => {
-        if (err.name !== "AbortError" && err.name !== "CanceledError") {
-          setShippingInfo(null);
-          setShippingError("Could not check delivery for this PIN code");
-        }
-      })
-      .finally(() => setShippingLoading(false));
+      // 🛡️ RACE CONDITION GUARD: 
+      // If the controller no longer matches the current active request, safely exit.
+      if (abortRef.current !== controller) return;
+
+      if (isDev) console.log("📦 [Shipping] API Response:", response);
+
+      if (response.success && response.data?.available) {
+        setShippingInfo(response.data);
+        setShippingError(null);
+      } else {
+        setShippingInfo(null);
+        setShippingError(response.message || "Delivery not available for this PIN code");
+      }
+    } catch (err) {
+      // 🛡️ RACE CONDITION GUARD: Prevent old aborted requests from altering state
+      if (abortRef.current !== controller) return;
+
+      if (err.name === "AbortError" || err.name === "CanceledError") {
+        return; // Safe to ignore
+      }
+
+      if (isDev) console.error("🚨 [Shipping] Error:", err);
+      
+      setShippingInfo(null);
+      setShippingError(err.message || "Could not check delivery for this PIN code");
+    } finally {
+      // 🛡️ RACE CONDITION GUARD: Only turn off loading if this is still the active request
+      if (abortRef.current === controller) {
+        setShippingLoading(false);
+      }
+    }
   }, []);
 
-  /** Call this on every keystroke of the PIN field; debounces + validates format internally. */
   const checkPincode = useCallback(
     (pincode) => {
-      setShippingInfo(null);
-      setShippingError(null);
       clearTimeout(debounceRef.current);
 
-      if (VALIDATION_RULES.POSTAL_CODE_REGEX.test(pincode)) {
-        debounceRef.current = setTimeout(() => runCheck(pincode), DEBOUNCE_MS);
+      // 2. Abort active requests if the pincode becomes invalid (e.g., user backspaces)
+      if (!VALIDATION_RULES.POSTAL_CODE_REGEX.test(pincode)) {
+        abortRef.current?.abort();
+        setShippingInfo(null);
+        setShippingError(null);
+        setShippingLoading(false);
+        return;
       }
+
+      // 3. UX FIX: Instantly set loading to true to give immediate visual feedback during the debounce delay
+      setShippingInfo(null);
+      setShippingError(null);
+      setShippingLoading(true);
+
+      debounceRef.current = setTimeout(() => {
+        runCheck(pincode);
+      }, DEBOUNCE_MS);
     },
-    [runCheck],
+    [runCheck]
   );
 
-  /** Call when opening a fresh address form so stale results don't leak in. */
   const reset = useCallback(() => {
     clearTimeout(debounceRef.current);
     abortRef.current?.abort();
+
     setShippingInfo(null);
-    setShippingError(null);
     setShippingLoading(false);
+    setShippingError(null);
   }, []);
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    return () => {
       clearTimeout(debounceRef.current);
       abortRef.current?.abort();
-    },
-    [],
-  );
+    };
+  }, []);
 
   const pinStatus = shippingLoading
     ? "loading"

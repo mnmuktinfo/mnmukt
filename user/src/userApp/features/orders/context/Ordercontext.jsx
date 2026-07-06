@@ -1,118 +1,75 @@
-// src/features/orders/context/OrderContext.jsx
-import React, { createContext, useContext, useState, useCallback } from "react";
+import { createContext, useContext, useState, useCallback } from "react";
 
 const OrderContext = createContext(null);
 
-const safeStorage = {
-  get: (key) => {
-    try {
-      return typeof window !== "undefined" ? localStorage.getItem(key) : null;
-    } catch {
-      return null;
-    }
-  },
-  set: (key, value) => {
-    try {
-      if (typeof window !== "undefined") localStorage.setItem(key, value);
-    } catch {
-      /* quota exceeded or storage disabled — non-fatal, context still holds the order */
-    }
-  },
-  remove: (key) => {
-    try {
-      if (typeof window !== "undefined") localStorage.removeItem(key);
-    } catch {
-      /* no-op */
-    }
-  },
-};
-
 export const OrderProvider = ({ children }) => {
-  const [currentOrder, setCurrentOrder] = useState(null);
-  const [orderHistory, setOrderHistory] = useState([]);
-
-  const storeOrder = useCallback((orderData) => {
-    if (!orderData?.orderId) return;
-
-    const enrichedOrder = { ...orderData, storedAt: new Date().toISOString() };
-    setCurrentOrder(enrichedOrder);
-    setOrderHistory((prev) => [
-      enrichedOrder,
-      ...prev.filter((o) => o.orderId !== orderData.orderId),
-    ]);
-    safeStorage.set(
-      `order_${orderData.orderId}`,
-      JSON.stringify(enrichedOrder),
-    );
-  }, []);
-
-  const getOrder = useCallback(
-    (orderId) => {
-      if (!orderId) return null;
-      const contextOrder = orderHistory.find((o) => o.orderId === orderId);
-      if (contextOrder) return contextOrder;
-
-      const stored = safeStorage.get(`order_${orderId}`);
-      if (!stored) return null;
+  const [currentOrder, setCurrentOrder] = useState(() => {
+    if (typeof window !== "undefined") {
       try {
-        return JSON.parse(stored);
-      } catch {
+        const saved = sessionStorage.getItem("current_order");
+        return saved ? JSON.parse(saved) : null;
+      } catch (err) {
         return null;
       }
-    },
-    [orderHistory],
-  );
+    }
+    return null;
+  });
 
-  const updateOrder = useCallback((orderId, updates) => {
-    if (!orderId) return;
+  const [orderHistory, setOrderHistory] = useState([]);
 
-    setCurrentOrder((prev) =>
-      prev?.orderId === orderId ? { ...prev, ...updates } : prev,
-    );
-    setOrderHistory((prev) =>
-      prev.map((o) => (o.orderId === orderId ? { ...o, ...updates } : o)),
-    );
-
-    const stored = safeStorage.get(`order_${orderId}`);
-    if (stored) {
-      try {
-        safeStorage.set(
-          `order_${orderId}`,
-          JSON.stringify({ ...JSON.parse(stored), ...updates }),
-        );
-      } catch {
-        /* corrupted entry — ignore */
-      }
+  const storeOrder = useCallback((order) => {
+    setCurrentOrder(order);
+    setOrderHistory((prev) => [order, ...prev]);
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("current_order", JSON.stringify(order));
     }
   }, []);
 
-  const getCurrentOrder = useCallback(() => currentOrder, [currentOrder]);
-  const clearCurrentOrder = useCallback(() => setCurrentOrder(null), []);
-  const getOrderHistory = useCallback(() => orderHistory, [orderHistory]);
-  const clearOrderFromStorage = useCallback(
-    (orderId) => safeStorage.remove(`order_${orderId}`),
-    [],
-  );
+  const updateOrder = useCallback((orderId, updates) => {
+    setCurrentOrder((prev) => {
+      if (prev?.orderId === orderId || prev?._id === orderId) {
+        const updatedOrder = { ...prev, ...updates };
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem("current_order", JSON.stringify(updatedOrder));
+        }
+        return updatedOrder;
+      }
+      return prev;
+    });
 
-  const value = {
-    currentOrder,
-    getCurrentOrder,
-    clearCurrentOrder,
-    orderHistory,
-    getOrderHistory,
-    storeOrder,
-    getOrder,
-    updateOrder,
-    clearOrderFromStorage,
-  };
+    setOrderHistory((prev) =>
+      prev.map((order) =>
+        order.orderId === orderId || order._id === orderId
+          ? { ...order, ...updates }
+          : order,
+      ),
+    );
+  }, []);
+
+  const clearCurrentOrder = useCallback(() => {
+    setCurrentOrder(null);
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("current_order");
+    }
+  }, []);
 
   return (
-    <OrderContext.Provider value={value}>{children}</OrderContext.Provider>
+    <OrderContext.Provider
+      value={{
+        currentOrder,
+        orderHistory,
+        storeOrder,
+        updateOrder,
+        clearCurrentOrder,
+      }}>
+      {children}
+    </OrderContext.Provider>
   );
 };
 
 export const useOrder = () => {
   const context = useContext(OrderContext);
-  if (!context) throw new Error("useOrder must be used within OrderProvider");
+  if (!context)
+    throw new Error("useOrder must be used within an OrderProvider");
   return context;
 };

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { orderService } from "../features/orders/services/orderService";
+import { orderService } from "../features/orders/services/api/orderService";
 import { formatDate } from "../features/orders/utils/orders";
 
 // Heroicons (Outline & Solid)

@@ -1,0 +1,33 @@
+'use strict';
+
+const ORDER_STATUS = Object.freeze({
+  PENDING: 'pending',
+  CONFIRMED: 'confirmed',
+  PROCESSING: 'processing',
+  SHIPPED: 'shipped',
+  OUT_FOR_DELIVERY: 'out_for_delivery',
+  DELIVERED: 'delivered',
+  CANCELLED: 'cancelled',
+  RETURNED: 'returned',
+  REFUNDED: 'refunded',
+});
+
+// Explicit allow-list of forward transitions. Anything not listed is illegal.
+const ORDER_STATUS_TRANSITIONS = Object.freeze({
+  [ORDER_STATUS.PENDING]: [ORDER_STATUS.CONFIRMED, ORDER_STATUS.CANCELLED],
+  [ORDER_STATUS.CONFIRMED]: [ORDER_STATUS.PROCESSING, ORDER_STATUS.CANCELLED],
+  [ORDER_STATUS.PROCESSING]: [ORDER_STATUS.SHIPPED, ORDER_STATUS.CANCELLED],
+  [ORDER_STATUS.SHIPPED]: [ORDER_STATUS.OUT_FOR_DELIVERY, ORDER_STATUS.RETURNED],
+  [ORDER_STATUS.OUT_FOR_DELIVERY]: [ORDER_STATUS.DELIVERED, ORDER_STATUS.RETURNED],
+  [ORDER_STATUS.DELIVERED]: [ORDER_STATUS.RETURNED],
+  [ORDER_STATUS.CANCELLED]: [ORDER_STATUS.REFUNDED],
+  [ORDER_STATUS.RETURNED]: [ORDER_STATUS.REFUNDED],
+  [ORDER_STATUS.REFUNDED]: [], // terminal
+});
+
+function isValidOrderTransition(from, to) {
+  if (!ORDER_STATUS_TRANSITIONS[from]) return false;
+  return ORDER_STATUS_TRANSITIONS[from].includes(to);
+}
+
+module.exports = { ORDER_STATUS, ORDER_STATUS_TRANSITIONS, isValidOrderTransition };

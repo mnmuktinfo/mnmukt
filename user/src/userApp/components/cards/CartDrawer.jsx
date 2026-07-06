@@ -1,24 +1,25 @@
-// src/components/CartDrawer.jsx
-import React, { useMemo, useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { X, AlertCircle } from "lucide-react";
+import { useNavigate } from "react-router-dom"; // ✅ Added router import
+
 import { useCart } from "../../features/cart/context/CartContext";
 import { useAuth } from "../../features/auth/context/UserContext";
 import { useCheckout } from "../../features/orders/hooks/useCheckout";
 import { useShippingServiceability } from "../../features/orders/hooks/useShippingServiceability";
+
+import { OrderPricingService } from "../../features/orders/services/core/orderPricing.service";
+import { OrderValidationService } from "../../features/orders/services/core/orderValidation.service";
 import {
   EMPTY_ADDRESS_FORM,
-  PAYMENT_GATEWAY,
+  PAYMENT_METHODS,
+  VALIDATION_RULES,
 } from "../../features/orders/services/schema";
-import {
-  validateCartItems,
-  validateAddress,
-  calculatePricing,
-} from "../../features/orders/services/checkout/checkoutService";
 
 import CartView from "./CartView";
 import CheckoutAddressView from "./CheckoutAddressView";
 
 const CartDrawer = ({ isOpen, onClose }) => {
+  const navigate = useNavigate(); // ✅ Setup navigation
   const { user, address } = useAuth();
   const { cart, updateQuantity, remove, loading: cartLoading } = useCart();
 
@@ -27,12 +28,13 @@ const CartDrawer = ({ isOpen, onClose }) => {
     error: checkoutError,
     loadingMessage,
     performCheckout,
-    performAddressValidation,
   } = useCheckout();
 
-  const [uiMode, setUiMode] = useState("cart");
+  const pricing = OrderPricingService.calculatePricing(cart);
 
+  const [uiMode, setUiMode] = useState("cart");
   const [isEditingAddress, setIsEditingAddress] = useState(false);
+  const [localError, setLocalError] = useState(""); // ✅ New local error state to replace alerts
 
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [selectedAddress, setSelectedAddress] = useState(null);
@@ -53,14 +55,6 @@ const CartDrawer = ({ isOpen, onClose }) => {
     checkPincode,
     reset: resetShipping,
   } = useShippingServiceability();
-
-  const pricing = useMemo(
-    () =>
-      calculatePricing(cart, {
-        shippingOverride: shippingInfo?.shippingCharge,
-      }),
-    [cart, shippingInfo],
-  );
 
   const redirectTimerRef = useRef(null);
 
@@ -88,7 +82,7 @@ const CartDrawer = ({ isOpen, onClose }) => {
       postalCode: address?.postalCode || "",
       landmark: address?.landmark || "",
       tag: address?.tag || "Home",
-      id: Date.now(),
+      id: crypto.randomUUID(),
     };
 
     setAddressDraft(initialAddress);
@@ -103,10 +97,14 @@ const CartDrawer = ({ isOpen, onClose }) => {
   }, [user, address]);
 
   useEffect(() => {
-    if (!isEditingAddress && selectedAddress?.postalCode && !shippingLoading) {
+    if (
+      !isEditingAddress &&
+      selectedAddress?.postalCode &&
+      VALIDATION_RULES.POSTAL_CODE_REGEX.test(selectedAddress.postalCode)
+    ) {
       checkPincode(selectedAddress.postalCode);
     }
-  }, [selectedAddress]);
+  }, [selectedAddress, isEditingAddress, checkPincode]);
 
   const handleAddressChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -130,53 +128,73 @@ const CartDrawer = ({ isOpen, onClose }) => {
 
   const handleNewAddress = () => {
     resetShipping();
-
     setAddressDraft({
       ...EMPTY_ADDRESS_FORM,
       email: user?.email || "",
       fullName: user?.name || "",
     });
-
     setFormErrors({});
     setIsEditingAddress(true);
   };
 
   const handleSaveAddress = () => {
-    const { isValid, errors } = validateAddress(addressDraft);
-    if (!isValid) {
-      setFormErrors(errors);
-      return false; // ADD
+    const validation = OrderValidationService.validateAddress(addressDraft);
+    if (!validation.isValid) {
+      setFormErrors(validation.errors || { form: validation.error });
+      return false;
     }
-    const newAddress = { ...addressDraft, id: Date.now() };
+
+    const newAddress = {
+      ...addressDraft,
+      id: crypto.randomUUID(),
+    };
+
     setSavedAddresses((prev) => [...prev, newAddress]);
     setSelectedAddress(newAddress);
     setFormErrors({});
     setIsEditingAddress(false);
-    return true; // ADD
+
+    checkPincode(newAddress.postalCode);
+    return true;
   };
 
   const handleSelectAddress = (selected) => {
-    // was `address`, shadowed the outer `address`
+    resetShipping();
     setSelectedAddress(selected);
     setAddressDraft(selected);
     setIsEditingAddress(false);
   };
 
-  const handleCheckout = async (paymentMethod = PAYMENT_GATEWAY.RAZORPAY) => {
-    const cartValidation = validateCartItems(cart);
+  const handleCheckout = async (paymentMethod = PAYMENT_METHODS.RAZORPAY) => {
+    setLocalError(""); // Reset local errors
 
+    const cartValidation = OrderValidationService.validateCartItems(cart);
     if (!cartValidation.isValid) {
-      alert(cartValidation.error);
+      setLocalError(cartValidation.error); // ✅ Replaced alert
       return;
     }
 
     const checkoutAddress = selectedAddress || addressDraft;
-
-    const addressValidation = performAddressValidation(checkoutAddress);
+    const addressValidation =
+      OrderValidationService.validateAddress(checkoutAddress);
 
     if (!addressValidation.isValid) {
-      setFormErrors(addressValidation.errors);
+      setFormErrors(
+        addressValidation.errors || { form: addressValidation.error },
+      );
       setIsEditingAddress(true);
+      return;
+    }
+
+    if (shippingLoading) {
+      setLocalError(
+        "Please wait while delivery availability is being checked.",
+      ); // ✅ Replaced alert
+      return;
+    }
+
+    if (!shippingInfo?.available) {
+      setLocalError(shippingError || "Delivery is not available for this PIN."); // ✅ Replaced alert
       return;
     }
 
@@ -184,22 +202,21 @@ const CartDrawer = ({ isOpen, onClose }) => {
       items: cart,
       shippingAddress: checkoutAddress,
       paymentMethod,
-      pricing,
-      shippingInfo,
     });
 
-    if (result?.success) {
+    if (result.success) {
       redirectTimerRef.current = setTimeout(() => {
         setUiMode("cart");
         onClose();
-
-        window.location.href =
-          result.trackingUrl || `/order-tracking/${result.orderId}`;
+        navigate(`/order-tracking/${result.orderId}`); // ✅ Replaced window.location.href
       }, 1200);
     }
   };
 
   if (!isOpen) return null;
+
+  // Determine the error message to show (prioritize checkout errors from backend)
+  const displayError = checkoutError || localError;
 
   return (
     <div className="fixed inset-0 z-[500] flex justify-end bg-black/50">
@@ -214,10 +231,11 @@ const CartDrawer = ({ isOpen, onClose }) => {
           </button>
         </div>
 
-        {checkoutError && (
-          <div className="m-4 p-3 bg-red-50 border border-red-200 rounded">
-            <AlertCircle size={16} />
-            {checkoutError}
+        {/* Unified Error Banner */}
+        {displayError && (
+          <div className="m-4 p-3 bg-red-50 border border-red-200 rounded flex items-start gap-2">
+            <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-600" />
+            <span className="text-red-700 text-sm">{displayError}</span>
           </div>
         )}
 
@@ -243,8 +261,8 @@ const CartDrawer = ({ isOpen, onClose }) => {
             shippingError={shippingError}
             isLoading={isLoading}
             hasItems={!!cart?.length}
-            onPayNow={handleCheckout}
-            onCashOnDelivery={handleCheckout}
+            onPayNow={() => handleCheckout(PAYMENT_METHODS.RAZORPAY)}
+            onCashOnDelivery={() => handleCheckout(PAYMENT_METHODS.COD)}
           />
         ) : (
           <CartView

@@ -1,120 +1,125 @@
-// services/shiprocket.js
-const axios = require("axios");
+'use strict';
 
-let shiprocketToken = null;
-let tokenExpiry = null;
-let loginPromise = null;
-
-const BASE_URL = "https://apiv2.shiprocket.in/v1/external";
-
-async function login() {
-  if (shiprocketToken && tokenExpiry && Date.now() < tokenExpiry) return shiprocketToken;
-  if (loginPromise) return loginPromise;
-
-  loginPromise = (async () => {
-    const { data } = await axios.post(`${BASE_URL}/auth/login`, {
-      email: process.env.SHIPROCKET_EMAIL,
-      password: process.env.SHIPROCKET_PASSWORD,
-    });
-
-    if (!data?.token) throw new Error("Shiprocket login returned no token");
-
-    shiprocketToken = data.token;
-    tokenExpiry = Date.now() + 9 * 24 * 60 * 60 * 1000;
-    return shiprocketToken;
-  })().finally(() => { loginPromise = null; });
-
-  return loginPromise;
-}
-
-async function getServiceability({ pickupPincode, deliveryPincode, weight = 0.5, cod = 0 }) {
-  const token = await login();
-
-  const { data } = await axios.get(`${BASE_URL}/courier/serviceability`, {
-    headers: { Authorization: `Bearer ${token}` },
-    params: { pickup_postcode: pickupPincode, delivery_postcode: deliveryPincode, weight, cod },
-  });
-
-  const couriers = data.data?.available_courier_companies || [];
-  if (!couriers.length) throw new Error("No courier available");
-
-  couriers.sort((a, b) => a.rate - b.rate);
-  const courier = couriers[0];
-
-  // etd/estimated_delivery_days can be a day-count or a date string depending on
-  // account/API version — normalize both.
-  let deliveryDate;
-  const rawEtd = courier.estimated_delivery_days ?? courier.etd;
-  const asNumber = Number(rawEtd);
-
-  if (!Number.isNaN(asNumber) && String(rawEtd).trim() !== "") {
-    deliveryDate = new Date();
-    deliveryDate.setDate(deliveryDate.getDate() + asNumber);
-  } else if (rawEtd) {
-    deliveryDate = new Date(rawEtd);
-  } else {
-    deliveryDate = new Date();
-    deliveryDate.setDate(deliveryDate.getDate() + 3);
-  }
-
-  return {
-    courier: courier.courier_name,
-    courierId: courier.courier_company_id,
-    shippingCharge: courier.rate,
-    deliveryDate: deliveryDate.toLocaleDateString("en-IN", { day: "numeric", month: "short" }),
-  };
-}
+const { getShiprocketClient } = require('../config/shiprocket');
+const { Order } = require('../models/order.model');
+const { ORDER_STATUS } = require('../constants/orderStatus');
+const { ApiError } = require('../utils/ApiError');
+const { updateOrderStatus } = require('./order.service');
+const { logger } = require('../utils/logger');
 
 /**
- * Creates an adhoc order + shipment in Shiprocket.
- * Called once, right after your DB order is saved. Works for guest and
- * logged-in customers identically — Shiprocket doesn't care about your auth.
+ * Admin manually marks an order shipped after creating the shipment directly
+ * in the Shiprocket dashboard. This system never calls Shiprocket to
+ * auto-create or auto-fulfill shipments — it only stores identifiers here.
  */
-async function createOrder(order) {
-  const token = await login();
+async function markOrderShipped({ orderId, shiprocketShipmentId, trackingNumber, courierName, adminUid }) {
+  const order = await Order.findById(orderId);
+  if (!order) throw ApiError.notFound('Order not found');
 
-  const payload = {
-    order_id: String(order.orderId),
-    order_date: new Date(order.createdAt || Date.now()).toISOString().slice(0, 19).replace("T", " "),
-    pickup_location: process.env.SHIPROCKET_PICKUP_LOCATION, // must match a location saved in your Shiprocket dashboard
-    billing_customer_name: order.shippingAddress.fullName,
-    billing_last_name: "",
-    billing_address: order.shippingAddress.addressLine1,
-    billing_address_2: order.shippingAddress.addressLine2 || "",
-    billing_city: order.shippingAddress.city,
-    billing_pincode: order.shippingAddress.postalCode,
-    billing_state: order.shippingAddress.state,
-    billing_country: order.shippingAddress.country || "India",
-    billing_email: order.customerEmail,
-    billing_phone: order.shippingAddress.phone,
-    shipping_is_billing: true,
-    order_items: order.items.map((item) => ({
-      name: item.name,
-      sku: item.sku || item.productId,
-      units: item.quantity,
-      selling_price: item.price,
-    })),
-    payment_method: order.paymentMethod === "cod" ? "COD" : "Prepaid",
-    sub_total: order.pricing.total,
-    length: 10,
-    breadth: 10,
-    height: 10,
-    weight: 0.5, // replace with real per-order weight if you track it
-  };
+  order.shipment.shiprocketShipmentId = shiprocketShipmentId;
+  order.shipment.trackingNumber = trackingNumber;
+  order.shipment.courierName = courierName || order.shipment.courierName;
+  await order.save();
 
-  const { data } = await axios.post(`${BASE_URL}/orders/create/adhoc`, payload, {
-    headers: { Authorization: `Bearer ${token}` },
+  return updateOrderStatus({
+    orderId,
+    toStatus: ORDER_STATUS.SHIPPED,
+    changedBy: adminUid,
+    note: `Shipped via ${courierName || 'courier'} — AWB ${trackingNumber}`,
   });
-
-  if (!data?.order_id) {
-    throw new Error(data?.message || "Shiprocket order creation failed");
-  }
-
-  return {
-    shiprocketOrderId: data.order_id,
-    shipmentId: data.shipment_id,
-    status: data.status,
-  };
 }
 
-module.exports = { login, getServiceability, createOrder };
+/** Pulls the latest tracking status + ETA from Shiprocket for a given order. */
+async function fetchTrackingInfo(orderId) {
+  const order = await Order.findById(orderId);
+  if (!order) throw ApiError.notFound('Order not found');
+
+  if (!order.shipment.trackingNumber) {
+    throw ApiError.badRequest('This order has no tracking number yet');
+  }
+
+  const client = await getShiprocketClient();
+
+  const { data } = await client
+    .get(`/courier/track/awb/${order.shipment.trackingNumber}`)
+    .catch((err) => {
+      logger.error({ err: err.message, orderId }, 'Shiprocket tracking fetch failed');
+      throw ApiError.internal('Unable to fetch tracking info from Shiprocket');
+    });
+
+  const trackingData = data?.tracking_data;
+  if (!trackingData) throw ApiError.internal('Unexpected Shiprocket tracking response');
+
+  order.shipment.status = trackingData.shipment_status || order.shipment.status;
+  order.shipment.estimatedDeliveryDate = trackingData.etd ? new Date(trackingData.etd) : order.shipment.estimatedDeliveryDate;
+  order.shipment.lastFetchedAt = new Date();
+  await order.save();
+
+  return order.shipment;
+}
+
+async function checkDeliveryAvailability(pincode) {
+  const client = await getShiprocketClient();
+
+  const pickupPostcode = process.env.SHIPROCKET_PICKUP_PINCODE;
+
+  if (!pickupPostcode) {
+    throw ApiError.internal('SHIPROCKET_PICKUP_PINCODE is not configured');
+  }
+
+  try {
+    const { data } = await client.get('/courier/serviceability', {
+      params: {
+        pickup_postcode: pickupPostcode,
+        delivery_postcode: pincode,
+        cod: 0,
+        weight: 0.5,
+      },
+    });
+
+    const couriers = data?.data?.available_courier_companies || [];
+
+    if (!couriers.length) {
+      return {
+        available: false,
+        pincode,
+        message: 'Delivery is not available for this pincode.',
+      };
+    }
+
+    couriers.sort(
+      (a, b) =>
+        Number(a.estimated_delivery_days) -
+        Number(b.estimated_delivery_days)
+    );
+
+    const bestCourier = couriers[0];
+
+    return {
+      available: true,
+      pincode,
+      courier: bestCourier.courier_name,
+      courierCompanyId: bestCourier.courier_company_id,
+      estimatedDeliveryDays: bestCourier.estimated_delivery_days,
+      etd: bestCourier.etd || null,
+      codAvailable: Boolean(bestCourier.cod),
+      freightCharge: bestCourier.freight_charge,
+    };
+  } catch (err) {
+    logger.error(
+      {
+        err: err.response?.data || err.message,
+        pincode,
+      },
+      'Shiprocket serviceability check failed'
+    );
+
+    throw ApiError.internal('Unable to check delivery availability');
+  }
+}
+
+module.exports = {
+  markOrderShipped,
+  fetchTrackingInfo,
+  checkDeliveryAvailability,
+};

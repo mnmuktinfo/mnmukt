@@ -1,49 +1,90 @@
+"use strict";
+
 const Razorpay = require("razorpay");
 const crypto = require("crypto");
 const logger = require("../utils/logger");
 
 // ==========================================
-// RAZORPAY INSTANCE
+// ENV VALIDATION (SAFE STARTUP FAIL)
+// ==========================================
+const { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } = process.env;
+
+if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
+  throw new Error(
+    "❌ Razorpay environment variables missing (KEY_ID / KEY_SECRET)"
+  );
+}
+
+// ==========================================
+// INSTANCE
 // ==========================================
 const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
+  key_id: RAZORPAY_KEY_ID,
+  key_secret: RAZORPAY_KEY_SECRET,
 });
 
 // ==========================================
-// CREATE RAZORPAY ORDER
+// SAFE ERROR WRAPPER
 // ==========================================
-const createOrder = async ({ amount, currency = "INR", receipt }) => {
+const formatError = (error, context) => {
+  const safeError = {
+    context,
+    message: error.message || "Unknown Razorpay error",
+    statusCode: error.statusCode || 500,
+  };
+
+  logger("ERROR", JSON.stringify(safeError));
+  return safeError;
+};
+
+// ==========================================
+// CREATE ORDER
+// ==========================================
+const createOrder = async ({ amount, currency = "INR", receipt, notes = {} }) => {
   try {
+    if (!Number.isInteger(amount) || amount <= 0) {
+      throw new Error(`Invalid amount (paise required): ${amount}`);
+    }
+
     const options = {
-      amount, // in paise
+      amount,
       currency,
-      receipt: receipt || `rcpt_${Date.now()}`,
+      receipt: (receipt || `rcpt_${Date.now()}`).slice(0, 40),
+      notes,
     };
 
     const order = await razorpay.orders.create(options);
 
+    if (!order?.id) {
+      throw new Error("Razorpay order creation failed (no order id returned)");
+    }
+
+    logger("INFO", "Razorpay order created", {
+      razorpayOrderId: order.id,
+      amount,
+    });
+
     return order;
-  } catch (error) {
-    logger("ERROR", `Razorpay createOrder failed: ${error.message}`);
-    throw new Error("Razorpay order creation failed");
+  } catch (err) {
+    throw formatError(err, "CREATE_ORDER");
   }
 };
 
 // ==========================================
-// FETCH ORDER DETAILS (optional)
+// FETCH ORDER
 // ==========================================
 const fetchOrder = async (orderId) => {
   try {
+    if (!orderId) throw new Error("Order ID required");
+
     return await razorpay.orders.fetch(orderId);
-  } catch (error) {
-    logger("ERROR", `Fetch order failed: ${error.message}`);
-    throw new Error("Failed to fetch Razorpay order");
+  } catch (err) {
+    throw formatError(err, "FETCH_ORDER");
   }
 };
 
 // ==========================================
-// VERIFY PAYMENT SIGNATURE
+// VERIFY SIGNATURE (SECURE)
 // ==========================================
 const verifyPaymentSignature = ({
   razorpay_order_id,
@@ -51,34 +92,45 @@ const verifyPaymentSignature = ({
   razorpay_signature,
 }) => {
   try {
-    const body = `${razorpay_order_id}|${razorpay_payment_id}`;
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return false;
+    }
+
+    const payload = `${razorpay_order_id}|${razorpay_payment_id}`;
 
     const expectedSignature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-      .update(body)
+      .createHmac("sha256", RAZORPAY_KEY_SECRET)
+      .update(payload)
       .digest("hex");
 
-    return expectedSignature === razorpay_signature;
-  } catch (error) {
-    logger("ERROR", `Signature verification failed: ${error.message}`);
+    return crypto.timingSafeEqual(
+      Buffer.from(expectedSignature),
+      Buffer.from(razorpay_signature)
+    );
+  } catch (err) {
+    logger("ERROR", `Signature verification failed: ${err.message}`);
     return false;
   }
 };
 
 // ==========================================
-// REFUND PAYMENT (OPTIONAL FUTURE)
+// REFUND PAYMENT
 // ==========================================
 const refundPayment = async (paymentId, amount) => {
   try {
-    return await razorpay.payments.refund(paymentId, {
-      amount, // optional partial refund
-    });
-  } catch (error) {
-    logger("ERROR", `Refund failed: ${error.message}`);
-    throw new Error("Refund failed");
+    if (!paymentId) throw new Error("Payment ID required");
+
+    const options = amount ? { amount } : {};
+
+    return await razorpay.payments.refund(paymentId, options);
+  } catch (err) {
+    throw formatError(err, "REFUND_PAYMENT");
   }
 };
 
+// ==========================================
+// EXPORTS
+// ==========================================
 module.exports = {
   createOrder,
   fetchOrder,

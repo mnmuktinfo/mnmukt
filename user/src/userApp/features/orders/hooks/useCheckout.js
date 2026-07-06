@@ -1,29 +1,24 @@
-// src/features/orders/hooks/useCheckout.js
 import { useState, useRef, useCallback } from "react";
-import { useAuth } from "../../auth/context/UserContext";
+import { useAuth } from "../../auth/context/UserContext"; 
 import { useOrder } from "../context/OrderContext";
+import { auth } from "../../../../config/firebaseAuth";
+import { CheckoutEngine } from "../services/core/checkout.engine";
+import { OrderValidationService } from "../services/core/orderValidation.service";
+import { ErrorService } from "../services/core/error.service";
+import { OrderService } from "../services/api/orderService";
+import { PaymentService } from "../services/api/payment.service"; 
+
 import {
-  validateAddress,
-  normalizeItems,
-  calculatePricing,
-  buildOrderPayload,
-  createOrderAsync,
-  createPaymentOrderAsync,
-  verifyPaymentAsync,
-  loadRazorpayScript,
-  getErrorMessage,
-} from "../services/checkout/checkoutService";          
-import {
-  ERROR_MESSAGES,
   UI_MESSAGES,
-  PAYMENT_GATEWAY,
+  PAYMENT_METHODS,
   PAYMENT_STATUS,
   ORDER_STATUS,
 } from "../services/schema";
 
- 
+const isDev = typeof import.meta !== 'undefined' ? import.meta.env?.DEV : process.env.NODE_ENV !== 'production';
+
 export const useCheckout = () => {
-  const { user, address } = useAuth();
+  const { user, address: savedAddress } = useAuth();
   const { storeOrder, updateOrder } = useOrder();
 
   const [isLoading, setIsLoading] = useState(false);
@@ -32,266 +27,200 @@ export const useCheckout = () => {
 
   const orderIdRef = useRef(null);
   const checkoutRef = useRef(false);
+  const idempotencyKeyRef = useRef(null); 
 
-  /* ========================================
-     ADDRESS VALIDATION
-  ======================================== */
   const performAddressValidation = useCallback((addressData) => {
-    const validation = validateAddress(addressData);
-    if (!validation.isValid) {
-      setError(Object.values(validation.errors)[0] || ERROR_MESSAGES.CHECKOUT_FAILED);
-    }
-    return validation;
+    const result = OrderValidationService.validateAddress(addressData);
+    if (!result.isValid) setError(result.error);
+    return result;
   }, []);
 
-  /* ========================================
-     BUILD CUSTOMER
-  ======================================== */
-  const buildCustomer = useCallback(
-    (shippingAddress = {}) => {
-      const mergedAddress = { ...address, ...shippingAddress };
-
-      return user?.uid
-        ? {
-            userId: user.uid,
-            email: user.email || mergedAddress.email || "",
-            name: user.name || mergedAddress.fullName || "",
-            isGuest: false,
-          }
-        : {
-            userId: null,
-            email: mergedAddress.email || "",
-            name: mergedAddress.fullName || "",
-            isGuest: true,
-          };
-    },
-    [user, address],
-  );
-
-  /* ========================================
-     CREATE ORDER
-  ======================================== */
   const performOrderCreation = useCallback(
-    async ({ items, shippingAddress, paymentMethod, customerNote, pricing }) => {
+    async ({ items, shippingAddress, customerNote, paymentMethod }) => {
       setLoadingMessage(UI_MESSAGES.CREATING_ORDER);
+      const isGuest = !user?.uid;
 
-      const mergedAddress = {
-        ...address,
-        ...shippingAddress,
-        email: shippingAddress?.email || user?.email || address?.email || "",
-        fullName: shippingAddress?.fullName || user?.name || address?.fullName || "",
-        phone: shippingAddress?.phone || address?.phone || "",
-      };
+      if (!idempotencyKeyRef.current) {
+        idempotencyKeyRef.current = crypto.randomUUID();
+      }
 
-      const customer = buildCustomer(mergedAddress);
-      const normalizedItems = normalizeItems(items);
-
-      // Use the confirmed pricing passed in by the caller (e.g. CartDrawer,
-      // which resolves the real PIN-based shipping charge via
-      // useShippingServiceability) rather than silently recomputing a
-      // generic tier-based estimate. Only fall back when nothing was passed.
-      const finalPricing = pricing ?? calculatePricing(normalizedItems);
-
-      const payload = buildOrderPayload({
-        items: normalizedItems, // already normalized — buildOrderPayload must not re-normalize
-        shippingAddress: mergedAddress,
+      const { apiPayload, displayPricing } = CheckoutEngine.prepareOrderPayload({
+        idempotencyKey: idempotencyKeyRef.current,
+        cartItems: items,
+        shippingAddress: shippingAddress || savedAddress,
+        userUid: user?.uid,
+        guestInfo: isGuest ? shippingAddress : null,
         paymentMethod,
-        customer,
-        pricing: finalPricing,
         customerNote,
       });
 
-      if (import.meta.env.DEV) {
-  console.log("CHECKOUT PAYLOAD:", {
-    ...payload,
-    shippingAddress: {
-      city: payload.shippingAddress.city,
-      postalCode: payload.shippingAddress.postalCode,
-    },
-    customer: {
-      ...payload.customer,
-      email: payload.customer?.email ? "[present]" : "[missing]",
-      name: payload.customer?.name ? "[present]" : "[missing]",
-    },
-  });
-}
+      let token = null;
+      if (auth.currentUser) {
+        token = await auth.currentUser.getIdToken();
+      }
 
-      const order = await createOrderAsync(payload);
-      orderIdRef.current = order.orderId;
+      const order = await OrderService.createOrder(apiPayload, token);
+      orderIdRef.current = order._id;
 
       storeOrder({
-        orderId: order.orderId,
+        orderId: order._id,
         orderStatus: order.orderStatus || ORDER_STATUS.PENDING,
-        customer,
-        shippingAddress: mergedAddress,
-        items: normalizedItems,
-        pricing: finalPricing,
+        customer: {
+          isGuest,
+          email: apiPayload.shippingAddress.email,
+          name: apiPayload.shippingAddress.fullName,
+        },
+        shippingAddress: apiPayload.shippingAddress,
+        items: apiPayload.items,
+        pricing: displayPricing,
         createdAt: new Date().toISOString(),
-        isGuest: customer.isGuest,
-        paymentStatus:
-          order.paymentStatus ||
-          (paymentMethod === PAYMENT_GATEWAY.COD
-            ? PAYMENT_STATUS.COD_PENDING
-            : PAYMENT_STATUS.PENDING),
-        trackingUrl: order.trackingUrl || null,
+        paymentStatus: order.payment?.status || PAYMENT_STATUS.PENDING,
       });
 
-      return order;
+      return { order, token };
     },
-    [user, address, buildCustomer, storeOrder],
+    [user, savedAddress, storeOrder]
   );
 
-  /* ========================================
-     RAZORPAY
-  ======================================== */
   const performRazorpayPayment = useCallback(
-    async (orderId, prefillData) => {
+    async (orderId, prefillData, token) => {
       setLoadingMessage(UI_MESSAGES.LOADING_PAYMENT);
 
-      const scriptLoaded = await loadRazorpayScript();
-      if (!scriptLoaded) {
-        throw new Error(ERROR_MESSAGES.PAYMENT_GATEWAY_FAILED);
-      }
+      const loaded = await PaymentService.loadRazorpayScript();
+      if (!loaded) throw new Error(ErrorService.getErrorMessage("PAYMENT_GATEWAY_FAILED"));
 
       setLoadingMessage(UI_MESSAGES.PREPARING_PAYMENT);
 
-      const paymentOrder = await createPaymentOrderAsync({
-        orderId,
-        customerEmail: prefillData?.email,
-      });
+      const paymentOrder = await OrderService.createPaymentOrder(orderId, token);
+
+      if (!paymentOrder?.keyId || !paymentOrder?.razorpayOrderId) {
+        throw new Error(
+          paymentOrder?.message ||
+            ErrorService.getErrorMessage("PAYMENT_GATEWAY_FAILED")
+        );
+      }
 
       return new Promise((resolve, reject) => {
+        let settled = false;
+        const safeResolve = (val) => {
+          if (settled) return;
+          settled = true;
+          resolve(val);
+        };
+        const safeReject = (err) => {
+          if (settled) return;
+          settled = true;
+          reject(err);
+        };
+
         try {
           const razorpay = new window.Razorpay({
-            key: import.meta.env.VITE_RAZORPAY_KEY_ID || "",
+            key: paymentOrder.keyId,
             amount: paymentOrder.amount,
             currency: paymentOrder.currency,
-            order_id: paymentOrder.id,
-            name: import.meta.env.VITE_STORE_NAME || "Store",
+            order_id: paymentOrder.razorpayOrderId,
+            name: paymentOrder.storeDetails?.name || "Your Store Name",
             description: `Order #${orderId}`,
+            image: paymentOrder.storeDetails?.logo || "https://your-default-logo-url.png",
             prefill: {
               name: prefillData?.name || "",
               email: prefillData?.email || "",
               contact: prefillData?.phone || "",
             },
-            theme: { color: "#000000" },
-
+            theme: {
+              color: paymentOrder.storeDetails?.themeColor || "#3399cc",
+            },
             handler: async (response) => {
+              setLoadingMessage(UI_MESSAGES.VERIFYING_PAYMENT);
               try {
-                setLoadingMessage(UI_MESSAGES.VERIFYING_PAYMENT);
+                const verified = await OrderService.verifyPayment(
+                  {
+                    razorpayOrderId: response.razorpay_order_id,
+                    razorpayPaymentId: response.razorpay_payment_id,
+                    razorpaySignature: response.razorpay_signature,
+                  },
+                  token
+                );
 
-                const verifyResult = await verifyPaymentAsync({
+                updateOrder({
                   orderId,
-                  razorpay_order_id: response.razorpay_order_id,
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_signature: response.razorpay_signature,
-                  customerEmail: prefillData?.email,
+                  paymentStatus: PAYMENT_STATUS.PAID,
+                  orderStatus: ORDER_STATUS.CONFIRMED,
                 });
 
-                const verified = verifyResult?.data || {};
-
-                updateOrder(orderId, {
-                  orderStatus: verified.orderStatus || ORDER_STATUS.CONFIRMED,
-                  paymentStatus: verified.paymentStatus || PAYMENT_STATUS.PAID,
-                  paymentId: response.razorpay_payment_id,
-                  paymentVerifiedAt: new Date().toISOString(),
-                });
-
-                resolve({ success: true, orderId });
+                safeResolve(verified);
               } catch (err) {
-                // Payment likely succeeded on Razorpay's side but our
-                // verification call failed (network blip, etc). Surface the
-                // error to the caller rather than leaving the promise
-                // hanging — the order stays "pending" and can be
-                // reconciled via getOrderStatus / webhook on reload.
-                reject(err);
-              } finally {
-                setLoadingMessage("");
+                safeReject(err);
               }
             },
-
             modal: {
               ondismiss: () => {
-                setLoadingMessage("");
-                reject(new Error(ERROR_MESSAGES.PAYMENT_CANCELLED));
+                safeReject(new Error(ErrorService.getErrorMessage("PAYMENT_CANCELLED")));
               },
             },
           });
 
+          razorpay.on("payment.failed", (response) => {
+            safeReject(
+              new Error(
+                response?.error?.description || ErrorService.getErrorMessage("PAYMENT_FAILED")
+              )
+            );
+          });
+
           razorpay.open();
         } catch (err) {
-          setLoadingMessage("");
-          reject(err);
+          safeReject(err);
         }
       });
     },
-    [updateOrder],
+    [updateOrder]
   );
 
-  /* ========================================
-     CHECKOUT
-  ======================================== */
   const performCheckout = useCallback(
     async ({
       items,
       shippingAddress,
-      paymentMethod = PAYMENT_GATEWAY.RAZORPAY,
+      paymentMethod = PAYMENT_METHODS.RAZORPAY,
       customerNote = "",
-      pricing,
-      // shippingInfo is accepted for call-signature parity with callers that
-      // resolve a confirmed courier/ETA via useShippingServiceability.
-      // It isn't persisted separately today because `pricing.deliveryFee`
-      // already carries the confirmed number — reserved for future use
-      // (e.g. storing courier name / promised delivery date on the order).
-      shippingInfo, // eslint-disable-line no-unused-vars
     }) => {
-      if (checkoutRef.current) {
-        return { success: false, error: "Checkout already in progress" };
-      }
+      if (checkoutRef.current) return { success: false, error: "Checkout in progress" };
 
       checkoutRef.current = true;
       setIsLoading(true);
       setError("");
 
       try {
-        const validation = performAddressValidation(shippingAddress);
-        if (!validation.isValid) {
-          return { success: false, error: validation.errors };
-        }
-
-        const order = await performOrderCreation({
+        const { order, token } = await performOrderCreation({
           items,
           shippingAddress,
-          paymentMethod,
           customerNote,
-          pricing,
+          paymentMethod,
         });
 
-        if (paymentMethod === PAYMENT_GATEWAY.RAZORPAY) {
-          await performRazorpayPayment(order.orderId, {
-            name: shippingAddress?.fullName || user?.name || address?.fullName,
-            email: shippingAddress?.email || user?.email || address?.email,
-            phone: shippingAddress?.phone || address?.phone,
-          });
+        if (paymentMethod === PAYMENT_METHODS.RAZORPAY) {
+          const prefillData = {
+            name: shippingAddress?.fullName || savedAddress?.fullName || user?.name,
+            email: shippingAddress?.email || savedAddress?.email || user?.email,
+            phone: shippingAddress?.phone || savedAddress?.phone,
+          };
+          await performRazorpayPayment(order._id, prefillData, token);
         }
 
-        setLoadingMessage("");
-
-        return {
-          success: true,
-          orderId: order.orderId,
-          trackingUrl: order.trackingUrl,
-        };
+        // ✅ FIX: Reset idempotency key strictly on success so users can buy again later
+        idempotencyKeyRef.current = null; 
+        
+        return { success: true, orderId: order._id };
       } catch (err) {
-        const msg = getErrorMessage(err);
+        const msg = ErrorService.getErrorMessage(err);
         setError(msg);
-        return { success: false, error: msg };
+        return { success: false, error: msg, orderId: orderIdRef.current };
       } finally {
         setIsLoading(false);
         checkoutRef.current = false;
       }
     },
-    [user, address, performAddressValidation, performOrderCreation, performRazorpayPayment],
+    [user, savedAddress, performOrderCreation, performRazorpayPayment]
   );
 
   const resetCheckout = useCallback(() => {
@@ -300,6 +229,7 @@ export const useCheckout = () => {
     setLoadingMessage("");
     orderIdRef.current = null;
     checkoutRef.current = false;
+    idempotencyKeyRef.current = null;
   }, []);
 
   return {

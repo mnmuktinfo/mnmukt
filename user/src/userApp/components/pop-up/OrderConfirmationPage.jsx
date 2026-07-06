@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ChevronRight, CreditCard, MapPin, Package } from "lucide-react";
-import { orderService } from "../../features/orders/services/orderService";
+import { orderService } from "../../features/orders/services/api/orderService";
 
 const WHATSAPP_NUMBER = "8392856993";
 const STATUS_STEPS = ["placed", "confirmed", "packed", "shipped", "delivered"];
@@ -79,8 +79,10 @@ const OrderConfirmationPage = () => {
   const address = orderData.shippingAddress ?? orderData.addressSnapshot ?? {};
   const pricing = orderData.pricing ?? {};
 
-  const paymentMethod = orderData.payment?.method ?? orderData.paymentMethod ?? "";
-  const paymentStatus = orderData.payment?.status ?? orderData.paymentStatus ?? "pending";
+  const paymentMethod =
+    orderData.payment?.method ?? orderData.paymentMethod ?? "";
+  const paymentStatus =
+    orderData.payment?.status ?? orderData.paymentStatus ?? "pending";
 
   const items = orderData.items ?? [];
   const displayOrderId =
@@ -248,7 +250,10 @@ const OrderConfirmationPage = () => {
                   .join(", ")}{" "}
                 {(address.postalCode || address.pincode) && (
                   <>
-                    – <span className="font-semibold">{address.postalCode || address.pincode}</span>
+                    –{" "}
+                    <span className="font-semibold">
+                      {address.postalCode || address.pincode}
+                    </span>
                   </>
                 )}
               </p>

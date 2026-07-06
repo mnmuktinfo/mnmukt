@@ -8,6 +8,7 @@ import LoadingScreen from "./userApp/components/loading/LoadingScreen";
 import NotFoundPage from "./userApp/pages/NotFoundPage";
 import ErrorBoundary from "./shared/components/ErrorBoundary";
 import HtmlSitemap from "./userApp/pages/SItemap";
+import SharedTrackingPage from "./userApp/pages/SharedTrackingPage";
 
 /* ─── Code-split Lazy Imports ────────────────────────────────────────────── */
 
@@ -33,7 +34,7 @@ const CollectionPage = lazy(
 const ContactUsPage = lazy(() => import("./userApp/pages/ContactUsPage"));
 const AboutUsPage = lazy(() => import("./userApp/pages/AboutUsPage"));
 const OrderTrackingPage = lazy(
-  () => import("./userApp/pages/OrderTrackingPage")
+  () => import("./userApp/pages/OrderTrackingPage"),
 );
 const SingleItemCheckout = lazy(
   () => import("./userApp/pages/Singleitemcheckout"),
@@ -168,6 +169,11 @@ const AppRoutes = () => {
             </Suspense>
           }
         />
+
+        <Route
+          path="/track-shared/:shareToken"
+          element={<SharedTrackingPage />}
+        />
         <Route
           path="/order-success/:orderId"
           element={
@@ -199,8 +205,6 @@ const AppRoutes = () => {
             path="/collections/:collectionType"
             element={<LazyPage Component={CollectionPage} />}
           />
-
-
 
           {/* Info Pages */}
           <Route

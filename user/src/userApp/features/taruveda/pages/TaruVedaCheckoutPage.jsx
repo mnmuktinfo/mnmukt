@@ -12,7 +12,7 @@ import {
 
 import { useAuth } from "../../auth/context/UserContext";
 import { useCart } from "../../../context/TaruvedaCartContext";
-import { createOrder } from "../../orders/services/orderService";
+import { createOrder } from "../../orders/services/api/orderService";
 
 const makeOrderId = (name = "") => {
   const prefix = name ? name.substring(0, 3).toUpperCase() : "MNM";
@@ -72,14 +72,16 @@ export default function TaruVedaCheckoutPage() {
   // ── Seed saved addresses from context ──
   const [addresses, setAddresses] = useState(() =>
     address
-      ? [{ 
-          ...address, 
-          fullName: address.fullName || address.name || "",
-          addressLine1: address.addressLine1 || "",
-          addressLine2: address.addressLine2 || "",
-          postalCode: address.postalCode || address.pincode || "",
-          landmark: address.landmark || "",
-        }]
+      ? [
+          {
+            ...address,
+            fullName: address.fullName || address.name || "",
+            addressLine1: address.addressLine1 || "",
+            addressLine2: address.addressLine2 || "",
+            postalCode: address.postalCode || address.pincode || "",
+            landmark: address.landmark || "",
+          },
+        ]
       : [],
   );
 

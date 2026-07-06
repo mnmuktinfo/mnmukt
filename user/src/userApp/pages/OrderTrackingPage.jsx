@@ -1,34 +1,30 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../features/auth/context/UserContext";
+import { auth } from "../../config/firebaseAuth";
+import { OrderService } from "../features/orders/services/api/orderService";
 import {
-  getOrderDetails,
-  getOrderStatus,
-} from "../features/orders/services/orderService";
-import {
-  Package,
-  Truck,
-  CheckCircle,
-  Clock,
-  ArrowLeft,
-  XCircle,
-  RefreshCw,
-  Search,
-} from "lucide-react";
+  ArchiveBoxIcon,
+  TruckIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  ArrowLeftIcon,
+  XCircleIcon,
+  ArrowPathIcon,
+  ShareIcon, // 👈 IMPORTED SHARE ICON
+} from "@heroicons/react/24/outline";
 import LoadingScreen from "../components/loading/LoadingScreen";
 
-// ── Icons for Status ──
 const STATUS_ICONS = {
-  pending: <Clock size={18} />,
-  confirmed: <CheckCircle size={18} />,
-  processing: <RefreshCw size={18} />,
-  shipped: <Truck size={18} />,
-  out_for_delivery: <Truck size={18} />,
-  delivered: <Package size={18} />,
-  cancelled: <XCircle size={18} />,
+  pending: <ClockIcon className="w-[18px] h-[18px]" />,
+  confirmed: <CheckCircleIcon className="w-[18px] h-[18px]" />,
+  processing: <ArrowPathIcon className="w-[18px] h-[18px]" />,
+  shipped: <TruckIcon className="w-[18px] h-[18px]" />,
+  out_for_delivery: <TruckIcon className="w-[18px] h-[18px]" />,
+  delivered: <ArchiveBoxIcon className="w-[18px] h-[18px]" />,
+  cancelled: <XCircleIcon className="w-[18px] h-[18px]" />,
 };
 
-// ── Colors for Status ──
 const STATUS_COLORS = {
   pending: "text-amber-600",
   confirmed: "text-blue-600",
@@ -59,57 +55,56 @@ export default function OrderTrackingPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // For Guest Authentication
-  const [emailInput, setEmailInput] = useState("");
-  const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
-  const [verifying, setVerifying] = useState(false);
-
   useEffect(() => {
     if (authLoading) return;
-
-    if (user) {
-      fetchOrderDetails();
-    } else {
-      setLoading(false);
-      setNeedsEmailVerification(true);
-    }
-  }, [user, authLoading, orderId]);
+    fetchOrderDetails();
+  }, [authLoading, orderId, user]);
 
   const fetchOrderDetails = async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await getOrderDetails(orderId);
-      setOrderData(data);
-      setNeedsEmailVerification(false);
-    } catch (err) {
-      if (
-        err.message.includes("Login required") ||
-        err.message.includes("Unauthorized")
-      ) {
-        setNeedsEmailVerification(true);
-      } else {
-        setError(err.message || "Failed to fetch order details.");
+      let token = null;
+      if (user && auth.currentUser) {
+        token = await auth.currentUser.getIdToken();
       }
+
+      const data = await OrderService.getOrderById(orderId, token);
+      setOrderData(data);
+    } catch (err) {
+      setError(err.message || "Failed to fetch order details.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGuestVerification = async (e) => {
-    e.preventDefault();
-    if (!emailInput.trim()) return;
+  // 👇 ADDED: Share Logic utilizing Web Share API
+  const handleShareTracking = async () => {
+    if (!orderData?.shareToken) {
+      alert("Sharing is not available for this order.");
+      return;
+    }
 
-    setVerifying(true);
-    setError(null);
+    const shareUrl = `${window.location.origin}/track-shared/${orderData.shareToken}`;
+    const shareData = {
+      title: "Track my order!",
+      text: "Hey, track my incoming order here:",
+      url: shareUrl,
+    };
+
     try {
-      const data = await getOrderStatus(orderId, emailInput.trim());
-      setOrderData(data);
-      setNeedsEmailVerification(false);
+      if (
+        navigator.share &&
+        navigator.canShare &&
+        navigator.canShare(shareData)
+      ) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(shareUrl);
+        alert("Tracking link copied to clipboard!");
+      }
     } catch (err) {
-      setError(err.message || "Invalid email or order not found.");
-    } finally {
-      setVerifying(false);
+      console.error("Error sharing:", err);
     }
   };
 
@@ -121,84 +116,33 @@ export default function OrderTrackingPage() {
     );
   }
 
-  // ── GUEST VERIFICATION VIEW ──
-  if (needsEmailVerification && !orderData) {
+  // ── ERROR VIEW ──
+  if (error || !orderData) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
-        <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center">
-          <button onClick={() => navigate("/")} className="mr-3 text-gray-700">
-            <ArrowLeft size={20} />
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4 text-center font-sans">
+        <XCircleIcon className="w-10 h-10 text-red-400 mb-3" />
+        <h2 className="text-lg font-medium text-gray-900 mb-2">
+          Order Not Found
+        </h2>
+        <p className="text-sm text-gray-600 mb-5 max-w-sm">
+          {error || "We couldn't find an order with that ID."}
+        </p>
+        <div className="flex gap-3">
+          <button
+            onClick={() => navigate("/")}
+            className="px-5 py-2 border border-gray-300 bg-white text-gray-800 rounded-md text-sm font-medium hover:bg-gray-50">
+            Go Back Home
           </button>
-          <span className="text-base font-medium text-gray-800">
-            Track Order
-          </span>
-        </header>
-
-        <div className="flex-1 flex items-center justify-center p-4">
-          <div className="max-w-sm w-full bg-white p-6 rounded-md border border-gray-200 shadow-sm text-center">
-            <div className="w-12 h-12 bg-pink-50 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Search className="text-[#f43397]" size={24} />
-            </div>
-            <h1 className="text-xl text-gray-900 font-semibold mb-2">
-              Track Your Order
-            </h1>
-            <p className="text-sm text-gray-600 mb-6">
-              Enter the email address used for order <br />
-              <span className="font-medium text-gray-900">{orderId}</span>
-            </p>
-
-            <form onSubmit={handleGuestVerification} className="space-y-4">
-              <input
-                type="email"
-                value={emailInput}
-                onChange={(e) => setEmailInput(e.target.value)}
-                placeholder="Email Address"
-                required
-                className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-md text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:border-[#f43397] focus:ring-1 focus:ring-[#f43397]"
-              />
-              {error && (
-                <p className="text-sm text-red-600 bg-red-50 p-2 rounded text-left flex items-start gap-1.5">
-                  <XCircle size={16} className="mt-0.5 shrink-0" /> {error}
-                </p>
-              )}
-              <button
-                type="submit"
-                disabled={verifying}
-                className="w-full bg-[#f43397] hover:bg-[#e02b88] text-white py-2.5 rounded-md text-sm font-medium transition-colors disabled:opacity-70 flex justify-center items-center h-[42px]">
-                {verifying ? (
-                  <RefreshCw size={18} className="animate-spin" />
-                ) : (
-                  "Track Order"
-                )}
-              </button>
-            </form>
-          </div>
         </div>
       </div>
     );
   }
 
-  // ── ERROR VIEW ──
-  if (error && !orderData) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4 text-center font-sans">
-        <XCircle size={40} className="text-red-400 mb-3" />
-        <h2 className="text-lg font-medium text-gray-900 mb-2">
-          Order Not Found
-        </h2>
-        <p className="text-sm text-gray-600 mb-5">{error}</p>
-        <button
-          onClick={() => navigate("/")}
-          className="px-5 py-2 border border-gray-300 bg-white text-gray-800 rounded-md text-sm font-medium hover:bg-gray-50">
-          Go Back Home
-        </button>
-      </div>
-    );
-  }
-
   // ── TRACKING VIEW ──
-  const currentStatus = orderData.status?.toLowerCase() || "pending";
-  const statusIcon = STATUS_ICONS[currentStatus] || <Clock size={18} />;
+  const currentStatus = orderData.orderStatus?.toLowerCase() || "pending";
+  const statusIcon = STATUS_ICONS[currentStatus] || (
+    <ClockIcon className="w-[18px] h-[18px]" />
+  );
   const statusColor = STATUS_COLORS[currentStatus] || "text-gray-600";
 
   const orderDate = new Date(orderData.createdAt).toLocaleDateString("en-US", {
@@ -232,15 +176,27 @@ export default function OrderTrackingPage() {
     <div className="min-h-screen bg-gray-100 font-sans pb-16 selection:bg-pink-200">
       {/* HEADER */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-20">
-        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
-          <button
-            onClick={() => navigate(-1)}
-            className="text-gray-700 hover:text-gray-900">
-            <ArrowLeft size={20} />
-          </button>
-          <span className="text-base font-semibold text-gray-900">
-            Order Details
-          </span>
+        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate(-1)}
+              className="text-gray-700 hover:text-gray-900">
+              <ArrowLeftIcon className="w-5 h-5" />
+            </button>
+            <span className="text-base font-semibold text-gray-900">
+              Order Details
+            </span>
+          </div>
+
+          {/* 👇 ADDED: Share Button UI */}
+          {orderData.shareToken && (
+            <button
+              onClick={handleShareTracking}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-pink-50 text-[#f43397] rounded-md hover:bg-pink-100 transition text-sm font-medium">
+              <ShareIcon className="w-4 h-4" />
+              <span className="hidden sm:inline">Share</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -249,7 +205,7 @@ export default function OrderTrackingPage() {
         <div className="bg-white p-4 sm:rounded-md border-y sm:border border-gray-200 flex justify-between items-start">
           <div>
             <p className="text-xs text-gray-500 mb-0.5">
-              Order ID - {orderData.orderId}
+              Order ID - {orderData._id}
             </p>
             <p className="text-sm font-medium text-gray-900">
               Placed on {orderDate}
@@ -257,7 +213,7 @@ export default function OrderTrackingPage() {
           </div>
           <div className="text-right">
             <span className="text-sm font-semibold text-gray-900">
-              ₹{orderData.pricing?.total || 0}
+              ₹{orderData.pricing?.totalAmount || 0}
             </span>
             <div
               className={`flex items-center gap-1 mt-1 justify-end ${statusColor}`}>
@@ -275,8 +231,6 @@ export default function OrderTrackingPage() {
             <h2 className="text-sm font-semibold text-gray-900 border-b border-gray-100 pb-2 mb-4">
               Tracking Info
             </h2>
-
-            {/* Progress Bar */}
             <div className="mb-6 px-1">
               <div className="relative h-1.5 bg-gray-200 rounded-full overflow-hidden">
                 <div
@@ -286,32 +240,28 @@ export default function OrderTrackingPage() {
               </div>
             </div>
 
-            {/* Timeline List */}
             <div className="relative pl-2">
               <div className="absolute top-2 bottom-2 left-[13px] w-0.5 bg-gray-200" />
               <div className="space-y-6">
-                {orderData.timeline && orderData.timeline.length > 0 ? (
-                  [...orderData.timeline].reverse().map((entry, idx) => (
+                {orderData.statusHistory &&
+                orderData.statusHistory.length > 0 ? (
+                  [...orderData.statusHistory].reverse().map((entry, idx) => (
                     <div key={idx} className="relative flex gap-4">
-                      {/* Indicator */}
                       <div
-                        className={`w-2.5 h-2.5 rounded-full mt-1.5 z-10 ring-4 ring-white ${
-                          idx === 0 ? "bg-green-500" : "bg-gray-300"
-                        }`}
+                        className={`w-2.5 h-2.5 rounded-full mt-1.5 z-10 ring-4 ring-white ${idx === 0 ? "bg-green-500" : "bg-gray-300"}`}
                       />
-                      {/* Content */}
                       <div className="flex-1">
                         <p
                           className={`text-sm font-medium capitalize ${idx === 0 ? "text-gray-900" : "text-gray-600"}`}>
                           {entry.status.replace(/_/g, " ")}
                         </p>
-                        {entry.message && (
+                        {entry.note && (
                           <p className="text-xs text-gray-500 mt-0.5">
-                            {entry.message}
+                            {entry.note}
                           </p>
                         )}
                         <p className="text-xs text-gray-400 mt-1">
-                          {new Date(entry.createdAt || entry.timestamp || entry.date).toLocaleString("en-US", {
+                          {new Date(entry.changedAt).toLocaleString("en-US", {
                             month: "short",
                             day: "numeric",
                             hour: "numeric",
@@ -331,7 +281,7 @@ export default function OrderTrackingPage() {
           </div>
         ) : (
           <div className="bg-red-50 p-4 sm:rounded-md border-y sm:border border-red-200 flex gap-3 items-start">
-            <XCircle size={20} className="text-red-500 shrink-0 mt-0.5" />
+            <XCircleIcon className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
             <div>
               <h2 className="text-sm font-semibold text-red-800">
                 Order Cancelled
@@ -361,7 +311,7 @@ export default function OrderTrackingPage() {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <Package size={20} className="text-gray-400" />
+                      <ArchiveBoxIcon className="w-5 h-5 text-gray-400" />
                     )}
                   </div>
                   <div className="flex-1 flex flex-col justify-center">
@@ -370,10 +320,12 @@ export default function OrderTrackingPage() {
                     </p>
                     <p className="text-xs text-gray-500 mt-0.5">
                       Qty: {item.quantity}{" "}
-                      {item.variant?.size ? `| Size: ${item.variant.size}` : ""}
+                      {item.variant?.size?.label
+                        ? `| Size: ${item.variant.size.label}`
+                        : ""}
                     </p>
                     <p className="text-sm font-semibold text-gray-900 mt-1">
-                      ₹{item.price}
+                      ₹{item.price * item.quantity}
                     </p>
                   </div>
                 </div>
@@ -384,7 +336,6 @@ export default function OrderTrackingPage() {
 
         {/* ADDRESS & PAYMENT INFO (Grid) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Address */}
           {orderData.shippingAddress && (
             <div className="bg-white p-4 sm:rounded-md border-y sm:border border-gray-200">
               <h2 className="text-sm font-semibold text-gray-900 mb-2">
@@ -392,19 +343,19 @@ export default function OrderTrackingPage() {
               </h2>
               <div className="text-xs text-gray-600 space-y-1">
                 <p className="font-medium text-gray-900 text-sm">
-                  {orderData.shippingAddress.fullName ||
-                    orderData.shippingAddress.name ||
-                    orderData.customerName}
+                  {orderData.shippingAddress.fullName}
                 </p>
                 {orderData.shippingAddress.addressLine1 && (
                   <p>{orderData.shippingAddress.addressLine1}</p>
+                )}
+                {orderData.shippingAddress.addressLine2 && (
+                  <p>{orderData.shippingAddress.addressLine2}</p>
                 )}
                 <p>
                   {[
                     orderData.shippingAddress.city,
                     orderData.shippingAddress.state,
-                    orderData.shippingAddress.postalCode ||
-                      orderData.shippingAddress.pincode,
+                    orderData.shippingAddress.postalCode,
                   ]
                     .filter(Boolean)
                     .join(", ")}
@@ -421,7 +372,6 @@ export default function OrderTrackingPage() {
             </div>
           )}
 
-          {/* Payment Summary */}
           <div className="bg-white p-4 sm:rounded-md border-y sm:border border-gray-200">
             <h2 className="text-sm font-semibold text-gray-900 mb-3">
               Order Summary
@@ -429,15 +379,15 @@ export default function OrderTrackingPage() {
             <div className="space-y-2 text-xs text-gray-600">
               <div className="flex justify-between">
                 <span>Total Product Price</span>
-                <span>₹{orderData.pricing?.subtotal || 0}</span>
+                <span>₹{orderData.pricing?.itemsTotal || 0}</span>
               </div>
               <div className="flex justify-between">
                 <span>Shipping</span>
                 <span>
-                  {orderData.pricing?.shippingCharge === 0 ? (
+                  {orderData.pricing?.shippingFee === 0 ? (
                     <span className="text-green-600 font-medium">Free</span>
                   ) : (
-                    `₹${orderData.pricing?.shippingCharge || 0}`
+                    `₹${orderData.pricing?.shippingFee || 0}`
                   )}
                 </span>
               </div>
@@ -449,9 +399,8 @@ export default function OrderTrackingPage() {
               )}
               <div className="flex justify-between pt-2 mt-2 border-t border-gray-100 text-sm font-semibold text-gray-900">
                 <span>Order Total</span>
-                <span>₹{orderData.pricing?.total || 0}</span>
+                <span>₹{orderData.pricing?.totalAmount || 0}</span>
               </div>
-
               <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
                 <span className="text-xs text-gray-500">Payment Mode</span>
                 <span className="text-xs font-semibold text-gray-900 uppercase">

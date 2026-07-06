@@ -12,7 +12,7 @@ const {
   validateBody,
   validateParams,
   validateQuery,
-} = require("./validationMiddleware");
+} = require("./validate.middleware");
 
 const {
   apiLimiter,
@@ -21,7 +21,7 @@ const {
   readLimiter,
   paymentLimiter,
   adminLimiter,
-} = require("./rateLimiter");
+} = require("./rateLimiter.middleware");
 
 module.exports = {
   // Auth
