@@ -1,4 +1,4 @@
-import { auth, db } from "../../../../config/firebaseAuth";
+import { auth, db } from "../../../../config/firebaseConfig";
 import {
   createUserWithEmailAndPassword,
   sendEmailVerification,
@@ -94,6 +94,7 @@ return snap.exists()
 
       city:
         snap.data().city || "",
+       district: snap.data().district || "",
 
       state:
         snap.data().state || "",
@@ -426,6 +427,8 @@ export const getAddresses = async (uid) => {
         city:
           data.city || "",
 
+          district: data.district || "",
+
         state:
           data.state || "",
 
@@ -632,6 +635,8 @@ export const saveAddress = async (uid, address) => {
       city:
         address.city || "",
 
+        district: address.district || "",
+
       state:
         address.state || "",
 
@@ -669,4 +674,58 @@ export const saveAddress = async (uid, address) => {
   } catch (err) {
     handleError(err);
   }
+};
+
+/* ════════════════════════════════════════════════════════════
+   GUEST IDENTITY
+   Anonymous (not-logged-in) shoppers get a stable id persisted in
+   localStorage. It's attached to any order placed while logged out
+   (see performCheckout), so a guest returning on the same device/
+   browser can be recognized as "a guest who has ordered before"
+   without needing to create an account.
+════════════════════════════════════════════════════════════ */
+
+const GUEST_ID_KEY = "mnmukt_guest_id";
+
+export const getOrCreateGuestId = () => {
+  try {
+    let id = localStorage.getItem(GUEST_ID_KEY);
+    if (!id) {
+      id = `guest_${crypto.randomUUID()}`;
+      localStorage.setItem(GUEST_ID_KEY, id);
+    }
+    return id;
+  } catch {
+    // localStorage unavailable (private browsing, etc.) — fall back to a
+    // session-only id so checkout still works, just without persistence.
+    return `guest_${crypto.randomUUID()}`;
+  }
+};
+
+/**
+ * Looks up orders placed under a given guestId.
+ * Assumes orders written by performCheckout are tagged with `guestId`
+ * when there's no logged-in user at checkout time. Never throws —
+ * returns [] on any failure so this can't block rendering.
+ */
+export const getGuestOrders = async (guestId) => {
+  if (!guestId) return [];
+  try {
+    const snap = await getDocs(
+      query(collection(db, "orders"), where("guestId", "==", guestId))
+    );
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch (err) {
+    console.error("Failed to fetch guest orders:", err);
+    return [];
+  }
+};
+
+/**
+ * Convenience check when you only need a yes/no, not the full list
+ * (e.g. deciding whether to show a "Welcome back" banner to a guest).
+ */
+export const hasGuestOrders = async (guestId) => {
+  const orders = await getGuestOrders(guestId);
+  return orders.length > 0;
 };

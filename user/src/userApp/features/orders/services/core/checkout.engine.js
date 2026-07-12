@@ -13,6 +13,7 @@ export const CheckoutEngine = {
   prepareOrderPayload: ({
     idempotencyKey,
     cartItems,
+    pricing, // 👈 FIX 1: Accept pricing from the UI
     shippingAddress,
     userUid,
     guestInfo,
@@ -38,7 +39,9 @@ export const CheckoutEngine = {
     }
 
     // 4. PRICE
-    const pricing = OrderPricingService.calculatePricing(normalizedItems);
+    // 👈 FIX 2: Use the pricing passed from UI (which has COD fees). 
+    // Only recalculate as a fallback if it wasn't provided.
+    const finalPricing = pricing || OrderPricingService.calculatePricing(normalizedItems);
 
     // 5. BUILD
     const { apiPayload, displayPricing } = buildOrderPayload({
@@ -48,7 +51,7 @@ export const CheckoutEngine = {
       userUid,
       guestInfo,
       paymentMethod,
-      pricing,
+      pricing: finalPricing, // 👈 FIX 3: Pass the correct pricing to the builder
       customerNote,
     });
 

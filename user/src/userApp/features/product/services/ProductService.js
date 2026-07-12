@@ -11,7 +11,7 @@ import {
   updateDoc,
   arrayUnion,
 } from "firebase/firestore";
-import { db } from "../../../../config/firebaseDB";
+import { db } from "../../../../config/firebaseConfig";
 
 // ─────────────────────────────────────────────────────────────
 // CONFIG
@@ -54,7 +54,7 @@ const primeRefs = (product) => {
 // Always returns a complete, type-safe product shape
 // ─────────────────────────────────────────────────────────────
 
-const normalize = (id, data) => {
+export const normalize = (id, data) => {
   if (!id || !data) {
     log.warn("normalize() called with empty id or data");
     return null;
@@ -63,22 +63,40 @@ const normalize = (id, data) => {
     id: String(id),
     name: data.name ?? "",
     slug: data.slug ?? "",
+    brand: data.brand ?? "",                          // 👈 shown on product page
+    shortDescription: data.shortDescription ?? "",     // 👈 cards / quick view
     description: data.description ?? "",
-    // Single Source of Truth mapping
-    image: data.image ?? data.banner ?? "", 
+    image: data.image ?? data.banner ?? "",
+    hoverImage: data.hoverImage ?? "",                  // 👈 product card hover-swap
+    videoUrl: data.videoUrl ?? "",                      // 👈 product gallery video
     images: Array.isArray(data.images) ? data.images : [],
     price: Number(data.price ?? data.unitPrice ?? data.salePrice ?? 0),
     originalPrice: Number(data.originalPrice ?? data.mrp ?? data.comparePrice ?? data.price ?? 0),
     stock: Number(data.stock ?? 0),
     sizes: Array.isArray(data.sizes) ? data.sizes : [],
     colors: Array.isArray(data.colors) ? data.colors : [],
+    highlights: Array.isArray(data.highlights) ? data.highlights : [], // 👈 spec list on PDP
     categoryId: data.categoryId ?? "",
-    collectionTypes: Array.isArray(data.collectionTypes)
-      ? data.collectionTypes
-      : [],
+    collectionTypes: Array.isArray(data.collectionTypes) ? data.collectionTypes : [],
     isActive: data.isActive ?? true,
+    isFeatured: data.isFeatured ?? false,                // 👈 badges customers see
+    isTrending: data.isTrending ?? false,
+    isNewArrival: data.isNewArrival ?? false,
+    isBestSeller: data.isBestSeller ?? false,
+    offers: Array.isArray(data.offers) ? data.offers : [], // 👈 promos shown to customers
+    seo: {                                                // 👈 needed for <title>/<meta> on PDP
+      metaTitle: data.seo?.metaTitle ?? "",
+      metaDescription: data.seo?.metaDescription ?? "",
+      metaKeywords: data.seo?.metaKeywords ?? "",
+    },
     createdAt: data.createdAt ?? null,
-    tags: Array.isArray(data.tags) ? data.tags : [],
+    // 👈 fixed: tags is stored as a comma-separated string on the admin form,
+    // not an array — this was silently breaking searchProducts()'s tag match
+    tags: Array.isArray(data.tags)
+      ? data.tags
+      : typeof data.tags === "string" && data.tags.trim()
+        ? data.tags.split(",").map((t) => t.trim()).filter(Boolean)
+        : [],
     reviews: Array.isArray(data.reviews) ? data.reviews : [],
     averageRating: Number(data.averageRating ?? 0),
     totalReviews: Number(data.totalReviews ?? 0),
@@ -173,48 +191,62 @@ export const productService = {
   },
 
   // ── GET PRODUCT BY ID ─────────────────────────────────────
-  async getProductById(id) {
-    if (!id) return null;
-    const cacheKey = `product_${id}`;
-    if (cache.has(cacheKey)) return cache.get(cacheKey);
+async getProductById(id) {
+  if (!id) return null;
+  const cacheKey = `product_${id}`;
+  if (cache.has(cacheKey)) return cache.get(cacheKey);
 
-    const snap = await getDoc(doc(db, COL, String(id)));
-    if (!snap.exists()) {
-      log.warn(`getProductById: no document found for id="${id}"`);
-      return null;
-    }
+  const snap = await getDoc(doc(db, COL, String(id)));
+  if (!snap.exists()) {
+    log.warn(`getProductById: no document found for id="${id}"`);
+    return null;
+  }
 
-    const product = normalize(snap.id, snap.data());
-    if (product) primeRefs(product);
-    return product;
-  },
+  const product = normalize(snap.id, snap.data());
+  if (!product?.isActive) {                 // 👈 added
+    log.warn(`getProductById: product "${id}" is inactive`);
+    return null;
+  }
+  primeRefs(product);
+  return product;
+},
 
   // ── GET PRODUCTS BY SLUG ──────────────────────────────────
-  async getProductBySlug(slug) {
-    if (!slug) return null;
+async getProductBySlug(slug) {
+  if (!slug) return null;
 
-    // 1️⃣ Direct slug cache hit
-    if (cache.has(`slug_${slug}`)) return cache.get(`slug_${slug}`);
+  // 1️⃣ Direct slug cache hit
+  if (cache.has(`slug_${slug}`)) {
+    const cached = cache.get(`slug_${slug}`);
+    return cached?.isActive ? cached : null;
+  }
 
-    // 2️⃣ Cross-ref: slug → id → product cache
-    if (slugToId.has(slug)) {
-      const id = slugToId.get(slug);
-      if (cache.has(`product_${id}`)) return cache.get(`product_${id}`);
+  // 2️⃣ Cross-ref: slug → id → product cache
+  if (slugToId.has(slug)) {
+    const id = slugToId.get(slug);
+    if (cache.has(`product_${id}`)) {
+      const cached = cache.get(`product_${id}`);
+      return cached?.isActive ? cached : null;
     }
+  }
 
-    // 3️⃣ Firestore query
-    const snap = await getDocs(
-      query(collection(db, COL), where("slug", "==", slug), limit(1))
-    );
-    if (snap.empty) {
-      log.warn(`getProductBySlug: no document found for slug="${slug}"`);
-      return null;
-    }
+  // 3️⃣ Firestore query
+  const snap = await getDocs(
+    query(collection(db, COL), where("slug", "==", slug), limit(1))
+  );
+  if (snap.empty) {
+    log.warn(`getProductBySlug: no document found for slug="${slug}"`);
+    return null;
+  }
 
-    const product = normalize(snap.docs[0].id, snap.docs[0].data());
-    if (product) primeRefs(product);
-    return product;
-  },
+  const product = normalize(snap.docs[0].id, snap.docs[0].data());
+  if (!product?.isActive) {
+    log.warn(`getProductBySlug: product "${slug}" is inactive`);
+    return null;
+  }
+  primeRefs(product);
+  return product;
+},
 
   // ── GET PRODUCTS BY IDs (batched, Firestore "in" max 10) ──
   async getProductsByIds(ids = []) {

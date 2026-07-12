@@ -19,9 +19,9 @@ import {
   CheckCircleIcon,
   XMarkIcon,
   MagnifyingGlassIcon,
-  EyeIcon, // ← add, for the "Sold" badge
-  ChevronLeftIcon, // ← add, for offer carousel arrows
-  ChevronRightIcon, // ← add
+  EyeIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
 } from "@heroicons/react/24/outline";
 import {
   HeartIcon as HeartSolid,
@@ -75,34 +75,6 @@ const ErrorState = ({ navigate }) => (
       <ArrowLeftIcon className="w-4 h-4" />
       BACK TO HOME
     </button>
-  </div>
-);
-
-// ─── Accordion Row ────────────────────────────────────────────────────────────
-const AccordionRow = ({ label, icon: Icon, isOpen, onToggle, children }) => (
-  <div className="border-b border-gray-200 last:border-b-0">
-    <button
-      onClick={onToggle}
-      className="w-full flex items-center justify-between py-4 px-0 text-left focus:outline-none group">
-      <div className="flex items-center gap-3 sm:gap-4">
-        <div className="w-10 h-10 rounded-lg bg-[#fce7f3] flex items-center justify-center text-[#db2777] flex-shrink-0 transition-transform group-hover:scale-105">
-          <Icon className="w-5 h-5" />
-        </div>
-        <span className="text-[15px] font-medium text-gray-800">{label}</span>
-      </div>
-      <div className="text-gray-400 ml-4">
-        {isOpen ? (
-          <MinusIcon className="w-4 h-4" />
-        ) : (
-          <PlusIcon className="w-4 h-4" />
-        )}
-      </div>
-    </button>
-    {isOpen && (
-      <div className="pb-6 pl-0 sm:pl-14 pr-2 text-[14px] text-gray-600 leading-relaxed">
-        {children}
-      </div>
-    )}
   </div>
 );
 
@@ -219,7 +191,10 @@ const ProductDetailsPage = () => {
         if (cancelled) return;
         if (data) {
           setProduct(data);
-          if (data.sizes?.length) setSelectedSize(data.sizes[0]);
+          // 👈 default sizeless products to "onesize" so downstream cart/
+          // checkout logic (which uses the same convention) always has a
+          // non-empty size key to build cartKey / variant from.
+          setSelectedSize(data.sizes?.length ? data.sizes[0] : "onesize");
         } else {
           setFetchError(true);
         }
@@ -276,39 +251,61 @@ const ProductDetailsPage = () => {
     );
   };
 
-  const handleAddToCart = useCallback(
-    async (redirect = false) => {
-      if (!isLoggedIn) return setShowLoginModal(true);
-      if (product.sizes?.length > 0 && !selectedSize)
-        return notify("error", "Please select a size");
+  // ─── Add to Cart (persists to the real cart) ───────────────────────────────
+  const handleAddToCart = useCallback(async () => {
+    if (product.sizes?.length > 0 && !selectedSize)
+      return notify("error", "Please select a size");
 
-      setIsAdding(true);
-      try {
-        await addToCart({
-          productId: product.id,
-          name: product.name,
-          price: product.price,
-          originalPrice: product.originalPrice,
-          image: product.image || product.images?.[0] || "",
-          category: product.category,
-          slug: product.slug,
-          sku: product.sku,
-          selectedSize,
-          quantity,
-        });
-        if (redirect) {
-          navigate("/checkout/cart");
-        } else {
-          notify("success", "Added to bag!");
-        }
-      } catch {
-        notify("error", "Something went wrong. Please try again.");
-      } finally {
-        setIsAdding(false);
-      }
-    },
-    [isLoggedIn, product, selectedSize, quantity, addToCart, navigate, notify],
-  );
+    setIsAdding(true);
+    try {
+      await addToCart({
+        productId: product.id,
+        name: product.name,
+        price: product.price,
+        originalPrice: product.originalPrice,
+        image: product.image || product.images?.[0] || "",
+        categoryId: product.categoryId,
+        brand: product.brand,
+        slug: product.slug,
+        sku: product.sku,
+        selectedSize,
+        quantity,
+      });
+      notify("success", "Added to bag!");
+    } catch {
+      notify("error", "Something went wrong. Please try again.");
+    } finally {
+      setIsAdding(false);
+    }
+  }, [product, selectedSize, quantity, addToCart, notify]);
+
+  // ─── Buy Now (bypasses the cart entirely, goes straight to SingleItemCheckout) ──
+  const handleBuyNow = useCallback(() => {
+    if (product.sizes?.length > 0 && !selectedSize)
+      return notify("error", "Please select a size");
+
+    navigate("/checkout/buy-now", {
+      state: {
+        items: [
+          {
+            productId: product.id,
+            sku: product.sku,
+            slug: product.slug,
+            name: product.name,
+            image: product.image || product.images?.[0] || "",
+            price: product.price,
+            originalPrice: product.originalPrice,
+            stock: product.stock,
+            selectedSize,
+            quantity,
+            category: product.categoryId,
+            brand: product.brand,
+          },
+        ],
+        source: "buy_now",
+      },
+    });
+  }, [product, selectedSize, quantity, navigate, notify]);
 
   const handleShare = async () => {
     const url = window.location.href;
@@ -330,7 +327,8 @@ const ProductDetailsPage = () => {
   if (fetchError || !product) return <ErrorState navigate={navigate} />;
 
   // ─── Derived Data ─────────────────────────────────────────────────────────
-  const allImages = [product.banner, ...(product.images || [])].filter(Boolean);
+  // 👈 fixed: product.banner doesn't exist on normalize() output — the field is `image`
+  const allImages = [product.image, ...(product.images || [])].filter(Boolean);
   const isOutOfStock = product.stock === 0;
   const price = Number(product.price || 0);
   const originalPrice = Number(product.originalPrice || price);
@@ -340,7 +338,7 @@ const ProductDetailsPage = () => {
       : 0;
 
   const variantKey = `${product.id}_${selectedSize}`;
-  const cartItems = cart?.cart || [];
+  const cartItems = cart || []; // 👈 fixed: cart is already the array, not { cart: [...] }
   const alreadyInCart = cartItems.some((item) => item.cartKey === variantKey);
 
   const maxQty = Math.min(product.stock || 10, 10);
@@ -358,8 +356,8 @@ const ProductDetailsPage = () => {
             `Buy ${product.name} at Mnmukt.`
           }
         />
-        {product.seo?.keywords && (
-          <meta name="keywords" content={product.seo.keywords} />
+        {product.seo?.metaKeywords && (
+          <meta name="keywords" content={product.seo.metaKeywords} />
         )}
       </Helmet>
 
@@ -376,7 +374,7 @@ const ProductDetailsPage = () => {
           {[
             { label: "Home", onClick: () => navigate("/") },
             {
-              label: product.categoryId || "Clothing",
+              label: product.categoryId || "Clothing", // 👈 fixed: was product.category
               onClick: () => navigate(`/category/${product.categoryId}`),
             },
             {
@@ -426,9 +424,10 @@ const ProductDetailsPage = () => {
               <div className="mb-4">
                 <span className="inline-flex items-center gap-1.5 bg-[#e2e2e2] text-gray-800 px-3 py-1 rounded-[4px] text-[13px] font-medium tracking-wide">
                   <TagIcon className="w-3.5 h-3.5 text-[#e6007e]" />
-                  {product.category || "Tops"}
+                  {product.categoryId || "Tops"} {/* 👈 fixed */}
                 </span>
               </div>
+
               {/* ── 1.5 Sold / Tag Badges ── */}
               {(product.soldCount > 0 || product.tags?.length > 0) && (
                 <div className="flex items-center gap-2 mb-3 flex-wrap">
@@ -480,7 +479,9 @@ const ProductDetailsPage = () => {
                     <StarSolid key={s} className="w-4 h-4 text-[#e6007e]" />
                   ))}
                 </div>
-                <span className="text-[14px] text-gray-600">13 reviews</span>
+                <span className="text-[14px] text-gray-600">
+                  {product.totalReviews || 0} reviews
+                </span>
               </div>
 
               {/* ── 4. Pricing ── */}
@@ -503,7 +504,6 @@ const ProductDetailsPage = () => {
                 Inclusive of all taxes
               </p>
 
-              {/* ── 5. Available Offers (Dynamic) ── */}
               {/* ── 5. Available Offers (Carousel) ── */}
               {product.offers && product.offers.length > 0 && (
                 <div className="mb-8">
@@ -576,6 +576,7 @@ const ProductDetailsPage = () => {
                   </div>
                 </div>
               )}
+
               {/* ── 6. Color Variants ── */}
               {product.colors?.length > 0 && (
                 <div className="mb-6">
@@ -583,10 +584,9 @@ const ProductDetailsPage = () => {
                     Color Family
                   </span>
                   <div className="flex flex-wrap gap-3">
-                    {product.colors.map((color) => (
-                      <a
-                        key={color.id}
-                        href={`/product/${color.slug}`}
+                    {product.colors.map((color, idx) => (
+                      <div
+                        key={idx}
                         title={color.name}
                         className="flex flex-col items-center gap-1 group">
                         <div className="w-9 h-9 rounded-full border border-gray-200 group-hover:border-[#e6007e] transition-colors p-[2px]">
@@ -605,13 +605,18 @@ const ProductDetailsPage = () => {
                         <span className="text-[11px] text-gray-500 truncate max-w-[50px] group-hover:text-[#e6007e] transition-colors text-center">
                           {color.name}
                         </span>
-                      </a>
+                      </div>
                     ))}
                   </div>
                 </div>
               )}
+              {/* NOTE: color swatches were previously wrapped in <a href={`/product/${color.slug}`}>,
+                  but neither the admin form nor normalize() ever attaches an id or slug to an
+                  individual color entry — colors are just { name, image, hex } on THIS product,
+                  not separate linkable products. Rendered as static swatches instead until/unless
+                  colors are modeled as links to sibling product documents. */}
 
-              {/* ── 7. Size Selector (Square Design) ── */}
+              {/* ── 7. Size Selector ── */}
               {product.sizes?.length > 0 && (
                 <div className="mb-8">
                   <div className="flex items-center gap-4 mb-3">
@@ -648,7 +653,7 @@ const ProductDetailsPage = () => {
                 </div>
               )}
 
-              {/* ── 8. Pincode Delivery Box (Matches Design) ── */}
+              {/* ── 8. Pincode Delivery Box ── */}
               <div className="mb-8 border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.06)] rounded-xl overflow-hidden max-w-[420px] font-sans">
                 <div className="bg-black text-white text-[13px] font-semibold text-center py-2.5">
                   Enter Pincode to Check The Delivery Date
@@ -660,9 +665,7 @@ const ProductDetailsPage = () => {
                   </p>
 
                   {shippingInfo && !shippingError ? (
-                    /* --- SUCCESS STATE (Matches your image) --- */
                     <div className="flex items-start gap-4">
-                      {/* Left Column: Pincode */}
                       <div className="flex flex-col w-[120px]">
                         <div className="flex items-center gap-2 border-b border-black pb-1.5">
                           <div className="border border-gray-200 rounded text-gray-400 p-[3px] flex items-center justify-center">
@@ -685,16 +688,12 @@ const ProductDetailsPage = () => {
                           </span>
                         </div>
                         <button
-                          onClick={() => {
-                            // Add any reset logic here if needed (e.g., clearing shippingInfo state)
-                            setPincode("");
-                          }}
+                          onClick={() => setPincode("")}
                           className="text-left text-[12.5px] font-bold text-black mt-2.5 hover:opacity-70 transition-opacity">
                           Change pincode
                         </button>
                       </div>
 
-                      {/* Right Column: Date */}
                       <div className="flex flex-col flex-1">
                         <div className="flex items-center gap-2 border-b border-black pb-1.5">
                           <div className="border border-gray-200 rounded text-gray-400 p-[3px] flex items-center justify-center">
@@ -734,7 +733,6 @@ const ProductDetailsPage = () => {
                       </div>
                     </div>
                   ) : (
-                    /* --- INPUT STATE --- */
                     <div>
                       <div className="flex items-center justify-between border-b border-black pb-1.5">
                         <input
@@ -786,34 +784,6 @@ const ProductDetailsPage = () => {
                   )}
                 </div>
               </div>
-              {shippingLoading && (
-                <p className="text-[12px] text-gray-500">
-                  Checking delivery availability…
-                </p>
-              )}
-
-              {!shippingLoading && shippingError && (
-                <p className="text-[12px] font-medium text-red-500">
-                  {shippingError}
-                </p>
-              )}
-
-              {!shippingLoading &&
-                !shippingError &&
-                pinStatus === "invalid" && (
-                  <p className="text-[12px] font-medium text-red-500">
-                    Not deliverable to this pincode.
-                  </p>
-                )}
-
-              {!shippingLoading && !shippingError && shippingInfo && (
-                <p className="text-[12px] font-medium text-green-600">
-                  ✓ Delivery by {shippingInfo.deliveryDate}.{" "}
-                  {shippingInfo.shippingCharge === 0
-                    ? "Free shipping"
-                    : `Shipping ₹${shippingInfo.shippingCharge}`}
-                </p>
-              )}
 
               {/* ── 8.5 Quantity Selector ── */}
               <div className="flex items-center gap-3 mb-4">
@@ -839,18 +809,17 @@ const ProductDetailsPage = () => {
                     <PlusIcon className="w-3.5 h-3.5" />
                   </button>
                 </div>
-                {isOutOfStock === false &&
-                  product.stock > 0 &&
-                  product.stock <= 5 && (
-                    <span className="text-[12px] text-orange-600 font-medium">
-                      Only {product.stock} left
-                    </span>
-                  )}
+                {!isOutOfStock && product.stock > 0 && product.stock <= 5 && (
+                  <span className="text-[12px] text-orange-600 font-medium">
+                    Only {product.stock} left
+                  </span>
+                )}
               </div>
-              {/* ── 9. CTA Buttons ── */}
+
+              {/* ── 9. CTA Buttons (single, de-duplicated) ── */}
               <div className="flex flex-col sm:flex-row gap-3 mb-8">
                 <button
-                  onClick={() => handleAddToCart(false)}
+                  onClick={handleAddToCart}
                   disabled={isAdding || isOutOfStock || alreadyInCart}
                   className={`flex-1 py-3.5 rounded-[4px] font-bold uppercase tracking-widest text-[13px] transition-all duration-200 border ${
                     alreadyInCart
@@ -869,7 +838,7 @@ const ProductDetailsPage = () => {
                 </button>
 
                 <button
-                  onClick={() => handleAddToCart(true)}
+                  onClick={handleBuyNow}
                   disabled={isAdding || isOutOfStock}
                   className="flex-1 py-3.5 rounded-[4px] font-bold uppercase tracking-widest text-[13px] bg-black text-white hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all duration-200">
                   {isOutOfStock ? "Out of Stock" : "Buy Now"}
@@ -892,44 +861,8 @@ const ProductDetailsPage = () => {
                   )}
                 </button>
               </div>
-              {/* ── 9. CTA Buttons ── */}
-              <div className="flex flex-col sm:flex-row gap-3 mb-8">
-                <button
-                  onClick={() => handleAddToCart(false)}
-                  disabled={isAdding || isOutOfStock || alreadyInCart}
-                  className={`flex-1 py-3.5 rounded-[4px] font-bold uppercase tracking-widest text-[13px] transition-all duration-200 ${
-                    alreadyInCart
-                      ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                      : isOutOfStock
-                        ? "bg-gray-300 text-gray-400 cursor-not-allowed"
-                        : "bg-black text-white hover:bg-gray-800"
-                  }`}>
-                  {isOutOfStock
-                    ? "Out of Stock"
-                    : alreadyInCart
-                      ? "In Bag"
-                      : isAdding
-                        ? "Adding…"
-                        : "Add to Bag"}
-                </button>
 
-                <button
-                  onClick={handleWishlist}
-                  className={`flex-1 py-3.5 border rounded-[4px] flex items-center justify-center gap-2 text-[13px] font-bold uppercase tracking-widest transition-all duration-200 ${
-                    wishlisted
-                      ? "border-[#e6007e] text-[#e6007e] bg-pink-50"
-                      : "border-gray-300 text-gray-900 hover:border-[#e6007e] hover:text-[#e6007e]"
-                  }`}>
-                  {wishlisted ? (
-                    <HeartSolid className="w-4 h-4" />
-                  ) : (
-                    <HeartIcon className="w-4 h-4" />
-                  )}
-                  {wishlisted ? "Wishlisted" : "Wishlist"}
-                </button>
-              </div>
-
-              {/* ── 9.5 PRODUCT HIGHLIGHTS (Dynamic) ── */}
+              {/* ── 9.5 PRODUCT HIGHLIGHTS ── */}
               {product.highlights && product.highlights.length > 0 && (
                 <div className="mt-8 mb-8">
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
@@ -937,25 +870,13 @@ const ProductDetailsPage = () => {
                       <div
                         key={idx}
                         className="flex flex-col items-center text-center p-3 bg-gray-50 rounded-lg">
-                        {hl.icon ? (
-                          typeof hl.icon === "string" &&
-                          hl.icon.startsWith("http") ? (
-                            <img
-                              src={hl.icon}
-                              alt={hl.title}
-                              className="w-8 h-8 mb-2 opacity-80"
-                            />
-                          ) : (
-                            <span className="text-2xl mb-1">{hl.icon}</span> // e.g., emoji or mapped icon
-                          )
-                        ) : (
-                          <StarSolid className="w-6 h-6 text-[#da127d] mb-2 opacity-80" />
-                        )}
+                        <StarSolid className="w-6 h-6 text-[#da127d] mb-2 opacity-80" />
                         <span className="text-[13px] font-bold text-gray-900 leading-tight mb-1">
                           {hl.title}
                         </span>
                         <span className="text-[11px] text-gray-500 leading-tight">
-                          {hl.description}
+                          {hl.value}{" "}
+                          {/* 👈 fixed: was hl.description, field is `value` */}
                         </span>
                       </div>
                     ))}
@@ -963,7 +884,7 @@ const ProductDetailsPage = () => {
                 </div>
               )}
 
-              {/* ── 10. PRODUCT INFORMATION ACCORDIONS (Matches Pink Design) ── */}
+              {/* ── 10. PRODUCT INFORMATION ACCORDIONS ── */}
               <div className="mt-8">
                 <h2 className="text-[18px] sm:text-[20px] font-medium text-gray-900 mb-5">
                   Product Information
@@ -1011,28 +932,10 @@ const ProductDetailsPage = () => {
                             make you stand out.
                           </p>
                         )}
-                        {product.specifications &&
-                          product.specifications.length > 0 && (
-                            <div className="mt-6">
-                              <h4 className="font-bold text-gray-900 mb-3 text-[14px]">
-                                Specifications
-                              </h4>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-8">
-                                {product.specifications.map((spec, idx) => (
-                                  <div
-                                    key={idx}
-                                    className="flex flex-col border-b border-gray-100 pb-2">
-                                    <span className="text-gray-400 text-[12px] uppercase tracking-wider mb-0.5">
-                                      {spec.label}
-                                    </span>
-                                    <span className="font-medium text-gray-900">
-                                      {spec.value}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
+                        {/* NOTE: removed the `product.specifications` block that was here —
+                            that field doesn't exist anywhere in the admin form or normalize()
+                            output, so it could never render. Highlights above already cover
+                            the "spec list" use case (title/value pairs). */}
                       </div>
                     )}
                   </div>
@@ -1121,85 +1024,88 @@ const ProductDetailsPage = () => {
                       </div>
                     </button>
 
-                    <div className="pb-6 pl-[54px] pr-4 text-[13px] text-gray-700 leading-relaxed animate-in slide-in-from-top-2 fade-in duration-200">
-                      <p className="font-semibold mb-3">
-                        NOTE FOR RETURN & EXCHANGE :
-                      </p>
-                      <ul className="list-disc pl-4 space-y-1.5 marker:text-gray-400 mb-6">
-                        <li>
-                          All 'Black Friday Sale', 'Birthday Sale' or 'Buy 2 Get
-                          1 free' purchases are final and not eligible for
-                          return or exchange.
-                        </li>
-                        <li>
-                          The items should be unused and unwashed for hygiene
-                          reasons.
-                        </li>
-                        <li>
-                          We do not offer cashback. Refunds are only made in
-                          terms of a Store Credit.
-                        </li>
-                        <li>
-                          Items purchased for FREE during an offer, will not be
-                          accepted for returns.
-                        </li>
-                        <li>
-                          The product should have the original packaging and
-                          tags in place. Items without the original tags will
-                          not be accepted.
-                        </li>
-                        <li>
-                          Return/Exchange requests that are not raised within 7
-                          DAYS of receiving the product would not be accepted.
-                        </li>
-                        <li>
-                          The product would be picked in 3-5 days after the
-                          return or exchange request is approved.
-                        </li>
-                        <li>
-                          Return charges would have to be borne by the
-                          customer.( Rs150/-)
-                        </li>
-                        <li>
-                          There are no charges for exchange. Exchanges are for
-                          size & design both, subject to availability.
-                        </li>
-                        <li>
-                          'On Sale' Products are not eligible for
-                          Return/Exchange.
-                        </li>
-                        <li>
-                          The credit note issued, will be valid for 1 year from
-                          the date of issuance.
-                        </li>
-                        <li>
-                          Misprints and colour differences from website images
-                          are not considered damaged products. We only sell
-                          handcrafted products and these are all signs of
-                          authenticity.
-                        </li>
-                        <li>
-                          Each order is eligible for a return/exchange only
-                          once.
-                        </li>
-                        <li>
-                          The company holds the authority to make the final
-                          decision in any case.
-                        </li>
-                        <li>
-                          Please note, products from our brand bought from other
-                          stores or marketplaces like Myntra are not eligible
-                          for any return or exchange at our store or on the
-                          website.
-                        </li>
-                      </ul>
-                      <p className="mb-6 uppercase">
-                        <strong>REFUNDS WILL TAKE 7-10 WORKING DAYS.</strong>{" "}
-                        Please Note: We only do money refunds in case of Wrong
-                        or Damaged products being delivered. In any other case,
-                        a refund is made only is terms of STORE CREDIT.
-                      </p>
-                    </div>
+                    {openSection === "Return" && (
+                      <div className="pb-6 pl-[54px] pr-4 text-[13px] text-gray-700 leading-relaxed animate-in slide-in-from-top-2 fade-in duration-200">
+                        <p className="font-semibold mb-3">
+                          NOTE FOR RETURN & EXCHANGE :
+                        </p>
+                        <ul className="list-disc pl-4 space-y-1.5 marker:text-gray-400 mb-6">
+                          <li>
+                            All 'Black Friday Sale', 'Birthday Sale' or 'Buy 2
+                            Get 1 free' purchases are final and not eligible for
+                            return or exchange.
+                          </li>
+                          <li>
+                            The items should be unused and unwashed for hygiene
+                            reasons.
+                          </li>
+                          <li>
+                            We do not offer cashback. Refunds are only made in
+                            terms of a Store Credit.
+                          </li>
+                          <li>
+                            Items purchased for FREE during an offer, will not
+                            be accepted for returns.
+                          </li>
+                          <li>
+                            The product should have the original packaging and
+                            tags in place. Items without the original tags will
+                            not be accepted.
+                          </li>
+                          <li>
+                            Return/Exchange requests that are not raised within
+                            7 DAYS of receiving the product would not be
+                            accepted.
+                          </li>
+                          <li>
+                            The product would be picked in 3-5 days after the
+                            return or exchange request is approved.
+                          </li>
+                          <li>
+                            Return charges would have to be borne by the
+                            customer.( Rs150/-)
+                          </li>
+                          <li>
+                            There are no charges for exchange. Exchanges are for
+                            size & design both, subject to availability.
+                          </li>
+                          <li>
+                            'On Sale' Products are not eligible for
+                            Return/Exchange.
+                          </li>
+                          <li>
+                            The credit note issued, will be valid for 1 year
+                            from the date of issuance.
+                          </li>
+                          <li>
+                            Misprints and colour differences from website images
+                            are not considered damaged products. We only sell
+                            handcrafted products and these are all signs of
+                            authenticity.
+                          </li>
+                          <li>
+                            Each order is eligible for a return/exchange only
+                            once.
+                          </li>
+                          <li>
+                            The company holds the authority to make the final
+                            decision in any case.
+                          </li>
+                          <li>
+                            Please note, products from our brand bought from
+                            other stores or marketplaces like Myntra are not
+                            eligible for any return or exchange at our store or
+                            on the website.
+                          </li>
+                        </ul>
+                        <p className="mb-6 uppercase">
+                          <strong>REFUNDS WILL TAKE 7-10 WORKING DAYS.</strong>{" "}
+                          Please Note: We only do money refunds in case of Wrong
+                          or Damaged products being delivered. In any other
+                          case, a refund is made only is terms of STORE CREDIT.
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Shipping Accordion */}
@@ -1278,7 +1184,7 @@ const ProductDetailsPage = () => {
       {/* ── Sticky Bottom Bar (mobile) ── */}
       <ProductBottomBar
         product={product}
-        handleAddToCart={() => handleAddToCart(false)}
+        handleAddToCart={handleAddToCart}
         isAdding={isAdding}
       />
 

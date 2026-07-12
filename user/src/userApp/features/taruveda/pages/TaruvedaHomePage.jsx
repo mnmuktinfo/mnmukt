@@ -22,10 +22,10 @@ import { StarIcon as StarSolid } from "@heroicons/react/24/solid";
 import { useCart } from "../../../context/TaruvedaCartContext";
 import { useTaruvedaProducts } from "../hooks/useTaruvedaProducts";
 import ProductSection from "../../../components/section/ProductSection";
-import HeroSection from "../../../homepage/HeroSection";
+import HeroSection from "../../mainPage/components/HeroSection";
 import { IMAGES } from "../../../../assets/images";
-import CategoryScroller from "../../../homepage/CategoryScroller";
-import CollectionGrid from "../../../homepage/CollectionGrid";
+import CategoryScroller from "../../mainPage/components/CategoryScroller";
+import CollectionGrid from "../../mainPage/components/CollectionGrid";
 
 const BASE_URL = "/taruveda-organic-shampoo-oil";
 

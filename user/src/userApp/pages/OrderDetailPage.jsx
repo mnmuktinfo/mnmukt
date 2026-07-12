@@ -1,8 +1,7 @@
 import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { orderService } from "../features/orders/services/api/orderService";
-import { formatDate } from "../features/orders/utils/orders";
+import { formatDate } from "../../utils/formatDate";
 
 // Heroicons (Outline & Solid)
 import {
@@ -15,6 +14,7 @@ import {
   ArrowPathIcon,
   ClipboardDocumentIcon,
   PhoneIcon,
+  ExclamationTriangleIcon,
   CheckCircleIcon as CheckCircleOutline,
   XCircleIcon as XCircleOutline,
 } from "@heroicons/react/24/outline";
@@ -22,6 +22,7 @@ import {
   CheckCircleIcon as CheckCircleSolid,
   XCircleIcon as XCircleSolid,
 } from "@heroicons/react/24/solid";
+import { OrderService } from "../features/orders/services/api/orderService";
 
 /* ─────────────────────────────────────
    HELPERS
@@ -42,6 +43,11 @@ const formatPaymentMethod = (method) => {
   if (m === "upi") return "UPI";
   return m.replace(/_/g, " ");
 };
+
+// NOTE: swap this for your real auth hook/context if you have one,
+// e.g. `const { token } = useAuth();`
+const getAuthToken = () =>
+  (typeof window !== "undefined" && localStorage.getItem("token")) || null;
 
 /* ─────────────────────────────────────
    TRACKING STEPS CONFIG
@@ -292,16 +298,21 @@ const OrderDetailPage = () => {
   const { orderId } = useParams();
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
+  const token = getAuthToken();
 
   const {
     data: order,
     isLoading,
+    isError,
     error,
+    refetch,
+    isFetching,
   } = useQuery({
     queryKey: ["order", orderId],
-    queryFn: () => orderService.getOrderDetails(orderId),
+    queryFn: () => OrderService.getOrderById(orderId, token),
     enabled: !!orderId,
     staleTime: 5 * 60 * 1000,
+    retry: 1,
   });
 
   const handleCopyOrderId = (id) => {
@@ -319,18 +330,40 @@ const OrderDetailPage = () => {
     );
   }
 
-  if (error || !order) {
+  if (isError || !order) {
+    const status = error?.status;
+    const isNotFound = status === 404;
+
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center font-sans p-4">
-        <QuestionMarkCircleIcon className="w-16 h-16 text-gray-400 mb-4" />
-        <p className="text-gray-900 font-semibold text-lg mb-4">
-          Order not found
+        {isNotFound ? (
+          <QuestionMarkCircleIcon className="w-16 h-16 text-gray-400 mb-4" />
+        ) : (
+          <ExclamationTriangleIcon className="w-16 h-16 text-amber-500 mb-4" />
+        )}
+        <p className="text-gray-900 font-semibold text-lg mb-1">
+          {isNotFound ? "Order not found" : "Something went wrong"}
         </p>
-        <button
-          onClick={() => navigate("/orders")}
-          className="px-6 py-2.5 bg-[#f43397] text-white text-sm font-medium rounded hover:bg-[#e02b88] transition-colors">
-          Back to Orders
-        </button>
+        {!isNotFound && error?.message && (
+          <p className="text-sm text-gray-500 mb-4 text-center max-w-sm">
+            {error.message}
+          </p>
+        )}
+        <div className="flex gap-3 mt-2">
+          {!isNotFound && (
+            <button
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="px-6 py-2.5 border border-gray-300 text-gray-700 text-sm font-medium rounded hover:bg-gray-50 transition-colors disabled:opacity-60">
+              {isFetching ? "Retrying…" : "Try Again"}
+            </button>
+          )}
+          <button
+            onClick={() => navigate("/orders")}
+            className="px-6 py-2.5 bg-[#f43397] text-white text-sm font-medium rounded hover:bg-[#e02b88] transition-colors">
+            Back to Orders
+          </button>
+        </div>
       </div>
     );
   }

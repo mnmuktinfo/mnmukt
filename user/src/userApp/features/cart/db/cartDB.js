@@ -1,82 +1,84 @@
 import { openDB } from "idb";
 
 const DB_NAME = "cart-db";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE = "cart";
+
+// Composite key so the same product+size can exist independently per scope
+const makeId = (scope, cartKey) => `${scope}::${cartKey}`;
 
 const getDB = () =>
   openDB(DB_NAME, DB_VERSION, {
-    upgrade(db, oldVersion) {
+    async upgrade(db, oldVersion, newVersion, tx) {
+      if (oldVersion < 3) {
+        // Migrate old unscoped items (keyPath was "cartKey") into "guest" scope
+        let oldItems = [];
+        if (db.objectStoreNames.contains(STORE)) {
+          oldItems = await tx.objectStore(STORE).getAll();
+          db.deleteObjectStore(STORE);
+        }
 
-      // Create only if it doesn't exist
-      if (!db.objectStoreNames.contains(STORE)) {
-        db.createObjectStore(STORE, {
-          keyPath: "cartKey",
-        });
-      }
+        const newStore = db.createObjectStore(STORE, { keyPath: "id" });
+        newStore.createIndex("scope", "scope");
 
-      // Migration logic if needed later
-      if (oldVersion < 2) {
-        console.log(
-          "Cart DB upgraded → v2"
-        );
+        for (const item of oldItems) {
+          const scope = item.scope || "guest";
+          newStore.put({
+            ...item,
+            scope,
+            id: makeId(scope, item.cartKey),
+          });
+        }
+      } else if (!db.objectStoreNames.contains(STORE)) {
+        const newStore = db.createObjectStore(STORE, { keyPath: "id" });
+        newStore.createIndex("scope", "scope");
       }
     },
   });
 
-export const getCartDB = async () => {
+export const getCartDB = async (scope = "guest") => {
   const db = await getDB();
-
-  return await db.getAll(STORE);
+  return await db.getAllFromIndex(STORE, "scope", scope);
 };
 
-export const addCartDB = async (item) => {
+export const addCartDB = async (scope = "guest", item) => {
   const db = await getDB();
 
   if (!item?.cartKey) {
-    console.error(
-      "Cannot add to DB: missing cartKey",
-      item
-    );
-
+    console.error("Cannot add to DB: missing cartKey", item);
     return;
   }
 
-  await db.put(STORE, item);
+  await db.put(STORE, {
+    ...item,
+    scope,
+    id: makeId(scope, item.cartKey),
+  });
 };
 
-export const updateCartDB = async (
-  cartKey,
-  data
-) => {
+export const updateCartDB = async (scope = "guest", cartKey, data) => {
   const db = await getDB();
+  const id = makeId(scope, cartKey);
+  const existing = await db.get(STORE, id);
 
-  const existing =
-    await db.get(STORE, cartKey);
-
-  if (existing) {
-    await db.put(STORE, {
-      ...existing,
-      ...data,
-    });
-  } else {
-    await db.put(STORE, data);
-  }
+  await db.put(STORE, {
+    ...(existing || {}),
+    ...data,
+    scope,
+    cartKey,
+    id,
+  });
 };
 
-export const removeCartDB = async (
-  cartKey
-) => {
+export const removeCartDB = async (scope = "guest", cartKey) => {
   const db = await getDB();
-
-  await db.delete(
-    STORE,
-    cartKey
-  );
+  await db.delete(STORE, makeId(scope, cartKey));
 };
 
-export const clearCartDB = async () => {
+export const clearCartDB = async (scope = "guest") => {
   const db = await getDB();
-
-  await db.clear(STORE);
+  const items = await getCartDB(scope);
+  const tx = db.transaction(STORE, "readwrite");
+  await Promise.all(items.map((item) => tx.store.delete(item.id)));
+  await tx.done;
 };

@@ -1,6 +1,6 @@
 import React, { useRef, useState, useMemo, useCallback } from "react";
-import VideoCard from "../components/cards/VideoCard";
-import { videos } from "../../assets/videos";
+import VideoCard from "../../../components/cards/VideoCard";
+import { videos } from "../../../../assets/videos";
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 
 const VideoSection = ({

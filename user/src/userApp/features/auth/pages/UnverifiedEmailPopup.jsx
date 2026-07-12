@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Mail, Loader2, CheckCircle2, X } from "lucide-react";
 import { useAuth } from "../../auth/context/UserContext";
-import { auth } from "../../../../config/firebaseAuth";
+import { auth } from "../../../../config/firebaseConfig";
 import { sendEmailVerification } from "firebase/auth";
 
 const UnverifiedEmailPopup = () => {

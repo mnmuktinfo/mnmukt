@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { sendPasswordResetEmail } from "firebase/auth";
-import { auth } from "../../../../config/firebaseAuth";
+import { auth } from "../../../../config/firebaseConfig";
 import { Link } from "react-router-dom"; // Assuming you use react-router for navigation
 
 const ForgotPasswordPage = () => {

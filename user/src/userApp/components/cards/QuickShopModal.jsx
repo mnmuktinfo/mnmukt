@@ -7,6 +7,7 @@ import {
   ShareIcon,
   PencilIcon,
   StarIcon,
+  CheckIcon,
 } from "@heroicons/react/24/outline";
 import {
   HeartIcon as HeartSolidIcon,
@@ -173,6 +174,29 @@ const SizeChartModal = ({ isOpen, onClose, chartUnit, onChartUnitChange }) => {
 };
 
 /* =========================================================
+   Helper — decide if a hex color reads as "light" so we know
+   whether to draw a border/checkmark that's actually visible
+   on it (e.g. white, cream, pale yellow swatches).
+========================================================= */
+const isLightColor = (hex) => {
+  if (!hex || typeof hex !== "string") return false;
+  const clean = hex.replace("#", "");
+  if (clean.length !== 6 && clean.length !== 3) return false;
+  const full =
+    clean.length === 3
+      ? clean
+          .split("")
+          .map((c) => c + c)
+          .join("")
+      : clean;
+  const r = parseInt(full.substring(0, 2), 16);
+  const g = parseInt(full.substring(2, 4), 16);
+  const b = parseInt(full.substring(4, 6), 16);
+  // perceived brightness
+  return (r * 299 + g * 587 + b * 114) / 1000 > 200;
+};
+
+/* =========================================================
    QUICK SHOP MODAL
 ========================================================= */
 const QuickShopModal = React.memo(
@@ -189,8 +213,10 @@ const QuickShopModal = React.memo(
     cartSyncing,
   }) => {
     const [selectedSize, setSelectedSize] = useState("");
+    const [selectedColor, setSelectedColor] = useState(null);
     const [quantity, setQuantity] = useState(1);
     const [showSizeError, setShowSizeError] = useState(false);
+    const [showColorError, setShowColorError] = useState(false);
     const [showSizeChart, setShowSizeChart] = useState(false);
     const [chartUnit, setChartUnit] = useState("in");
     const [isProcessing, setIsProcessing] = useState(false);
@@ -219,21 +245,44 @@ const QuickShopModal = React.memo(
       [product],
     );
 
-    // Get available sizes
+    // Trust ProductCard's hasSizes/hasColors flags instead of guessing —
+    // this is what makes "no size" / "no color" products skip their
+    // pickers entirely instead of being forced through a fake selection.
+    const hasSizes = product?.hasSizes ?? product?.sizes?.length > 0;
+    const hasColors = product?.hasColors ?? product?.colors?.length > 0;
+
     const availableSizes = useMemo(
-      () =>
-        product?.sizes?.length > 0
-          ? product.sizes
-          : ["XS", "S", "M", "L", "XL", "XXL", "3XL"],
-      [product?.sizes],
+      () => (hasSizes ? product.sizes : []),
+      [hasSizes, product?.sizes],
     );
+    const availableColors = useMemo(
+      () => (hasColors ? product.colors : []),
+      [hasColors, product?.colors],
+    );
+
+    // Auto-select immediately if there's only one option, so a single-size
+    // or single-color product never blocks the user on a pointless choice.
+    useEffect(() => {
+      if (hasSizes && availableSizes.length === 1 && !selectedSize) {
+        setSelectedSize(availableSizes[0]);
+      }
+      if (hasColors && availableColors.length === 1 && !selectedColor) {
+        setSelectedColor(availableColors[0]);
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [hasSizes, hasColors, availableSizes, availableColors]);
 
     // Handle quantity change with validation
     const handleQuantityChange = useCallback(
       (newQuantity) => {
-        if (!selectedSize) {
+        if (hasSizes && !selectedSize) {
           window.alert("Please select a size first");
           setShowSizeError(true);
+          return;
+        }
+        if (hasColors && !selectedColor) {
+          window.alert("Please select a color first");
+          setShowColorError(true);
           return;
         }
 
@@ -242,7 +291,7 @@ const QuickShopModal = React.memo(
 
         setQuantity(newQuantity);
       },
-      [selectedSize],
+      [selectedSize, selectedColor, hasSizes, hasColors],
     );
 
     // Handle size selection
@@ -251,12 +300,34 @@ const QuickShopModal = React.memo(
       setShowSizeError(false);
     }, []);
 
+    // Handle color selection
+    const handleColorSelect = useCallback((color) => {
+      setSelectedColor(color);
+      setShowColorError(false);
+    }, []);
+
     // Execute action with validation
     const handleAction = useCallback(
       async (action) => {
-        if (!selectedSize) {
-          window.alert("Please select a size");
+        let blocked = false;
+
+        if (hasSizes && !selectedSize) {
           setShowSizeError(true);
+          blocked = true;
+        }
+        if (hasColors && !selectedColor) {
+          setShowColorError(true);
+          blocked = true;
+        }
+
+        if (blocked) {
+          window.alert(
+            hasSizes && !selectedSize && hasColors && !selectedColor
+              ? "Please select a size and color"
+              : hasSizes && !selectedSize
+                ? "Please select a size"
+                : "Please select a color",
+          );
           return;
         }
 
@@ -266,11 +337,14 @@ const QuickShopModal = React.memo(
           setIsProcessing(true);
 
           await action({
-            selectedSize, // fixed
+            // Sizeless/colorless products always report null/none, so
+            // ProductCard's "onesize"/"default" sentinel logic downstream
+            // stays consistent and nothing bogus gets baked into the order.
+            selectedSize: hasSizes ? selectedSize : null,
+            size: hasSizes ? selectedSize : null,
+            selectedColor: hasColors ? selectedColor : null,
+            color: hasColors ? selectedColor : null,
             quantity,
-
-            // optional compatibility field
-            size: selectedSize,
           });
         } catch (err) {
           console.error("Action error:", err);
@@ -278,7 +352,15 @@ const QuickShopModal = React.memo(
           setIsProcessing(false);
         }
       },
-      [selectedSize, quantity, cartSyncing, isProcessing],
+      [
+        selectedSize,
+        selectedColor,
+        quantity,
+        cartSyncing,
+        isProcessing,
+        hasSizes,
+        hasColors,
+      ],
     );
 
     if (!isValidProduct) {
@@ -407,48 +489,110 @@ const QuickShopModal = React.memo(
                     )}
                 </div>
 
-                {/* Size Selector */}
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-900 mb-3">
-                    Size:{" "}
-                    <span className="font-semibold text-[#da127d]">
-                      {selectedSize || "Select"}
-                    </span>
-                  </label>
+                {/* Color Selector — only rendered when the product actually
+                    has color options. Colorless products skip straight to
+                    size (or quantity, if sizeless too). */}
+                {hasColors && (
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-900 mb-3">
+                      Color:{" "}
+                      <span className="font-semibold text-[#da127d]">
+                        {selectedColor?.name || "Select"}
+                      </span>
+                    </label>
 
-                  <div className="flex flex-wrap gap-2">
-                    {availableSizes.map((size) => (
-                      <button
-                        key={size}
-                        onClick={() => handleSizeSelect(size)}
-                        className={`min-w-[44px] h-10 px-3 border text-xs sm:text-sm font-medium transition-all duration-200  ${
-                          selectedSize === size
-                            ? "bg-black text-white border-black shadow-md"
-                            : "border-gray-300 text-gray-800 hover:border-[#da127d] hover:shadow-sm active:scale-95"
-                        }`}
-                        aria-pressed={selectedSize === size}>
-                        {size}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Size Chart Link */}
-                  <button
-                    onClick={() => setShowSizeChart(true)}
-                    className="mt-4 text-xs text-gray-600 font-medium hover:text-[#da127d] flex items-center gap-1.5 uppercase tracking-wider transition-colors hover:bg-gray-100 px-2 py-1.5 "
-                    aria-label="View size chart">
-                    <PencilIcon className="w-4 h-4" /> SIZE CHART
-                  </button>
-
-                  {/* Error Message */}
-                  {showSizeError && (
-                    <div
-                      className="mt-2 text-xs sm:text-sm text-red-500 font-medium animate-in slide-in-from-top-2"
-                      role="alert">
-                      ⚠️ Please select a size
+                    <div className="flex flex-wrap gap-3">
+                      {availableColors.map((color) => {
+                        const active = selectedColor?.name === color.name;
+                        const light = isLightColor(color.hex);
+                        return (
+                          <button
+                            key={color.name}
+                            onClick={() => handleColorSelect(color)}
+                            title={color.name}
+                            aria-pressed={active}
+                            aria-label={color.name}
+                            className={`relative w-9 h-9 rounded-full transition-all duration-200 flex items-center justify-center ${
+                              active
+                                ? "ring-2 ring-offset-2 shadow-md scale-105"
+                                : "ring-1 ring-offset-1 ring-gray-200 hover:scale-105 hover:shadow-sm active:scale-95"
+                            }`}
+                            style={{
+                              backgroundColor: color.hex || "#e5e7eb",
+                              ...(active
+                                ? { "--tw-ring-color": THEME_PINK }
+                                : {}),
+                              border: light ? "1px solid #d1d5db" : "none",
+                            }}>
+                            {active && (
+                              <CheckIcon
+                                className={`w-4 h-4 ${
+                                  light ? "text-gray-800" : "text-white"
+                                }`}
+                                strokeWidth={3}
+                              />
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
-                  )}
-                </div>
+
+                    {showColorError && (
+                      <div
+                        className="mt-2 text-xs sm:text-sm text-red-500 font-medium animate-in slide-in-from-top-2"
+                        role="alert">
+                        ⚠️ Please select a color
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Size Selector — only rendered when the product actually
+                    has size options. Sizeless products (accessories, etc.)
+                    skip straight to quantity. */}
+                {hasSizes && (
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-900 mb-3">
+                      Size:{" "}
+                      <span className="font-semibold text-[#da127d]">
+                        {selectedSize || "Select"}
+                      </span>
+                    </label>
+
+                    <div className="flex flex-wrap gap-2">
+                      {availableSizes.map((size) => (
+                        <button
+                          key={size}
+                          onClick={() => handleSizeSelect(size)}
+                          className={`min-w-[44px] h-10 px-3 border text-xs sm:text-sm font-medium transition-all duration-200  ${
+                            selectedSize === size
+                              ? "bg-black text-white border-black shadow-md"
+                              : "border-gray-300 text-gray-800 hover:border-[#da127d] hover:shadow-sm active:scale-95"
+                          }`}
+                          aria-pressed={selectedSize === size}>
+                          {size}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Size Chart Link */}
+                    <button
+                      onClick={() => setShowSizeChart(true)}
+                      className="mt-4 text-xs text-gray-600 font-medium hover:text-[#da127d] flex items-center gap-1.5 uppercase tracking-wider transition-colors hover:bg-gray-100 px-2 py-1.5 "
+                      aria-label="View size chart">
+                      <PencilIcon className="w-4 h-4" /> SIZE CHART
+                    </button>
+
+                    {/* Error Message */}
+                    {showSizeError && (
+                      <div
+                        className="mt-2 text-xs sm:text-sm text-red-500 font-medium animate-in slide-in-from-top-2"
+                        role="alert">
+                        ⚠️ Please select a size
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Quantity Selector */}
                 <div className="mb-8">
@@ -527,13 +671,15 @@ const QuickShopModal = React.memo(
           </div>
         </div>
 
-        {/* SIZE CHART MODAL */}
-        <SizeChartModal
-          isOpen={showSizeChart}
-          onClose={() => setShowSizeChart(false)}
-          chartUnit={chartUnit}
-          onChartUnitChange={setChartUnit}
-        />
+        {/* SIZE CHART MODAL — only meaningful if the product has sizes */}
+        {hasSizes && (
+          <SizeChartModal
+            isOpen={showSizeChart}
+            onClose={() => setShowSizeChart(false)}
+            chartUnit={chartUnit}
+            onChartUnitChange={setChartUnit}
+          />
+        )}
       </>
     );
   },

@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { slugify } from "../../utils/slugify";
+import { slugify } from "../../../../utils/slugify";
 
 const CollectionGrid = ({ items = [], title, subtitle }) => {
   return (

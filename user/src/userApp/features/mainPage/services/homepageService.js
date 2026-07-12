@@ -6,7 +6,8 @@ import {
   limit,
   getDocs
 } from "firebase/firestore";
-import { db } from "../../../../config/firebaseDB";
+import { db } from "../../../../config/firebaseConfig";
+import { normalize } from "../../product/services/ProductService"; // 👈 adjust path to match your folder structure
 
 // ── In-memory cache ──
 const memoryCache = new Map();
@@ -71,10 +72,10 @@ export const homepageService = {
 
         const snap = await getDocs(qExact);
 
-        let products = snap.docs.map(d => ({
-          id: d.id,
-          ...d.data()
-        }));
+        // ✅ normalize every doc through the SAME shape productService uses
+        let products = snap.docs
+          .map((d) => normalize(d.id, d.data()))
+          .filter(Boolean);
 
         // fallback if no results
         if (!products.length) {
@@ -88,7 +89,8 @@ export const homepageService = {
           const snapFallback = await getDocs(qFallback);
 
           products = snapFallback.docs
-            .map(d => ({ id: d.id, ...d.data() }))
+            .map((d) => normalize(d.id, d.data()))
+            .filter(Boolean)
             .filter(p =>
               Array.isArray(p.collectionTypes) &&
               p.collectionTypes.some(
@@ -171,122 +173,122 @@ export const homepageService = {
   },
 
   // ─────────────────────────────────────────
-// HOMEPAGE TESTIMONIALS
-// ─────────────────────────────────────────
-async getTestimonials(size = 8) {
+  // HOMEPAGE TESTIMONIALS
+  // ─────────────────────────────────────────
+  async getTestimonials(size = 8) {
 
-  const key = `homepage-testimonials-${size}`;
-  const now = Date.now();
+    const key = `homepage-testimonials-${size}`;
+    const now = Date.now();
 
-  // memory cache
-  if (memoryCache.has(key) && now - memoryCache.get(key).timestamp < CACHE_TTL) {
-    return memoryCache.get(key).data;
-  }
-
-  // persistent cache
-  const persistentCache = loadPersistentCache();
-  if (persistentCache[key] && now - persistentCache[key].timestamp < CACHE_TTL) {
-    memoryCache.set(key, persistentCache[key]);
-    return persistentCache[key].data;
-  }
-
-  // dedupe requests
-  if (promiseCache.has(key)) return promiseCache.get(key);
-
-  const promise = (async () => {
-    try {
-
-      const q = query(
-        collection(db, "testimonials"),
-        where("isActive", "==", true),
-        orderBy("createdAt", "desc"),
-        limit(size)
-      );
-
-      const snap = await getDocs(q);
-
-      const testimonials = snap.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-
-      const cacheEntry = { data: testimonials, timestamp: now };
-
-      memoryCache.set(key, cacheEntry);
-      savePersistentCache(key, testimonials);
-
-      return testimonials;
-
-    } catch (error) {
-      console.error("Error loading testimonials:", error);
-      return memoryCache.get(key)?.data || [];
-    } finally {
-      promiseCache.delete(key);
+    // memory cache
+    if (memoryCache.has(key) && now - memoryCache.get(key).timestamp < CACHE_TTL) {
+      return memoryCache.get(key).data;
     }
-  })();
 
-  promiseCache.set(key, promise);
-  return promise;
-},
-
-// ─────────────────────────────────────────
-// HOMEPAGE COLLECTIONS
-// ─────────────────────────────────────────
-async getCollections(size = 8) {
-
-  const key = `homepage-collections-${size}`;
-  const now = Date.now();
-
-  // memory cache
-  if (memoryCache.has(key) && now - memoryCache.get(key).timestamp < CACHE_TTL) {
-    return memoryCache.get(key).data;
-  }
-
-  // persistent cache
-  const persistentCache = loadPersistentCache();
-  if (persistentCache[key] && now - persistentCache[key].timestamp < CACHE_TTL) {
-    memoryCache.set(key, persistentCache[key]);
-    return persistentCache[key].data;
-  }
-
-  // dedupe requests
-  if (promiseCache.has(key)) return promiseCache.get(key);
-
-  const promise = (async () => {
-    try {
-
-      const q = query(
-        collection(db, "itemsCollection"),
-        // where("isActive", "==", true),
-        // orderBy("createdAt", "desc"),
-        limit(size)
-      );
-
-      const snap = await getDocs(q);
-
-      const collections = snap.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-
-      const cacheEntry = { data: collections, timestamp: now };
-
-      memoryCache.set(key, cacheEntry);
-      savePersistentCache(key, collections);
-
-      return collections;
-
-    } catch (error) {
-      console.error("Error loading collections:", error);
-      return memoryCache.get(key)?.data || [];
-    } finally {
-      promiseCache.delete(key);
+    // persistent cache
+    const persistentCache = loadPersistentCache();
+    if (persistentCache[key] && now - persistentCache[key].timestamp < CACHE_TTL) {
+      memoryCache.set(key, persistentCache[key]);
+      return persistentCache[key].data;
     }
-  })();
 
-  promiseCache.set(key, promise);
-  return promise;
-},
+    // dedupe requests
+    if (promiseCache.has(key)) return promiseCache.get(key);
+
+    const promise = (async () => {
+      try {
+
+        const q = query(
+          collection(db, "testimonials"),
+          where("isActive", "==", true),
+          orderBy("createdAt", "desc"),
+          limit(size)
+        );
+
+        const snap = await getDocs(q);
+
+        const testimonials = snap.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+
+        const cacheEntry = { data: testimonials, timestamp: now };
+
+        memoryCache.set(key, cacheEntry);
+        savePersistentCache(key, testimonials);
+
+        return testimonials;
+
+      } catch (error) {
+        console.error("Error loading testimonials:", error);
+        return memoryCache.get(key)?.data || [];
+      } finally {
+        promiseCache.delete(key);
+      }
+    })();
+
+    promiseCache.set(key, promise);
+    return promise;
+  },
+
+  // ─────────────────────────────────────────
+  // HOMEPAGE COLLECTIONS
+  // ─────────────────────────────────────────
+  async getCollections(size = 8) {
+
+    const key = `homepage-collections-${size}`;
+    const now = Date.now();
+
+    // memory cache
+    if (memoryCache.has(key) && now - memoryCache.get(key).timestamp < CACHE_TTL) {
+      return memoryCache.get(key).data;
+    }
+
+    // persistent cache
+    const persistentCache = loadPersistentCache();
+    if (persistentCache[key] && now - persistentCache[key].timestamp < CACHE_TTL) {
+      memoryCache.set(key, persistentCache[key]);
+      return persistentCache[key].data;
+    }
+
+    // dedupe requests
+    if (promiseCache.has(key)) return promiseCache.get(key);
+
+    const promise = (async () => {
+      try {
+
+        const q = query(
+          collection(db, "itemsCollection"),
+          // where("isActive", "==", true),
+          // orderBy("createdAt", "desc"),
+          limit(size)
+        );
+
+        const snap = await getDocs(q);
+
+        const collections = snap.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+
+        const cacheEntry = { data: collections, timestamp: now };
+
+        memoryCache.set(key, cacheEntry);
+        savePersistentCache(key, collections);
+
+        return collections;
+
+      } catch (error) {
+        console.error("Error loading collections:", error);
+        return memoryCache.get(key)?.data || [];
+      } finally {
+        promiseCache.delete(key);
+      }
+    })();
+
+    promiseCache.set(key, promise);
+    return promise;
+  },
 
   // ─────────────────────────────────────────
   // CLEAR CACHE

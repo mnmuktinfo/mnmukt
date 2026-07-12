@@ -21,9 +21,10 @@ import { COLLECTION_LABELS, SORT_OPTIONS } from "./constants/filters";
 import countActive from "./utils/countActive";
 import { readFilters } from "./utils/filterUtils";
 
-const CollectionPage = () => {
-  const { collectionType = "all" } = useParams();
-
+const CollectionPage = ({ collectionType: propCollectionType }) => {
+  const { collectionType: routeCollectionType = "all" } = useParams();
+  // Use prop if passed, otherwise use route param
+  const collectionType = propCollectionType || routeCollectionType;
   const [sp, setSp] = useSearchParams();
   const filters = useMemo(() => readFilters(sp), [sp]);
 

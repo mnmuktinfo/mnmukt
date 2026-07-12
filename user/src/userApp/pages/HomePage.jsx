@@ -1,42 +1,49 @@
 import React, { Suspense, useEffect, useRef, useState } from "react";
 import { Helmet } from "react-helmet-async";
 
-import { useHomepageProducts } from "../../userApp/features/homepage/hooks/useHomepageProducts";
-import { productSections } from "../../userApp/features/homepage/config/productCollection";
+import { useHomepageProducts } from "../features/mainPage/hooks/useHomepageProducts";
+import { productSections } from "../features/mainPage/config/productCollection";
 import { IMAGES } from "../../assets/images";
-
 import {
   HeroSkeleton,
   GridSectionSkeleton,
   CategoriesSkeleton,
   CollectionGridSkeleton,
   TestimonialsSkeleton,
-} from "../homepage/HomeSkeletons";
+} from "../features/mainPage/components/HomeSkeletons";
 
-import RunningBrandTicker from "../homepage/RunningBrandTicker";
-import SocialFeed from "../homepage/SocialFeed";
+import RunningBrandTicker from "../features/mainPage/components/RunningBrandTicker";
+import SocialFeed from "../features/mainPage/components/SocialFeed";
 import ScrollToTopButton from "../../shared/components/ScrollToTopButton";
 
 /* ---------- Lazy Components ---------- */
-const HeroSection = React.lazy(() => import("../homepage/HeroSection"));
+const HeroSection = React.lazy(
+  () => import("../features/mainPage/components/HeroSection"),
+);
 const CustomerSpotlight = React.lazy(
-  () => import("../homepage/CustomerSpotlight"),
+  () => import("../features/mainPage/components/CustomerSpotlight"),
 );
 
-const VideoSection = React.lazy(() => import("../homepage/VideoSection"));
+const VideoSection = React.lazy(
+  () => import("../features/mainPage/components/VideoSection"),
+);
 const CategoriesHeader = React.lazy(
-  () => import("../homepage/CategoriesHeader"),
+  () => import("../features/mainPage/components/CategoriesHeader"),
 );
-const ExploreOurPicks = React.lazy(() => import("../homepage/ExploreOurPicks"));
+const ExploreOurPicks = React.lazy(
+  () => import("../features/mainPage/components/ExploreOurPicks"),
+);
 const CategoryScroller = React.lazy(
-  () => import("../homepage/CategoryScroller"),
+  () => import("../features/mainPage/components/CategoryScroller"),
 );
-const CollectionGrid = React.lazy(() => import("../homepage/CollectionGrid"));
+const CollectionGrid = React.lazy(
+  () => import("../features/mainPage/components/CollectionGrid"),
+);
 const ProductSection = React.lazy(
   () => import("../components/section/ProductSection"),
 );
 const TestimonialsSection = React.lazy(
-  () => import("../components/section/TestimonialsSection"),
+  () => import("../features/mainPage/components/TestimonialsSection"),
 );
 
 /* ---------- Mobile Detection ---------- */

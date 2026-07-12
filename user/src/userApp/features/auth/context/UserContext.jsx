@@ -3,15 +3,18 @@ import {
   useContext,
   useEffect,
   useReducer,
+  useState,
   useCallback,
   useRef,
 } from "react";
 
-import { auth, db } from "../../../../config/firebaseAuth";
+import { auth, db } from "../../../../config/firebaseConfig";
 import {
   updateProfileData,
   saveAddress as saveAddressService,
   getDefaultAddress,
+  getOrCreateGuestId,
+  getGuestOrders,
 } from "../services/authService";
 
 import {
@@ -257,6 +260,43 @@ export const AuthProvider = ({ children }) => {
   });
 
   /* ─────────────────────────────────────────────────────────
+     GUEST STATE
+     A shopper who is NOT logged in is not automatically "new" —
+     they may have placed orders before from this same device.
+     `guestId` is a stable id persisted in localStorage (created
+     once, reused forever, independent of login state — it's read
+     even for logged-in users so it's ready the moment they log out).
+     `guestOrders` / `isReturningGuest` distinguish a guest with
+     order history from a first-time visitor, without requiring them
+     to create an account.
+  ───────────────────────────────────────────────────────────── */
+  const [guestId] = useState(() => getOrCreateGuestId());
+  const [guestOrders, setGuestOrders] = useState([]);
+  const [guestOrdersLoading, setGuestOrdersLoading] = useState(false);
+
+  const isReturningGuest = !state.isLoggedIn && guestOrders.length > 0;
+
+  const refreshGuestOrders = useCallback(async () => {
+    setGuestOrdersLoading(true);
+    try {
+      const orders = await getGuestOrders(guestId);
+      setGuestOrders(orders);
+      return orders;
+    } finally {
+      setGuestOrdersLoading(false);
+    }
+  }, [guestId]);
+
+  // Look up guest order history once we know the shopper isn't logged in.
+  // Skipped entirely for logged-in users (their orders come from `uid`,
+  // handled elsewhere, e.g. an order-history page/hook).
+  useEffect(() => {
+    if (state.authLoading || state.isLoggedIn) return;
+    refreshGuestOrders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.authLoading, state.isLoggedIn, guestId]);
+
+  /* ─────────────────────────────────────────────────────────
      FIX 3: justSignedUp ref — when signupUser() runs, it writes
      the Firestore doc itself. The onAuthStateChanged listener
      fires immediately after and would call ensureUserDoc() again
@@ -411,6 +451,9 @@ export const AuthProvider = ({ children }) => {
     await signOut(auth);
     dispatch({ type: "AUTH_CLEAR" });
     clearCache();
+    // guestId is intentionally NOT cleared on logout — the same device
+    // keeps its guest identity so any orders placed after logout still
+    // roll up under one guest history.
   }, []);
 
   /* ════════════════════════════════════════════════════════════
@@ -517,24 +560,23 @@ export const AuthProvider = ({ children }) => {
         // Normalize address structure
         const normalizedAddress = {
           fullName: address?.fullName || state.user?.name || "",
-
           email: address?.email || state.user?.email || "",
-
           phone: address?.phone || state.user?.phone || "",
 
           addressLine1: address?.addressLine1 || "",
-
           addressLine2: address?.addressLine2 || "",
 
-          city: address?.city || "",
+          landmark: address?.landmark || "",
 
+          city: address?.city || "",
+          district: address?.district || "",
           state: address?.state || "",
 
           postalCode: address?.postalCode || "",
 
-          landmark: address?.landmark || "",
-
           country: address?.country || "India",
+
+          tag: address?.tag || "Home",
 
           isDefault: address?.isDefault ?? true,
         };
@@ -608,6 +650,14 @@ export const AuthProvider = ({ children }) => {
     <AuthContext.Provider
       value={{
         ...state,
+
+        // Guest identity/state — meaningful only when isLoggedIn is false.
+        guestId,
+        guestOrders,
+        guestOrdersLoading,
+        isReturningGuest,
+        refreshGuestOrders,
+
         signupUser,
         loginUser,
         googleLogin,

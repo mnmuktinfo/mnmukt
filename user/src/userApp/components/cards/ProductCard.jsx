@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useCallback, useEffect } from "react";
-import { Heart, Check, X, Minus, Plus } from "lucide-react";
+import React, { useState, useMemo, useCallback } from "react";
+import { Heart, Check } from "lucide-react";
 import { useWishlist } from "../../features/wishList/context/WishlistContext";
 import { useCart } from "../../features/cart/context/CartContext";
 import { useNavigate } from "react-router-dom";
@@ -21,12 +21,23 @@ const ProductCard = ({ product }) => {
     type: "",
   });
 
-  // ✅ Validate product data on mount
+  // ✅ Validate + normalize incoming product data
   const validatedProduct = useMemo(() => {
-    if (!product?.id) {
-      console.warn("⚠️ ProductCard: Missing product.id");
-      return null;
-    }
+    if (!product?.id) return null;
+
+    const derivedBadge =
+      product.badge ||
+      (product.isBestSeller && "Bestseller") ||
+      (product.isNewArrival && "New") ||
+      (product.isTrending && "Trending") ||
+      (product.isFeatured && "Featured") ||
+      null;
+
+    // colors is optional — plenty of products (accessories, one-color
+    // items) legitimately have none. Keep it as [] rather than undefined
+    // so downstream code can always safely check .length.
+    const colors = Array.isArray(product.colors) ? product.colors : [];
+    const sizes = Array.isArray(product.sizes) ? product.sizes : [];
 
     return {
       id: product.id,
@@ -35,22 +46,20 @@ const ProductCard = ({ product }) => {
       price: product.price ?? 0,
       originalPrice: product.originalPrice ?? product.price ?? 0,
       category: product.category || "General",
-      sku: product.sku || `SKU-${product.id}`, // ✅ Generate if missing
-      banner: product.banner || product.images?.[0],
+      sku: product.sku || `SKU-${product.id}`,
+      banner: product.image || product.banner || product.images?.[0],
+      hoverImage: product.hoverImage || null,
       images: product.images || [],
-      badge: product.badge || null,
+      badge: derivedBadge,
+      colors, // [] if the product has no color options
+      sizes, // [] if the product has no size options
+      hasColors: colors.length > 0,
+      hasSizes: sizes.length > 0,
     };
   }, [product]);
 
-  // If product data is invalid, don't render
-  if (!validatedProduct) {
-    return (
-      <div className="w-full aspect-[3/4] bg-gray-100 flex items-center justify-center">
-        <p className="text-xs text-gray-500">Product unavailable</p>
-      </div>
-    );
-  }
-
+  // ⚠️ Hooks must run unconditionally, on every render — never after an
+  // early return, or React throws / desyncs state across renders.
   const {
     isWishlisted,
     toggleWishlist,
@@ -60,32 +69,76 @@ const ProductCard = ({ product }) => {
   const navigate = useNavigate();
 
   const isLiked = useMemo(
-    () => isWishlisted(validatedProduct.id),
-    [isWishlisted, validatedProduct.id],
+    () => (validatedProduct ? isWishlisted(validatedProduct.id) : false),
+    [isWishlisted, validatedProduct],
   );
 
-  const mainImage = validatedProduct.banner || "/placeholder-image.jpg";
-  const hoverImage = validatedProduct.images[1] || mainImage;
+  const handleNavigate = useCallback(() => {
+    if (!validatedProduct) return;
+    navigate(`/product/${validatedProduct.slug}`);
+  }, [navigate, validatedProduct]);
 
-  const discount = useMemo(() => {
-    if (validatedProduct.originalPrice <= validatedProduct.price) return 0;
-    return Math.round(
-      ((validatedProduct.originalPrice - validatedProduct.price) /
-        validatedProduct.originalPrice) *
-        100,
-    );
-  }, [validatedProduct.originalPrice, validatedProduct.price]);
+  const handleWishlist = useCallback(
+    (e) => {
+      e.stopPropagation();
+      if (wishlistLoading || !validatedProduct) return;
+      toggleWishlist(validatedProduct.id);
+    },
+    [wishlistLoading, toggleWishlist, validatedProduct],
+  );
 
   const formatPrice = (price) => priceFormatter.format(price || 0);
 
-  const handleNavigate = useCallback(() => {
-    navigate(`/product/${validatedProduct.slug}`);
-  }, [navigate, validatedProduct.slug]);
+  // Placeholder for invalid product — rendered AFTER all hooks above.
+  if (!validatedProduct) {
+    console.warn("⚠️ ProductCard: Missing product.id");
+    return (
+      <div className="w-full aspect-[3/4] bg-gray-100 flex items-center justify-center">
+        <p className="text-xs text-gray-500">Product unavailable</p>
+      </div>
+    );
+  }
 
+  const mainImage = validatedProduct.banner || "/placeholder-image.jpg";
+  const hoverImage =
+    validatedProduct.hoverImage || validatedProduct.images[1] || mainImage;
+
+  const discount =
+    validatedProduct.originalPrice <= validatedProduct.price
+      ? 0
+      : Math.round(
+          ((validatedProduct.originalPrice - validatedProduct.price) /
+            validatedProduct.originalPrice) *
+            100,
+        );
+
+  // Builds a stable variant key. Falls back gracefully when a product
+  // doesn't have color and/or size options, so "no color" products
+  // don't end up with a bogus "-default" or "-undefined" suffix baked
+  // into every order line.
+  const buildVariantId = (size, color) => {
+    const parts = [];
+    if (validatedProduct.hasSizes) parts.push(size || "onesize");
+    if (validatedProduct.hasColors) parts.push(color?.name || "default");
+    return parts.length ? parts.join("-") : "standard";
+  };
+
+  /* ✅ ADD TO CART - COMPLETE DATA ONLY */
   /* ✅ ADD TO CART - COMPLETE DATA ONLY */
   const executeAddToCart = async (selectedData) => {
     try {
-      // ✅ Ensure all required fields exist before adding to cart
+      // Only trust a real size if this product actually has size options —
+      // ignore whatever QuickShopModal sends otherwise, so a sizeless
+      // product can never end up with a bogus "M"/"L"/etc baked in.
+      const selectedSize = validatedProduct.hasSizes
+        ? selectedData.size || "onesize"
+        : "onesize";
+      // Only attach a color if this product actually has color options —
+      // otherwise leave it null so it doesn't look like a real selection.
+      const selectedColor = validatedProduct.hasColors
+        ? selectedData.color || null
+        : null;
+
       const cartItem = {
         productId: validatedProduct.id,
         name: validatedProduct.name,
@@ -95,11 +148,23 @@ const ProductCard = ({ product }) => {
         category: validatedProduct.category,
         slug: validatedProduct.slug,
         sku: validatedProduct.sku,
-        selectedSize: selectedData.size || "onesize",
+        selectedSize,
+        selectedColor, // { name, hex } or null
+        variantId: buildVariantId(selectedSize, selectedColor),
         quantity: selectedData.quantity || 1,
       };
 
-      // Validate required fields
+      // If this product HAS colors, a color must actually be picked —
+      // otherwise warehouse can't tell which variant to pack.
+      if (validatedProduct.hasColors && !selectedColor) {
+        setNotification({
+          show: true,
+          message: "Please select a color",
+          type: "error",
+        });
+        return;
+      }
+
       const requiredFields = [
         "productId",
         "name",
@@ -144,9 +209,26 @@ const ProductCard = ({ product }) => {
   const executeBuyNow = (selectedData) => {
     try {
       const qty = selectedData.quantity || 1;
-      const variant = selectedData.size || "onesize";
 
-      // ✅ Wrap in items array for consistency
+      const selectedSize = validatedProduct.hasSizes
+        ? selectedData.size || "onesize"
+        : "onesize";
+
+      const selectedColor = validatedProduct.hasColors
+        ? selectedData.color || null
+        : null;
+
+      if (validatedProduct.hasColors && !selectedColor) {
+        setNotification({
+          show: true,
+          message: "Please select a color",
+          type: "error",
+        });
+        return;
+      }
+
+      const variantId = buildVariantId(selectedSize, selectedColor);
+
       const checkoutItems = [
         {
           productId: validatedProduct.id,
@@ -158,18 +240,19 @@ const ProductCard = ({ product }) => {
           slug: validatedProduct.slug,
           sku: validatedProduct.sku,
           quantity: qty,
-          selectedSize: variant,
+          selectedSize,
+          selectedColor,
+          variantId,
         },
       ];
 
       setIsQuickShopOpen(false);
 
-      navigate(
-        `/${validatedProduct.slug}?variant=${encodeURIComponent(variant)}&qty=${qty}`,
-        {
-          state: { items: checkoutItems },
+      navigate("/checkout/buy-now", {
+        state: {
+          items: checkoutItems,
         },
-      );
+      });
     } catch (error) {
       console.error("Buy now error:", error);
       setNotification({
@@ -180,15 +263,8 @@ const ProductCard = ({ product }) => {
     }
   };
 
-  const handleWishlist = (e) => {
-    e.stopPropagation();
-    if (wishlistLoading) return;
-    toggleWishlist(validatedProduct.id);
-  };
-
   return (
     <>
-      {/* Quick Shop Modal Portal */}
       {isQuickShopOpen && (
         <QuickShopModal
           product={validatedProduct}
@@ -207,7 +283,6 @@ const ProductCard = ({ product }) => {
         />
       )}
 
-      {/* Notifications */}
       {notification.show && (
         <NotificationProduct
           message={notification.message}
@@ -221,7 +296,6 @@ const ProductCard = ({ product }) => {
         />
       )}
 
-      {/* Main Card */}
       <div
         className="group flex flex-col w-full font-sans cursor-pointer relative"
         onClick={handleNavigate}>
@@ -269,7 +343,6 @@ const ProductCard = ({ product }) => {
             />
           </button>
 
-          {/* Quick Shop Button */}
           <div className="absolute bottom-3 right-3 z-10">
             <button
               onClick={(e) => {

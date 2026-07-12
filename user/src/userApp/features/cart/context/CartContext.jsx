@@ -14,50 +14,45 @@ import {
   removeCartDB,
   clearCartDB,
 } from "../db/cartDB";
+import { useAuth } from "../../auth/context/UserContext"; // 👈 adjust path if different
 
 const CartContext = createContext();
 
 const isDev = process.env.NODE_ENV === "development";
-
-const log = (...args) => {
-  if (isDev) {
-    console.log("🛒 [Cart]", ...args);
-  }
-};
-
-const errorLog = (...args) => {
-  if (isDev) {
-    console.error("🚨 [Cart Error]", ...args);
-  }
-};
+const log = (...args) => isDev && console.log("🛒 [Cart]", ...args);
+const errorLog = (...args) =>
+  isDev && console.error("🚨 [Cart Error]", ...args);
 
 export const CartProvider = ({ children }) => {
+  const { user, guestId, isLoggedIn } = useAuth();
+
+  // Real scope: the account's uid if logged in, otherwise the
+  // persistent per-device guestId (never the hardcoded "guest" string)
+  const scope = isLoggedIn && user?.uid ? user.uid : guestId || "guest";
+
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState(null);
 
-  // 1. STATE REF: Always holds the absolute latest cart state to prevent stale closures
   const cartRef = useRef([]);
   useEffect(() => {
     cartRef.current = cart;
   }, [cart]);
 
-  // 2. BROADCAST CHANNEL: Syncs cart across multiple browser tabs
-  const channelRef = useRef(null);
+  const scopeRef = useRef(scope);
+  useEffect(() => {
+    scopeRef.current = scope;
+  }, [scope]);
 
-  // 3. TASK QUEUE: Guarantees 1 Flow, 1 Truth. Prevents race conditions on rapid clicks.
+  const channelRef = useRef(null);
   const taskQueue = useRef(Promise.resolve());
 
-  /* ============================================
-     LOAD CART (Single Source of Truth)
-  ============================================ */
-  const loadCart = useCallback(async () => {
+  const loadCart = useCallback(async (targetScope) => {
     try {
       setLoading(true);
-      const data = await getCartDB();
+      const data = await getCartDB(targetScope);
       setCart(data ?? []);
-      log("Cart loaded from DB:", data);
       setError(null);
     } catch (err) {
       errorLog("Load failed:", err);
@@ -68,31 +63,69 @@ export const CartProvider = ({ children }) => {
     }
   }, []);
 
+  const mergeGuestCartIntoUser = useCallback(async (fromScope, targetScope) => {
+    const guestItems = await getCartDB(fromScope);
+    if (!guestItems.length) return;
+
+    const userItems = await getCartDB(targetScope);
+    const userMap = new Map(userItems.map((i) => [i.cartKey, i]));
+
+    for (const gItem of guestItems) {
+      const existing = userMap.get(gItem.cartKey);
+      if (existing) {
+        const mergedQty = existing.quantity + gItem.quantity;
+        await updateCartDB(targetScope, gItem.cartKey, {
+          ...existing,
+          quantity: mergedQty,
+          totalPrice: existing.price * mergedQty,
+        });
+      } else {
+        await addCartDB(targetScope, { ...gItem });
+      }
+    }
+
+    await clearCartDB(fromScope);
+    log(`Guest cart (${fromScope}) merged into ${targetScope}`);
+  }, []);
+
+  // prevScopeRef must start at the CURRENT guestId, not the literal "guest",
+  // so the merge check below compares against the real guest identity
+  const prevScopeRef = useRef(scope);
+
+  useEffect(() => {
+    const prevScope = prevScopeRef.current;
+
+    const syncScope = async () => {
+      // Only merge when moving FROM this device's actual guestId
+      // TO a real logged-in uid — never on logout, never redundantly
+      if (prevScope === guestId && scope !== guestId && scope === user?.uid) {
+        await mergeGuestCartIntoUser(guestId, scope);
+      }
+      prevScopeRef.current = scope;
+      await loadCart(scope);
+    };
+
+    syncScope();
+  }, [scope, guestId, user?.uid, loadCart, mergeGuestCartIntoUser]);
+
   /* ============================================
-     INITIALIZE & CROSS-TAB SYNC
+     CROSS-TAB SYNC
   ============================================ */
   useEffect(() => {
-    // Listen for updates from other tabs
     channelRef.current = new BroadcastChannel("cart_sync_channel");
     channelRef.current.onmessage = (event) => {
       if (event.data === "CART_MUTATED") {
         log("Cross-tab sync triggered, reloading...");
-        loadCart();
+        loadCart(scopeRef.current);
       }
     };
-
-    loadCart();
-
     return () => {
       if (channelRef.current) channelRef.current.close();
     };
   }, [loadCart]);
 
-  // Helper to notify other tabs that the DB has changed
   const broadcastUpdate = () => {
-    if (channelRef.current) {
-      channelRef.current.postMessage("CART_MUTATED");
-    }
+    if (channelRef.current) channelRef.current.postMessage("CART_MUTATED");
   };
 
   /* ============================================
@@ -106,15 +139,9 @@ export const CartProvider = ({ children }) => {
     return taskQueue.current;
   }, []);
 
-  /* ============================================
-     VALIDATE ITEM
-  ============================================ */
   const validateItem = (item) => {
     const required = ["productId", "name", "image", "price", "slug", "sku"];
-    const missing = required.filter(
-      (field) => !item[field] && item[field] !== 0,
-    );
-
+    const missing = required.filter((f) => !item[f] && item[f] !== 0);
     if (missing.length) {
       errorLog(`Missing fields: ${missing.join(", ")}`, item);
       return false;
@@ -129,10 +156,10 @@ export const CartProvider = ({ children }) => {
     (cartItemData) => {
       return runInQueue(async () => {
         setSyncing(true);
-
         try {
           if (!cartItemData) throw new Error("Invalid product");
 
+          const currentScope = scopeRef.current;
           const productId = cartItemData.productId || cartItemData.id;
           const selectedSize =
             cartItemData.selectedSize ||
@@ -159,8 +186,6 @@ export const CartProvider = ({ children }) => {
           }
 
           const cartKey = `${productId}_${selectedSize}`;
-
-          // Read strictly from the REF, guaranteeing we never use stale state
           const currentCart = cartRef.current;
           const existing = currentCart.find((item) => item.cartKey === cartKey);
 
@@ -203,20 +228,14 @@ export const CartProvider = ({ children }) => {
             updatedCart = [...currentCart, itemToPersist];
           }
 
-          // 1. Update DB First (Single Source of Truth)
           if (existing) {
-            await updateCartDB(cartKey, itemToPersist);
-            log("Quantity updated:", itemToPersist);
+            await updateCartDB(currentScope, cartKey, itemToPersist);
           } else {
-            await addCartDB(itemToPersist);
-            log("Added new item:", itemToPersist);
+            await addCartDB(currentScope, itemToPersist);
           }
 
-          // 2. Update React State
           setCart(updatedCart);
           setError(null);
-
-          // 3. Notify other tabs
           broadcastUpdate();
         } finally {
           setSyncing(false);
@@ -233,12 +252,13 @@ export const CartProvider = ({ children }) => {
     (cartKey, quantity) => {
       return runInQueue(async () => {
         if (quantity <= 0) {
-          await removeDBLogic(cartKey); // Extracted logic
+          await removeDBLogic(cartKey);
           return;
         }
 
         setSyncing(true);
         try {
+          const currentScope = scopeRef.current;
           const currentCart = cartRef.current;
           const item = currentCart.find((i) => i.cartKey === cartKey);
           if (!item) return;
@@ -253,11 +273,9 @@ export const CartProvider = ({ children }) => {
             i.cartKey === cartKey ? updatedItem : i,
           );
 
-          await updateCartDB(cartKey, updatedItem);
+          await updateCartDB(currentScope, cartKey, updatedItem);
           setCart(updatedCart);
           broadcastUpdate();
-
-          log("Quantity updated:", updatedItem);
         } finally {
           setSyncing(false);
         }
@@ -276,6 +294,7 @@ export const CartProvider = ({ children }) => {
 
         setSyncing(true);
         try {
+          const currentScope = scopeRef.current;
           const currentCart = cartRef.current;
           const item = currentCart.find((i) => i.cartKey === cartKey);
           if (!item) return;
@@ -292,13 +311,11 @@ export const CartProvider = ({ children }) => {
             updatedItem,
           ];
 
-          await removeCartDB(cartKey);
-          await addCartDB(updatedItem);
+          await removeCartDB(currentScope, cartKey);
+          await addCartDB(currentScope, updatedItem);
 
           setCart(updatedCart);
           broadcastUpdate();
-
-          log("Size updated:", updatedItem);
         } finally {
           setSyncing(false);
         }
@@ -310,23 +327,20 @@ export const CartProvider = ({ children }) => {
   /* ============================================
      REMOVE
   ============================================ */
-  // Separated to be reusable inside the queue without causing deadlocks
   const removeDBLogic = async (cartKey) => {
     setSyncing(true);
     try {
-      await removeCartDB(cartKey);
+      const currentScope = scopeRef.current;
+      await removeCartDB(currentScope, cartKey);
       setCart((prev) => prev.filter((i) => i.cartKey !== cartKey));
       broadcastUpdate();
-      log("Removed:", cartKey);
     } finally {
       setSyncing(false);
     }
   };
 
   const remove = useCallback(
-    (cartKey) => {
-      return runInQueue(() => removeDBLogic(cartKey));
-    },
+    (cartKey) => runInQueue(() => removeDBLogic(cartKey)),
     [runInQueue],
   );
 
@@ -337,10 +351,9 @@ export const CartProvider = ({ children }) => {
     return runInQueue(async () => {
       setSyncing(true);
       try {
-        await clearCartDB();
+        await clearCartDB(scopeRef.current);
         setCart([]);
         broadcastUpdate();
-        log("Cart cleared");
       } finally {
         setSyncing(false);
       }
@@ -360,6 +373,33 @@ export const CartProvider = ({ children }) => {
     [cart],
   );
 
+  const removePurchasedItems = useCallback(
+    async (purchasedItems) => {
+      return runInQueue(async () => {
+        setSyncing(true);
+        try {
+          const currentScope = scopeRef.current;
+          const keys = new Set(
+            purchasedItems.map((item) => {
+              const size = item.variant?.size || item.selectedSize || "onesize";
+              return `${item.productId}_${size}`;
+            }),
+          );
+
+          for (const key of keys) {
+            await removeCartDB(currentScope, key);
+          }
+
+          setCart((prev) => prev.filter((item) => !keys.has(item.cartKey)));
+          broadcastUpdate();
+        } finally {
+          setSyncing(false);
+        }
+      });
+    },
+    [runInQueue],
+  );
+
   return (
     <CartContext.Provider
       value={{
@@ -371,6 +411,7 @@ export const CartProvider = ({ children }) => {
         updateQuantity,
         updateSize,
         remove,
+        removePurchasedItems,
         clear,
         getTotal,
         getCount,

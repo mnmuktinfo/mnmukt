@@ -43,21 +43,36 @@ const apiFetch = async (endpoint, options = {}) => {
       data = await response.json();
     } else {
       // Non-JSON body (HTML error page, proxy error, empty string, etc.)
-      // — surface it as a readable error instead of letting JSON.parse throw.
       const text = await response.text();
       if (!response.ok) {
         const err = new Error(`API Error: ${response.status}`);
         err.status = response.status;
         throw err;
       }
-      // Unexpected: 2xx but non-JSON. Don't silently pretend it's valid data.
       if (isDev) console.warn(`⚠️ [OrderService] Non-JSON 2xx response from ${endpoint}:`, text.slice(0, 200));
       data = null;
     }
 
+    // 👇 NEW: Smarter error extraction to catch nested Mongoose validation errors
     if (!response.ok) {
-      const err = new Error(data?.message || `API Error: ${response.status}`);
+      let errorMsg = data?.message || data?.error || `API Error: ${response.status}`;
+      
+      // Dig into Mongoose "errors" object
+      if (data?.errors && typeof data.errors === 'object') {
+        const detailedErrors = Object.values(data.errors)
+          .map(e => e.message || e)
+          .join(" | ");
+        if (detailedErrors) errorMsg = `Validation: ${detailedErrors}`;
+      } 
+      // Dig into Joi/Zod "details" array
+      else if (Array.isArray(data?.details)) {
+        const detailedErrors = data.details.map(d => d.message).join(" | ");
+        if (detailedErrors) errorMsg = `Validation: ${detailedErrors}`;
+      }
+
+      const err = new Error(errorMsg);
       err.status = response.status;
+      err.rawData = data; // Attach full payload just in case
       throw err;
     }
 
@@ -79,14 +94,22 @@ const apiFetch = async (endpoint, options = {}) => {
 const unwrap = (response) => response?.data ?? response;
 
 export const OrderService = {
-  createOrder: async (apiPayload, token) => {
-    const response = await apiFetch('/orders', {
-      method: 'POST',
+ createOrder: async (apiPayload, token) => {
+  try {
+    const response = await apiFetch("/orders", {
+      method: "POST",
       body: JSON.stringify(apiPayload),
       token,
     });
+
     return unwrap(response);
-  },
+  } catch (err) {
+    console.error("🚨 Order Create Failed");
+    console.log("Payload:", apiPayload);
+    console.log("Backend:", err.response);
+    throw err;
+  }
+},
 
   getOrderById: async (orderId, token) => {
     const response = await apiFetch(`/orders/${orderId}`, {
@@ -104,11 +127,9 @@ export const OrderService = {
     return unwrap(response);
   },
 
-  // 👇 ADDED: The new method for public sahared tracking
   getSharedOrder: async (shareToken) => {
     const response = await apiFetch(`/orders/shared/${shareToken}`, {
       method: 'GET',
-      // No token passed here since this is a public route!
     });
     return unwrap(response);
   },

@@ -2,6 +2,7 @@ import React from "react";
 import { BrowserRouter } from "react-router-dom";
 import AppRoutes from "./AppRoutes";
 
+import { SiteConfigProvider } from "./config/data/SiteConfigProvider";
 import { AuthProvider } from "./userApp/features/auth/context/UserContext";
 import { CartProvider } from "./userApp/features/cart/context/CartContext";
 import { WishlistProvider } from "./userApp/features/wishList/context/WishlistContext";
@@ -51,18 +52,24 @@ const App = () => {
 
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <CartProvider>
-          <WishlistProvider>
-            <OrderProvider>
-              {" "}
-              <TaruvedaCartProvider>
-                <AppRoutes />
-              </TaruvedaCartProvider>
-            </OrderProvider>
-          </WishlistProvider>
-        </CartProvider>
-      </AuthProvider>
+      {/* Loads homepage banners / product sections once, from cache when
+          possible - see src/features/siteConfig/README.md. Sits outside
+          AuthProvider on purpose: site content should render for
+          logged-out visitors too, without waiting on auth to resolve. */}
+      <SiteConfigProvider>
+        <AuthProvider>
+          <CartProvider>
+            <WishlistProvider>
+              <OrderProvider>
+                {" "}
+                <TaruvedaCartProvider>
+                  <AppRoutes />
+                </TaruvedaCartProvider>
+              </OrderProvider>
+            </WishlistProvider>
+          </CartProvider>
+        </AuthProvider>
+      </SiteConfigProvider>
     </BrowserRouter>
   );
 };

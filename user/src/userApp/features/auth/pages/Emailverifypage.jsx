@@ -5,7 +5,7 @@ import {
   confirmPasswordReset,
   verifyPasswordResetCode,
 } from "firebase/auth";
-import { auth } from "../../../../config/firebaseAuth";
+import { auth } from "../../../../config/firebaseConfig";
 
 const STATUS = {
   LOADING: "loading",

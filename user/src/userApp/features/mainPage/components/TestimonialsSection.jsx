@@ -1,4 +1,4 @@
-import TestimonialCard from "../../../shared/components/TestimonialCard";
+import TestimonialCard from "../../../../shared/components/TestimonialCard";
 
 const TestimonialsSection = ({ testimonials = [], loading = false }) => {
   /* ---------------- Skeleton ---------------- */

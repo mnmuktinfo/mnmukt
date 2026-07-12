@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { CONFIG } from "../../config/AppConfig";
+import { CONFIG } from "../../../../config/AppConfig";
 
 const CustomerSpotlight = () => {
   const photos = useMemo(

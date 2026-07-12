@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import CategoriesCard from "../components/cards/CategoriesCard";
+import CategoriesCard from "../../../components/cards/CategoriesCard";
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 
 const CategoryScroller = ({ categories, loading, title, subtitle }) => {

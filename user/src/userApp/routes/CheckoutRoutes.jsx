@@ -6,7 +6,6 @@ import SingleItemCheckout from "../pages/Singleitemcheckout";
 
 /* ─── Lazy: Checkout Pages ─────────────────────────────────────────────── */
 const CartPage = lazy(() => import("../features/cart/pages/CartPage"));
-const AddressPage = lazy(() => import("../pages/AddressPage"));
 const Singleitemcheckout = lazy(() => import("../pages/Singleitemcheckout"));
 
 /* ─── Inline Loader ─────────────────────────────────────────────────────── */
@@ -35,16 +34,6 @@ const CheckoutRoutes = () => {
           element={
             <Suspense fallback={<InlineLoader />}>
               <CartPage />
-            </Suspense>
-          }
-        />
-
-        {/* 📦 ADDRESS STEP */}
-        <Route
-          path="address"
-          element={
-            <Suspense fallback={<InlineLoader />}>
-              <AddressPage />
             </Suspense>
           }
         />

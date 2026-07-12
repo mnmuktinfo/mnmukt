@@ -1,14 +1,16 @@
 <!doctype html>
-<html lang="en">
+<html lang="en-IN">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
     <!-- ── PRIMARY SEO ── -->
-    <title>Mnmukt — Premium Ethnic Wear &amp; Lifestyle Store</title>
+    <title>
+      Mnmukt | Premium Ethnic Wear, Kurta Sets &amp; Women's Fashion Online
+    </title>
     <meta
       name="description"
-      content="Shop premium ethnic wear, kurta sets, salwar suits &amp; organic lifestyle products at Mnmukt. Handcrafted with care, delivered with love." />
+      content="Discover handcrafted ethnic wear, kurta sets, co-ord sets, dresses, salwar suits, and lifestyle essentials at Mnmukt. Free shipping, secure checkout, and premium quality." />
     <meta
       name="robots"
       content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
@@ -17,6 +19,14 @@
     <meta
       name="keywords"
       content="ethnic wear, kurta sets, salwar suits, Indian clothing, organic lifestyle products" />
+    <meta name="application-name" content="Mnmukt" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta name="color-scheme" content="light" />
+
+    <!-- ── GEO TAGS (India) ── -->
+    <meta name="geo.region" content="IN" />
+    <meta name="geo.country" content="India" />
+    <meta name="ICBM" content="20.5937,78.9629" />
 
     <!-- ── CANONICAL + LOCALE ── -->
     <link rel="canonical" href="https://mnmukt.com/" />
@@ -24,8 +34,14 @@
     <link rel="alternate" hreflang="x-default" href="https://mnmukt.com/" />
 
     <!-- ── PERFORMANCE: DNS + Preconnect ── -->
+    <link rel="dns-prefetch" href="//fonts.googleapis.com" />
+    <link rel="dns-prefetch" href="//fonts.gstatic.com" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- checkout-ui.shiprocket.com is already loaded below for the checkout
+         script/stylesheet, so preconnecting to it early saves a DNS+TLS
+         round trip once that resource is requested. -->
+    <link rel="preconnect" href="https://checkout-ui.shiprocket.com" />
 
     <link
       rel="preload"
@@ -48,11 +64,22 @@
 
     <!-- ── PWA ── -->
     <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#da127d" />
+    <meta
+      name="theme-color"
+      media="(prefers-color-scheme: light)"
+      content="#da127d" />
+    <meta
+      name="theme-color"
+      media="(prefers-color-scheme: dark)"
+      content="#781765" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Mnmukt" />
+
+    <!-- ── MICROSOFT TILES ── -->
+    <meta name="msapplication-TileColor" content="#da127d" />
+    <meta name="msapplication-TileImage" content="/appLogo.png" />
 
     <!-- ── OPEN GRAPH + TWITTER CARD ── -->
     <meta property="og:type" content="website" />
@@ -64,6 +91,10 @@
       content="Shop premium ethnic wear, kurta sets, salwar suits &amp; lifestyle products." />
     <meta property="og:url" content="https://mnmukt.com/" />
     <meta property="og:image" content="https://mnmukt.com/og-cover.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta
+      property="og:image:secure_url"
+      content="https://mnmukt.com/og-cover.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta
@@ -86,9 +117,17 @@
       {
         "@context": "https://schema.org",
         "@type": "Organization",
+        "@id": "https://mnmukt.com/#organization",
         "name": "Mnmukt",
         "url": "https://mnmukt.com/",
-        "logo": "https://mnmukt.com/appLogo.png",
+        "logo": {
+          "@type": "ImageObject",
+          "@id": "https://mnmukt.com/#logo",
+          "url": "https://mnmukt.com/appLogo.png",
+          "contentUrl": "https://mnmukt.com/appLogo.png",
+          "name": "Mnmukt Logo"
+        },
+        "email": "support@mnmukt.com",
         "sameAs": [
           "https://www.instagram.com/mnmukt",
           "https://www.facebook.com/mnmukt"
@@ -116,10 +155,62 @@
       }
     </script>
 
+    <!-- ── STRUCTURED DATA: WebPage ── -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        "@id": "https://mnmukt.com/#webpage",
+        "url": "https://mnmukt.com/",
+        "name": "Mnmukt",
+        "isPartOf": { "@id": "https://mnmukt.com/#website" },
+        "about": { "@id": "https://mnmukt.com/#organization" },
+        "description": "Premium ethnic wear and lifestyle store."
+      }
+    </script>
+
+    <!-- ── STRUCTURED DATA: Breadcrumb ── -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Home",
+            "item": "https://mnmukt.com"
+          }
+        ]
+      }
+    </script>
+
     <!--
       ── PERFORMANCE: Critical CSS inline ──
       Paste your above-the-fold CSS here to eliminate render-blocking.
     -->
+
+    <style>
+      /* Standard "visually hidden but accessible/crawlable" pattern for
+         the SEO fallback content below. NOT display:none or
+         visibility:hidden — those are ignored (or devalued) by crawlers.
+         This keeps the text in the DOM and accessibility tree, readable by
+         non-JS bots and screen readers, with zero visible footprint for
+         sighted users. React overwrites #root's contents on hydration
+         anyway, so this only ever matters in the brief pre-hydration
+         window and for crawlers that don't run JS at all. */
+      .seo-fallback {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+    </style>
   </head>
 
   <body>
@@ -131,11 +222,25 @@
         of indexing and can be skipped under crawl-budget pressure, and
         OTHER crawlers (Bing, LinkedIn, WhatsApp preview bots, some AI
         crawlers) do NOT execute JS at all.
-        Put a small amount of real, crawlable content here as a fallback —
-        e.g. your H1, a short intro paragraph, and links to top category
-        pages. React will overwrite this on hydration, so it costs nothing
-        visually but gives every crawler something to read immediately.
+
+        The content below is wrapped in .seo-fallback so it is visually
+        hidden and never flashes on screen before React mounts — it exists
+        purely for crawlers. React overwrites this div's contents on
+        hydration, so real visitors never see it either way.
       -->
+      <div class="seo-fallback">
+        <h1>Mnmukt – Premium Ethnic Wear</h1>
+        <p>
+          Shop handcrafted kurta sets, dresses, co-ord sets, and premium women's
+          fashion online.
+        </p>
+        <nav>
+          <a href="/collections">Collections</a>
+          <a href="/new-arrivals">New Arrivals</a>
+          <a href="/best-sellers">Best Sellers</a>
+          <a href="/about">About Us</a>
+        </nav>
+      </div>
     </div>
 
     <script type="module" src="/src/main.jsx"></script>

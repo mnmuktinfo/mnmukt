@@ -1,18 +1,13 @@
 const isDev = typeof import.meta !== 'undefined' ? import.meta.env?.DEV : process.env.NODE_ENV !== 'production';
 
 const RAZORPAY_SCRIPT_SRC = "https://checkout.razorpay.com/v1/checkout.js";
-const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || "http://localhost:5000/api/v1"; // adjust to your actual env var name
 
-// Cache the in-flight load promise so concurrent callers share one script tag
-// instead of each racing to inject their own before `window.Razorpay` exists.
+// Keep your base URL pointing to the versioned API root
+const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || "http://localhost:5000/api/v1"; 
+
 let razorpayScriptPromise = null;
 
 export const PaymentService = {
-  /**
-   * Dynamically injects the Razorpay SDK into the browser.
-   * Resolves immediately if it's already loaded, and reuses the in-flight
-   * promise if a load is already underway, to prevent duplicate script tags.
-   */
   loadRazorpayScript: () => {
     if (window.Razorpay) {
       if (isDev) console.log("🌐 [PaymentService] Razorpay SDK already loaded.");
@@ -38,8 +33,6 @@ export const PaymentService = {
 
       script.onerror = () => {
         if (isDev) console.error("🚨 [PaymentService] Failed to load Razorpay SDK.");
-        // Remove the failed tag and clear the cached promise so a later
-        // call (e.g. after the user's network recovers) can retry cleanly.
         script.remove();
         razorpayScriptPromise = null;
         resolve(false);
@@ -51,14 +44,9 @@ export const PaymentService = {
     return razorpayScriptPromise;
   },
 
-  /**
-   * Sends the Razorpay checkout response to the backend for signature
-   * verification. Throws on network failure or a non-2xx response so the
-   * caller's handler can reject the payment promise instead of treating it
-   * as a success.
-   */
   verifyPayment: async ({ razorpayOrderId, razorpayPaymentId, razorpaySignature }, token) => {
-    const res = await fetch(`${API_BASE_URL}/api/payments/verify`, {
+    // 👈 FIX: Changed from `/api/payments/verify` to `/payments/verify`
+    const res = await fetch(`${API_BASE_URL}/payments/verify`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
