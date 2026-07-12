@@ -11,7 +11,6 @@ const { logger } = require('../utils/logger');
 const { markOrderConfirmedAfterPayment } = require('./order.service');
 const { sendOrderConfirmationEmail } = require('./email.service');
 
-/** Creates a Razorpay order using the server-calculated amount only. */
 async function createRazorpayOrder(orderId) {
   const order = await Order.findById(orderId);
   if (!order) throw ApiError.notFound('Order not found');
@@ -20,8 +19,6 @@ async function createRazorpayOrder(orderId) {
     throw ApiError.conflict('Order has already been paid');
   }
 
-  // Reuse an existing pending Razorpay order instead of minting a new one
-  // on every retry/page-reload — avoids orphaned duplicate orders.
   if (order.payment.razorpayOrderId && order.payment.status === PAYMENT_STATUS.PENDING) {
     return {
       razorpayOrderId: order.payment.razorpayOrderId,
@@ -44,7 +41,7 @@ async function createRazorpayOrder(orderId) {
     amount: amountInPaise,
     currency: order.pricing.currency,
     receipt: order.idempotencyKey,
-    payment_capture: 1, // don't rely on dashboard config — capture explicitly
+    payment_capture: 1,
     notes: { orderId: order._id.toString() },
   });
 
@@ -60,7 +57,6 @@ async function createRazorpayOrder(orderId) {
   };
 }
 
-/** Constant-time comparison — never use === on signatures/secrets. */
 function safeCompare(a, b) {
   const bufA = Buffer.from(a);
   const bufB = Buffer.from(b);
@@ -72,10 +68,6 @@ function computeSignature(payload, secret) {
   return crypto.createHmac('sha256', secret).update(payload).digest('hex');
 }
 
-/**
- * Verifies payment after client-side checkout completes. This is the primary
- * confirmation path; the webhook is a fallback in case this call is missed.
- */
 async function verifyPaymentSignature({ razorpayOrderId, razorpayPaymentId, razorpaySignature }) {
   const payload = `${razorpayOrderId}|${razorpayPaymentId}`;
   const expectedSignature = computeSignature(payload, env.RAZORPAY_KEY_SECRET);
@@ -88,7 +80,6 @@ async function verifyPaymentSignature({ razorpayOrderId, razorpayPaymentId, razo
   const order = await Order.findOne({ 'payment.razorpayOrderId': razorpayOrderId });
   if (!order) throw ApiError.notFound('Order not found for this payment');
 
-  // Atomic guard: only the first caller to see "pending" flips it to "paid".
   const updated = await Order.findOneAndUpdate(
     { _id: order._id, 'payment.status': { $ne: PAYMENT_STATUS.PAID } },
     {
@@ -109,16 +100,9 @@ async function verifyPaymentSignature({ razorpayOrderId, razorpayPaymentId, razo
     );
   }
 
-  return updated || order; // idempotent: already-paid orders just return current state
+  return updated || order;
 }
 
-/**
- * Handles Razorpay webhooks. Verifies signature against the RAW request body
- * (never the parsed/re-serialized object). Uses WebhookEvent's unique index
- * for fast dedup, but rolls the event record back if downstream processing
- * fails — otherwise a legitimate retry would be swallowed as "duplicate"
- * before the order was ever actually updated.
- */
 async function handleRazorpayWebhook({ rawBody, signatureHeader, eventId, eventType, payload }) {
   const expectedSignature = computeSignature(rawBody, env.RAZORPAY_WEBHOOK_SECRET);
 
@@ -173,8 +157,19 @@ async function handleRazorpayWebhook({ rawBody, signatureHeader, eventId, eventT
 
     return { alreadyProcessed: false };
   } catch (err) {
-    // Processing failed after we recorded the event — remove the record so
-    // Razorpay's retry of this eventId isn't dropped as a false duplicate.
+    const isTransitionConflict = /Illegal order status transition/.test(err.message);
+
+    if (isTransitionConflict) {
+      // Payment WAS marked PAID above — that write stands. The order just
+      // can't follow into CONFIRMED (e.g. it was already cancelled). This
+      // needs a human, not an endless Razorpay retry loop.
+      logger.error(
+        { eventId, eventType, err: err.message },
+        'Payment captured but order status could not follow — needs manual reconciliation'
+      );
+      return { alreadyProcessed: false, needsReconciliation: true };
+    }
+
     await WebhookEvent.deleteOne({ _id: eventRecord._id }).catch((delErr) =>
       logger.error({ delErr, eventId }, 'Failed to roll back webhook event record after processing error')
     );

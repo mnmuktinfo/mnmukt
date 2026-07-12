@@ -1,4 +1,6 @@
 import React from "react";
+import { FolderTree, X } from "lucide-react";
+
 import Card from "../ui/Card";
 import FieldLabel from "../ui/FieldLabel";
 import Select from "../ui/Select";
@@ -11,18 +13,16 @@ const ProductOrganizationCard = ({
   setProduct,
   COLLECTIONS,
   setNewCollection,
-  FolderTree,
 }) => {
   return (
     <Card icon={FolderTree} title="Organization">
       <div className="space-y-6">
-        {/* Category Section */}
+        {/* ─── CATEGORY SECTION ──────────────────────────────────────────── */}
         <div>
           <FieldLabel required>Category</FieldLabel>
-          {/* Assuming your Select component accepts classNames. If not, you may need to apply these to its internal <select> */}
           <Select
             name="categoryId"
-            value={product.categoryId}
+            value={product.categoryId || ""}
             onChange={handleChange}
             className="w-full border border-[#e0e0e0] text-[#212121] p-2.5 rounded-sm focus:outline-none focus:border-[#2874f0] focus:ring-1 focus:ring-[#2874f0] text-[14px] transition-shadow">
             <option value="">Select Category</option>
@@ -34,17 +34,17 @@ const ProductOrganizationCard = ({
           </Select>
         </div>
 
-        {/* Collection Section */}
+        {/* ─── COLLECTION SECTION ────────────────────────────────────────── */}
         <div>
           <FieldLabel>
-            Collection{" "}
+            Collections{" "}
             <span className="text-[#878787] font-normal text-[13px]">
               (Optional)
             </span>
           </FieldLabel>
 
           <div className="space-y-4 mt-1">
-            {/* Selected chips - Flipkart Style (Light gray background, dark text) */}
+            {/* Selected chips */}
             {product.collectionTypes?.length > 0 && (
               <div className="flex flex-wrap gap-2.5">
                 {product.collectionTypes.map((type) => (
@@ -57,14 +57,14 @@ const ProductOrganizationCard = ({
                       onClick={() =>
                         setProduct((p) => ({
                           ...p,
-                          collectionTypes: p.collectionTypes.filter(
+                          collectionTypes: (p.collectionTypes || []).filter(
                             (t) => t !== type,
                           ),
                         }))
                       }
-                      className="text-[#878787] hover:text-[#ff6161] text-lg leading-none transition-colors"
+                      className="text-[#878787] hover:text-[#ff6161] transition-colors p-0.5 rounded-full hover:bg-red-50"
                       title="Remove">
-                      &times;
+                      <X size={14} strokeWidth={2.5} />
                     </button>
                   </span>
                 ))}
@@ -83,6 +83,7 @@ const ProductOrganizationCard = ({
                     ...new Set([...(p.collectionTypes || []), value]),
                   ],
                 }));
+                e.target.value = ""; // Reset select
               }}
               className="w-full border border-[#e0e0e0] text-[#212121] p-2.5 rounded-sm focus:outline-none focus:border-[#2874f0] focus:ring-1 focus:ring-[#2874f0] text-[14px] transition-shadow bg-white">
               <option value="">Select predefined collection...</option>
@@ -98,15 +99,32 @@ const ProductOrganizationCard = ({
               <input
                 value={newCollection}
                 onChange={(e) => setNewCollection(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    if (!newCollection.trim()) return;
+
+                    setProduct((p) => ({
+                      ...p,
+                      collectionTypes: [
+                        ...new Set([
+                          ...(p.collectionTypes || []),
+                          newCollection.trim().toLowerCase(),
+                        ]),
+                      ],
+                    }));
+                    setNewCollection("");
+                  }
+                }}
                 placeholder="Or add a custom collection"
                 className="w-full border border-[#e0e0e0] text-[#212121] p-2.5 rounded-sm focus:outline-none focus:border-[#2874f0] focus:ring-1 focus:ring-[#2874f0] text-[14px] transition-shadow"
               />
 
               <button
                 type="button"
+                disabled={!newCollection.trim()}
                 onClick={() => {
                   if (!newCollection.trim()) return;
-
                   setProduct((p) => ({
                     ...p,
                     collectionTypes: [
@@ -116,10 +134,9 @@ const ProductOrganizationCard = ({
                       ]),
                     ],
                   }));
-
                   setNewCollection("");
                 }}
-                className="px-6 py-2.5 bg-[#2874f0] hover:bg-[#1d5ed8] text-white font-medium rounded-sm shadow-sm text-[14px] transition-colors whitespace-nowrap">
+                className="px-6 py-2.5 bg-[#2874f0] disabled:bg-[#a0c3ff] disabled:cursor-not-allowed hover:bg-[#1d5ed8] text-white font-medium rounded-sm shadow-sm text-[14px] transition-colors whitespace-nowrap">
                 ADD
               </button>
             </div>

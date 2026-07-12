@@ -1,0 +1,159 @@
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
+  serverTimestamp,
+} from "firebase/firestore";
+import { db } from "../firebaseConfig";
+import { HOMEPAGE_SECTIONS_SCHEMA, PAGE_SECTIONS_SCHEMA, getDefaultPageData } from "../schema/homepage.schema";
+
+const HOMEPAGE_COLLECTION = "homepage";
+const SECTIONS_DOC_ID = "sections";
+const PRODUCT_SECTIONS_DOC_ID = "productSections";
+
+const CACHE_KEY = "site_config_cache_v3";
+const CACHE_TTL_MS = 5 * 60 * 1000;
+
+let inFlightFetch = null;
+
+const readCache = () => {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return { ...parsed, stale: Date.now() - parsed.fetchedAt > CACHE_TTL_MS };
+  } catch {
+    return null;
+  }
+};
+
+const writeCache = (data) => {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ data, fetchedAt: Date.now() }));
+  } catch {
+    /* caching is an optimization, never load-bearing */
+  }
+};
+
+const invalidateCache = () => {
+  try {
+    localStorage.removeItem(CACHE_KEY);
+  } catch {
+    /* ignore */
+  }
+};
+
+const stripUndefined = (obj) => JSON.parse(JSON.stringify(obj ?? {}));
+
+/* ---------- merge Firestore data with schema defaults ----------
+   Every schema section always appears, even ones never saved to
+   Firestore yet. Stored ids no longer present in the schema (removed
+   from homepage.schema.js) are dropped from the merged result but
+   left untouched in Firestore - nothing is silently deleted. */
+const mergeSections = (storedSections = []) => {
+  const byId = new Map(storedSections.map((s) => [s.id, s]));
+  return HOMEPAGE_SECTIONS_SCHEMA.map((def) => {
+    const stored = byId.get(def.id);
+    return {
+      id: def.id,
+      enabled: stored?.enabled ?? def.enabledByDefault,
+      order: stored?.order ?? def.order,
+      data: { ...def.defaultData, ...(stored?.data ?? {}) },
+    };
+  }).sort((a, b) => a.order - b.order);
+};
+
+const mergePageData = (id, stored) => ({ ...getDefaultPageData(id), ...(stored ?? {}) });
+
+/* ---------- one network round trip for the entire homepage collection ---------- */
+const fetchFromFirestore = async () => {
+  const snap = await getDocs(collection(db, HOMEPAGE_COLLECTION));
+
+  let storedSections = [];
+  let productSections = [];
+  const rawPages = {};
+
+  snap.forEach((docSnap) => {
+    const id = docSnap.id;
+    const value = docSnap.data();
+    if (id === SECTIONS_DOC_ID) storedSections = value.sections ?? [];
+    else if (id === PRODUCT_SECTIONS_DOC_ID) productSections = value.items ?? [];
+    else rawPages[id] = value;
+  });
+
+  const pages = {};
+  PAGE_SECTIONS_SCHEMA.forEach((def) => {
+    pages[def.id] = mergePageData(def.id, rawPages[def.id]);
+  });
+
+  return { sections: mergeSections(storedSections), pages, productSections };
+};
+
+/**
+ * Full site config, read as ONE Firestore query.
+ * Stale-while-revalidate: serves cache immediately, refetches in the
+ * background so the UI never blocks on network once warm.
+ */
+export const getSiteConfig = async ({ forceRefresh = false } = {}) => {
+  const cached = readCache();
+
+  if (cached && !forceRefresh) {
+    if (cached.stale) fetchFromFirestore().then(writeCache).catch(() => {});
+    return { data: cached.data, fromCache: true };
+  }
+
+  if (!inFlightFetch) {
+    inFlightFetch = fetchFromFirestore()
+      .then((data) => {
+        writeCache(data);
+        return data;
+      })
+      .finally(() => {
+        inFlightFetch = null;
+      });
+  }
+
+  return { data: await inFlightFetch, fromCache: false };
+};
+
+/* ---------- writes ---------- */
+
+/** Sections are edited/reordered/enabled as a set in the admin panel,
+ *  so they're written back as one array in one doc - reordering two
+ *  sections is one atomic write instead of two racing partial writes. */
+export const saveHomepageSections = async (sections) => {
+  await setDoc(
+    doc(db, HOMEPAGE_COLLECTION, SECTIONS_DOC_ID),
+    { sections: stripUndefined(sections), updatedAt: serverTimestamp() },
+    { merge: false },
+  );
+  invalidateCache();
+};
+
+export const savePageSection = async (pageId, pageData) => {
+  if (!pageId) throw new Error("savePageSection: pageId is required");
+  await setDoc(
+    doc(db, HOMEPAGE_COLLECTION, pageId),
+    { ...stripUndefined(pageData), updatedAt: serverTimestamp() },
+    { merge: true },
+  );
+  invalidateCache();
+};
+
+export const saveProductSections = async (items) => {
+  await setDoc(
+    doc(db, HOMEPAGE_COLLECTION, PRODUCT_SECTIONS_DOC_ID),
+    { items: stripUndefined(items), updatedAt: serverTimestamp() },
+    { merge: false },
+  );
+  invalidateCache();
+};
+
+/** Read one doc directly, bypassing cache - used by the admin panel to
+ *  detect concurrent edits before overwriting a page doc. */
+export const getRawDoc = async (docId) => {
+  const snap = await getDoc(doc(db, HOMEPAGE_COLLECTION, docId));
+  return snap.exists() ? snap.data() : null;
+};

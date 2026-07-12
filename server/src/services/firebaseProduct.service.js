@@ -5,10 +5,6 @@ const { ApiError } = require('../utils/ApiError');
 
 const PRODUCTS_COLLECTION = 'products';
 
-/**
- * Fetches a single product from Firebase. This is the ONLY source of truth
- * for price — client-submitted price/subtotal/product data must never be trusted.
- */
 async function getProductById(productId) {
   const doc = await firestore.collection(PRODUCTS_COLLECTION).doc(productId).get();
 
@@ -22,15 +18,22 @@ async function getProductById(productId) {
     throw ApiError.badRequest(`Product ${productId} is not currently available`);
   }
 
+  // 👈 FIXED: a missing/invalid price used to fall through to 0 downstream
+  // (Number(undefined || 0) === 0), silently pricing an item free instead
+  // of blocking checkout on bad product data.
+  if (typeof data.price !== 'number' || !Number.isFinite(data.price) || data.price <= 0) {
+    throw ApiError.badRequest(`Product ${productId} has an invalid price configured`);
+  }
+
   return {
     id: doc.id,
     name: data.name,
-    price: data.price, // server-trusted price
+    price: data.price,
     stock: data.stock ?? null,
+    image: data.images?.[0] || null,
   };
 }
 
-/** Fetches many products in parallel; throws if any are missing/inactive. */
 async function getProductsByIds(productIds) {
   const uniqueIds = [...new Set(productIds)];
   const products = await Promise.all(uniqueIds.map(getProductById));

@@ -3,16 +3,15 @@
 const mongoose = require('mongoose');
 const { Schema } = mongoose;
 
-const webhookEventSchema = new Schema(
+const WebhookEventSchema = new Schema(
   {
     eventId: { type: String, required: true, unique: true, index: true },
-    provider: { type: String, required: true, default: 'razorpay' },
+    provider: { type: String, required: true },
     eventType: { type: String, required: true },
-    processedAt: { type: Date, default: Date.now },
   },
   { timestamps: true }
 );
 
-const WebhookEvent = mongoose.model('WebhookEvent', webhookEventSchema);
+const WebhookEvent = mongoose.model('WebhookEvent', WebhookEventSchema);
 
 module.exports = { WebhookEvent };

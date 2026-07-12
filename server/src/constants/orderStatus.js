@@ -12,7 +12,6 @@ const ORDER_STATUS = Object.freeze({
   REFUNDED: 'refunded',
 });
 
-// Explicit allow-list of forward transitions. Anything not listed is illegal.
 const ORDER_STATUS_TRANSITIONS = Object.freeze({
   [ORDER_STATUS.PENDING]: [ORDER_STATUS.CONFIRMED, ORDER_STATUS.CANCELLED],
   [ORDER_STATUS.CONFIRMED]: [ORDER_STATUS.PROCESSING, ORDER_STATUS.CANCELLED],
@@ -22,7 +21,7 @@ const ORDER_STATUS_TRANSITIONS = Object.freeze({
   [ORDER_STATUS.DELIVERED]: [ORDER_STATUS.RETURNED],
   [ORDER_STATUS.CANCELLED]: [ORDER_STATUS.REFUNDED],
   [ORDER_STATUS.RETURNED]: [ORDER_STATUS.REFUNDED],
-  [ORDER_STATUS.REFUNDED]: [], // terminal
+  [ORDER_STATUS.REFUNDED]: [],
 });
 
 function isValidOrderTransition(from, to) {

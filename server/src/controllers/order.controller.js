@@ -6,25 +6,19 @@ const { HTTP_STATUS } = require('../constants/httpStatus');
 const orderService = require('../services/order.service');
 
 const createOrder = asyncHandler(async (req, res) => {
-  const {
-    idempotencyKey,
-    items,
-    guestInfo,
-    shippingAddress,
-    notes,
-    pricing,
-    payment, 
-  } = req.body;
+  const { idempotencyKey, items, guestInfo, shippingAddress, notes, payment } = req.body;
+  // NOTE: client-sent `pricing` is intentionally not accepted here at all —
+  // the service always recomputes it server-side. Your validator should
+  // reject an unknown `pricing` key in the request body outright.
 
   const order = await orderService.createOrder({
-    user: req.user,              // Secure! Relies on token, not frontend payload
+    user: req.user,
     idempotencyKey,
     items,
     guestInfo,
     shippingAddress,
     notes,
-    pricing,
-    payment, // 👈 2. Pass it to your database service
+    payment,
   });
 
   return sendSuccess(res, {
@@ -39,11 +33,7 @@ const getOrder = asyncHandler(async (req, res) => {
     orderId: req.params.orderId,
     requester: req.user || null,
   });
-
-  return sendSuccess(res, {
-    message: 'Order fetched',
-    data: order,
-  });
+  return sendSuccess(res, { message: 'Order fetched', data: order });
 });
 
 const listMyOrders = asyncHandler(async (req, res) => {
@@ -51,24 +41,12 @@ const listMyOrders = asyncHandler(async (req, res) => {
     userUid: req.user.uid,
     query: req.query,
   });
-
-  return sendSuccess(res, {
-    message: 'Orders fetched',
-    data: orders,
-    meta,
-  });
+  return sendSuccess(res, { message: 'Orders fetched', data: orders, meta });
 });
 
 const listAllOrders = asyncHandler(async (req, res) => {
-  const { orders, meta } = await orderService.listOrdersForAdmin({
-    query: req.query,
-  });
-
-  return sendSuccess(res, {
-    message: 'Orders fetched',
-    data: orders,
-    meta,
-  });
+  const { orders, meta } = await orderService.listOrdersForAdmin({ query: req.query });
+  return sendSuccess(res, { message: 'Orders fetched', data: orders, meta });
 });
 
 const updateOrderStatus = asyncHandler(async (req, res) => {
@@ -76,28 +54,18 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
 
   const order = await orderService.updateOrderStatus({
     orderId: req.params.orderId,
-    toStatus,              // must match ORDER_STATUS enum
+    toStatus,
     changedBy: req.user?.uid || 'system',
     note,
   });
 
-  return sendSuccess(res, {
-    message: 'Order status updated',
-    data: order,
-  });
+  return sendSuccess(res, { message: 'Order status updated', data: order });
 });
 
 const getSharedOrder = asyncHandler(async (req, res) => {
-  // Extract the shareToken from the URL params
   const { shareToken } = req.params;
-
-  // Call the new service function we built earlier
   const order = await orderService.getSharedOrderDetails(shareToken);
-
-  return sendSuccess(res, {
-    message: 'Shared order fetched successfully',
-    data: order,
-  });
+  return sendSuccess(res, { message: 'Shared order fetched successfully', data: order });
 });
 
-module.exports = { createOrder, getOrder, listMyOrders, listAllOrders, updateOrderStatus,getSharedOrder };
+module.exports = { createOrder, getOrder, listMyOrders, listAllOrders, updateOrderStatus, getSharedOrder };

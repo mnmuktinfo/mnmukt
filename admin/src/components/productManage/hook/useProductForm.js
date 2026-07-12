@@ -12,17 +12,14 @@ const PRESET_SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
 const INITIAL_PRODUCT = {
   // Basic Info
   name: "",
-  shortDescription: "",
-  description: "",
+  shortDescription: "", // plain text — cards, listings, meta description fallback
+  description: "", // HTML string from rich text editor — render with sanitized dangerouslySetInnerHTML
   sku: "",
   brand: "",
   categoryId: "",
-  subcategoryId: "",
   collectionTypes: [],
   tags: "",
-  gender: "Unisex",
-  season: "All Season",
-  
+
   // Status
   isActive: true,
   isFeatured: false,
@@ -33,69 +30,26 @@ const INITIAL_PRODUCT = {
   // Pricing & Inventory
   price: "",
   originalPrice: "",
-  taxRate: "",
   stock: "",
   lowStockThreshold: "",
 
   // Media
-  image: "", // Renamed from banner
+  image: "",
   hoverImage: "",
   videoUrl: "",
   images: [],
 
-  // Physical Attributes
-  material: "",
-  pattern: "",
-  fit: "",
-  sleeve: "",
-  neckline: "",
-  length: "",
-  style: "",
-  occasion: "",
-  transparency: "",
-  stretch: "",
-  countryOfOrigin: "India",
-
   // Dynamic Arrays
   colors: [], // { name, image, hex }
-  sizes: [],  // Currently string[], will be updated to objects in UI later if needed or kept simple
-  specifications: [], // { label, value }
-  highlights: [],     // { icon, title, description }
-  offers: [],         // { title, description, type }
-
-  // Shipping
-  shipping: {
-    codAvailable: true,
-    shipsInDays: "2",
-    isFreeShipping: false,
-    shippingCharges: "",
-    weightGm: "",
-    dimensions: ""
-  },
-
-  // Policies
-  policies: {
-    returnPolicy: "7 Days Easy Returns",
-    exchangePolicy: "7 Days Exchange",
-    washCare: "Machine wash cold"
-  },
+  sizes: [], // string[]
+  highlights: [], // { icon, title, description }
 
   // SEO
-  seo: {
-    metaTitle: "",
-    metaDescription: "",
-    metaKeywords: "",
-    canonicalUrl: ""
-  },
-
-  // Custom Badges
-  customTags: {
-    isHandmade: false,
-    isOrganic: false,
-    isArtisanMade: false,
-    isSustainable: false,
-    isLimitedEdition: false
-  }
+seo: {
+  metaTitle: "",
+  metaDescription: "",
+  metaKeywords: "",
+},
 };
 
 const generateSlug = (name) => {
@@ -144,6 +98,8 @@ export const useProductForm = () => {
         setProduct({
           ...INITIAL_PRODUCT,
           ...data,
+          shortDescription: data.shortDescription ?? "",
+          description: data.description ?? "", // HTML content
           price: data.price?.toString() ?? "",
           originalPrice: data.originalPrice?.toString() ?? "",
           stock: data.stock?.toString() ?? "",
@@ -151,14 +107,9 @@ export const useProductForm = () => {
           colors: data.colors ?? [],
           sizes: data.sizes ?? [],
           collectionTypes: data.collectionTypes ?? [],
-          specifications: data.specifications ?? [],
           highlights: data.highlights ?? [],
-          offers: data.offers ?? [],
           sku: data.sku ?? "",
-          shipping: { ...INITIAL_PRODUCT.shipping, ...(data.shipping || {}) },
-          policies: { ...INITIAL_PRODUCT.policies, ...(data.policies || {}) },
           seo: { ...INITIAL_PRODUCT.seo, ...(data.seo || {}) },
-          customTags: { ...INITIAL_PRODUCT.customTags, ...(data.customTags || {}) },
         });
       } catch (err) {
         setError("Could not load this product.");
@@ -185,8 +136,8 @@ export const useProductForm = () => {
           ...p,
           [parent]: {
             ...p[parent],
-            [child]: finalValue
-          }
+            [child]: finalValue,
+          },
         };
       }
       return { ...p, [name]: finalValue };
@@ -234,32 +185,34 @@ export const useProductForm = () => {
   };
 
   /* ─────────────────────────────
-   Color Image Upload
-───────────────────────────── */
-const handleColorImageUpload = async (e, idx) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
+     Color Image Upload
+  ───────────────────────────── */
+  const handleColorImageUpload = async (e, idx) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-  try {
-    setUploadingColorIdx(idx);
-    const res = await uploadImageToCloudinary(file, cloudName, uploadPreset);
-    setProduct((p) => ({
-      ...p,
-      colors: p.colors.map((c, i) =>
-        i === idx ? { ...c, image: res.url } : c
-      ),
-    }));
-  } catch (err) {
-    setError("Failed to upload color image.");
-  } finally {
-    setUploadingColorIdx(null);
-  }
-};
+    try {
+      setUploadingColorIdx(idx);
+      const res = await uploadImageToCloudinary(file, cloudName, uploadPreset);
+      setProduct((p) => ({
+        ...p,
+        colors: p.colors.map((c, i) => (i === idx ? { ...c, image: res.url } : c)),
+      }));
+    } catch (err) {
+      setError("Failed to upload color image.");
+    } finally {
+      setUploadingColorIdx(null);
+    }
+  };
+
   /* ─────────────────────────────
      Colors
   ───────────────────────────── */
   const addColor = () =>
-    setProduct((p) => ({ ...p, colors: [...p.colors, { name: "", image: "" }] }));
+    setProduct((p) => ({
+      ...p,
+      colors: [...p.colors, { name: "", image: "", hex: "#000000" }],
+    }));
 
   const removeColor = (idx) =>
     setProduct((p) => ({
@@ -271,6 +224,12 @@ const handleColorImageUpload = async (e, idx) => {
     setProduct((p) => ({
       ...p,
       colors: p.colors.map((c, i) => (i === idx ? { ...c, name: val } : c)),
+    }));
+
+  const updateColorHex = (idx, val) =>
+    setProduct((p) => ({
+      ...p,
+      colors: p.colors.map((c, i) => (i === idx ? { ...c, hex: val } : c)),
     }));
 
   /* ─────────────────────────────
@@ -288,14 +247,12 @@ const handleColorImageUpload = async (e, idx) => {
     const val = customSizeInput.trim();
     if (!val) return;
 
-    // Prevent duplicate sizes
     if (!product.sizes.includes(val)) {
       setProduct((p) => ({ ...p, sizes: [...p.sizes, val] }));
     }
     setCustomSizeInput("");
   };
 
-  // ✅ NEW: removeSize function added here
   const removeSize = (sizeToRemove) => {
     setProduct((p) => ({
       ...p,
@@ -304,12 +261,12 @@ const handleColorImageUpload = async (e, idx) => {
   };
 
   /* ─────────────────────────────
-     Dynamic Arrays (Specs, Highlights, Offers)
+     Dynamic Arrays (Highlights)
   ───────────────────────────── */
   const addDynamicItem = (arrayName, initialObj) => {
     setProduct((p) => ({
       ...p,
-      [arrayName]: [...(p[arrayName] || []), initialObj]
+      [arrayName]: [...(p[arrayName] || []), initialObj],
     }));
   };
 
@@ -324,7 +281,7 @@ const handleColorImageUpload = async (e, idx) => {
   const removeDynamicItem = (arrayName, index) => {
     setProduct((p) => ({
       ...p,
-      [arrayName]: (p[arrayName] || []).filter((_, i) => i !== index)
+      [arrayName]: (p[arrayName] || []).filter((_, i) => i !== index),
     }));
   };
 
@@ -332,7 +289,6 @@ const handleColorImageUpload = async (e, idx) => {
      Submit
   ───────────────────────────── */
   const handleSubmit = async () => {
-    // Basic Client-Side Validation
     if (!product.name.trim()) {
       setError("Product name is required.");
       return;
@@ -354,14 +310,15 @@ const handleColorImageUpload = async (e, idx) => {
       setLoading(true);
       setError(null);
 
-      const payload = {
-        ...product,
-        slug: generateSlug(product.name),
-        sku: product.sku.trim().toUpperCase(),
-        price: Number(product.price),
-        originalPrice: Number(product.originalPrice) || Number(product.price),
-        stock: Number(product.stock) || 0,
-      };
+     const payload = {
+  ...product,
+  slug: generateSlug(product.name),
+  sku: product.sku.trim().toUpperCase(),
+  price: Number(product.price),
+  originalPrice: Number(product.originalPrice) || Number(product.price),
+  stock: Number(product.stock) || 0,
+  lowStockThreshold: Number(product.lowStockThreshold) || 0, // 👈 add this
+};
 
       if (isEditing) {
         await productService.updateProduct(id, payload);
@@ -382,7 +339,6 @@ const handleColorImageUpload = async (e, idx) => {
     product,
     setProduct,
     error,
-    handleColorImageUpload,
     setError,
     success,
     setSuccess,
@@ -398,10 +354,12 @@ const handleColorImageUpload = async (e, idx) => {
 
     handleImageUpload,
     handleGalleryUpload,
+    handleColorImageUpload,
 
     addColor,
     removeColor,
     updateColorName,
+    updateColorHex,
 
     togglePresetSize,
     addCustomSize,

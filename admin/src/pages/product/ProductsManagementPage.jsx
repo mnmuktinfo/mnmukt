@@ -26,10 +26,13 @@ import Toast from "../../components/productManage/Toast";
 import { productService } from "../../services/firebase/product/productService";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
-const formatPKR = (n) =>
-  new Intl.NumberFormat("en-PK", {
+// 👈 FIXED: was formatPKR / en-PK / PKR. The rest of the system runs on INR
+// (Order schema's pricing.currency defaults to 'INR', AddressSchema.country
+// defaults to 'IN'), so this was inconsistent with everything else.
+const formatINR = (n) =>
+  new Intl.NumberFormat("en-IN", {
     style: "currency",
-    currency: "PKR",
+    currency: "INR",
     maximumFractionDigits: 0,
   }).format(n ?? 0);
 
@@ -116,9 +119,14 @@ const ProductsManagementPage = () => {
         product.brand?.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory =
         categoryFilter === "all" || product.categoryId === categoryFilter;
+      // 👈 FIXED: was checking `product.collectionType` (singular, doesn't
+      // exist on the product doc — the schema field is the plural array
+      // `collectionTypes`). This silently filtered out every product
+      // whenever a collection filter was active, since the field it
+      // checked was always undefined.
       const matchesCollection =
         collectionFilter === "all" ||
-        product.collectionType === collectionFilter;
+        (product.collectionTypes || []).includes(collectionFilter);
       const matchesStatus =
         statusFilter === "all" ||
         (statusFilter === "active" ? product.isActive : !product.isActive);
@@ -308,19 +316,19 @@ const ProductsManagementPage = () => {
             icon={BarChart2}
             label="Live on Storefront"
             value={stats.active}
-            color="bg-[#2e7d32]" // Flipkart success green
+            color="bg-[#2e7d32]"
           />
           <StatCard
             icon={TrendingDown}
             label="Low Stock Alert"
             value={stats.lowStock}
-            color="bg-[#f5a623]" // Flipkart warning orange/yellow
+            color="bg-[#f5a623]"
           />
           <StatCard
             icon={AlertCircle}
             label="Out of Stock"
             value={stats.outOfStock}
-            color="bg-[#e91e63]" // Flipkart red/pink alert
+            color="bg-[#e91e63]"
           />
         </div>
 
@@ -352,7 +360,7 @@ const ProductsManagementPage = () => {
             setDeleteTarget={setDeleteTarget}
             navigate={navigate}
             getDiscount={getDiscount}
-            formatPKR={formatPKR}
+            formatPKR={formatINR}
           />
         </div>
 

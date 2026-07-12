@@ -11,6 +11,8 @@ const AdminAuthPage = lazy(() => import("./pages/AdminAuthPage"));
 const AdminInquiryRoutes = lazy(() => import("./routes/AdminInquiryRoutes"));
 const AdminLayoutRoutes = lazy(() => import("./routes/AdminLayoutRoutes"));
 const TaruvedaRoutes = lazy(() => import("./routes/TaruvedaRoutes"));
+/* ── Site content manager (homepage banners / product sections) ── */
+const SiteContentPage = lazy(() => import("./pages/product/SiteContentPage"));
 
 /* ── Ultra-Fast Loading Screen ── */
 const LoadingScreen = () => (
@@ -62,9 +64,12 @@ const NotFoundPage = () => (
 function App() {
   const location = useLocation();
 
-  // Log navigation
+  // Log navigation (dev only - this ran in production builds before,
+  // which is unnecessary console noise for real users).
   useEffect(() => {
-    console.debug(`Navigated to: ${location.pathname}`);
+    if (import.meta.env?.DEV) {
+      console.debug(`Navigated to: ${location.pathname}`);
+    }
   }, [location.pathname]);
 
   return (
@@ -95,6 +100,18 @@ function App() {
                     <Suspense fallback={<LoadingScreen />}>
                       <ProtectedRoute>
                         <TaruvedaRoutes />
+                      </ProtectedRoute>
+                    </Suspense>
+                  }
+                />
+
+                {/* Site content manager: homepage banners + product sections */}
+                <Route
+                  path="/site-content"
+                  element={
+                    <Suspense fallback={<LoadingScreen />}>
+                      <ProtectedRoute>
+                        <SiteContentPage />
                       </ProtectedRoute>
                     </Suspense>
                   }

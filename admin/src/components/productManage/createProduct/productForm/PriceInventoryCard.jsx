@@ -1,105 +1,103 @@
-import { DollarSign, Sparkles } from "lucide-react";
 import React from "react";
+import { IndianRupee } from "lucide-react";
 import Card from "../ui/Card";
 import FieldLabel from "../ui/FieldLabel";
 import Input from "../ui/Input";
 
-const PriceInventoryCard = ({ product, handleChange, discount }) => {
-  // Shared Flipkart-style input classes
-  const inputClasses =
-    "w-full border border-[#e0e0e0] text-[#212121] p-2.5 rounded-sm focus:outline-none focus:border-[#2874f0] focus:ring-1 focus:ring-[#2874f0] text-[14px] transition-shadow bg-white";
-
+const PriceInventoryCard = ({ product, handleChange }) => {
   return (
-    <Card icon={DollarSign} title="Pricing & Inventory">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* SKU (Stock Keeping Unit) */}
+    <Card icon={IndianRupee} title="Pricing, Inventory & SKU">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
+        {/* ─── SELLING PRICE ─────────────────────────────────────────────── */}
         <div>
-          <FieldLabel required subtitle="Unique identifier for orders.">
-            SKU
+          <FieldLabel required subtitle="The final selling price.">
+            Selling Price (₹)
           </FieldLabel>
-          <div className="mt-1">
-            <Input
-              name="sku"
-              value={product.sku || ""}
-              onChange={handleChange}
-              placeholder="e.g. SHIRT-BLU-M"
-              className={`${inputClasses} uppercase`}
-            />
-          </div>
-        </div>
-
-        {/* Selling Price */}
-        <div>
-          <FieldLabel required subtitle="Final price for the customer.">
-            Selling Price (PKR)
-          </FieldLabel>
-          <div className="relative mt-1">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#878787] font-medium text-[14px]">
-              ₨
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#878787] font-medium">
+              ₹
             </span>
-            {/* Note: Assuming your `<Input>` component accepts and appends the `className` prop properly */}
             <Input
+              type="number"
               name="price"
-              type="number"
-              min="0"
-              value={product.price}
+              value={product.price || ""}
               onChange={handleChange}
-              placeholder="1999"
-              className={`${inputClasses} pl-8 font-medium`}
+              placeholder="0.00"
+              className="pl-8"
+              min="0"
             />
           </div>
         </div>
 
-        {/* Original Price */}
+        {/* ─── ORIGINAL / MRP (optional, for strikethrough discount) ─────── */}
         <div>
-          <FieldLabel subtitle="Leave blank if no discount.">
-            MRP / Original Price (PKR)
+          <FieldLabel subtitle="Optional. Shown as a strikethrough price if higher than selling price.">
+            Original Price (₹)
           </FieldLabel>
-          <div className="relative mt-1">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#878787] font-medium text-[14px]">
-              ₨
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#878787] font-medium">
+              ₹
             </span>
             <Input
+              type="number"
               name="originalPrice"
-              type="number"
-              min="0"
-              value={product.originalPrice}
+              value={product.originalPrice || ""}
               onChange={handleChange}
-              placeholder="2999"
-              className={`${inputClasses} pl-8`}
-            />
-          </div>
-        </div>
-
-        {/* Stock Quantity */}
-        <div>
-          <FieldLabel subtitle="Total units available.">
-            Stock Quantity
-          </FieldLabel>
-          <div className="mt-1">
-            <Input
-              name="stock"
-              type="number"
+              placeholder="0.00"
+              className="pl-8"
               min="0"
-              value={product.stock}
-              onChange={handleChange}
-              placeholder="50"
-              className={inputClasses}
             />
           </div>
         </div>
       </div>
 
-      {/* Discount Banner - Flipkart Offer Style */}
-      {discount > 0 && (
-        <div className="mt-6 flex items-center gap-2 p-3 bg-[#f2f8f5] border border-[#388e3c] rounded-sm text-[#388e3c] text-[14px] font-medium shadow-sm">
-          <Sparkles size={16} />
-          <span>
-            Buyers will see a <span className="font-bold">{discount}% OFF</span>{" "}
-            discount tag.
-          </span>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        {/* ─── BASE SKU ──────────────────────────────────────────────────── */}
+        <div>
+          <FieldLabel
+            required
+            subtitle="Base Stock Keeping Unit (e.g., PROD-WHT)">
+            Base SKU
+          </FieldLabel>
+          <Input
+            name="sku"
+            value={product.sku || ""}
+            onChange={handleChange}
+            placeholder="e.g. BABLI-WHT-COORD"
+            className="uppercase"
+          />
         </div>
-      )}
+
+        {/* ─── STOCK QUANTITY ────────────────────────────────────────────── */}
+        <div>
+          <FieldLabel required subtitle="Total available stock quantity.">
+            Stock Quantity
+          </FieldLabel>
+          <Input
+            type="number"
+            name="stock"
+            value={product.stock || ""}
+            onChange={handleChange}
+            placeholder="0"
+            min="0"
+          />
+        </div>
+      </div>
+
+      {/* ─── LOW STOCK THRESHOLD ───────────────────────────────────────── */}
+      <div className="mt-6 max-w-[50%]">
+        <FieldLabel subtitle="Get flagged as low-stock at or below this quantity.">
+          Low Stock Threshold
+        </FieldLabel>
+        <Input
+          type="number"
+          name="lowStockThreshold"
+          value={product.lowStockThreshold || ""}
+          onChange={handleChange}
+          placeholder="e.g. 5"
+          min="0"
+        />
+      </div>
     </Card>
   );
 };

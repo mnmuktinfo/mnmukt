@@ -1,6 +1,8 @@
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Info } from "lucide-react";
 import React from "react";
 
+// 👈 FIXED: removed the `product.isArchived` branch — INITIAL_PRODUCT has
+// no `isArchived` field, so that branch could never actually render.
 const ProductStatusCard = ({ product, setProduct }) => {
   return (
     <div className="bg-white border border-gray-200 rounded-sm shadow-[0_1px_2px_0_rgba(0,0,0,0.05)] p-6">
@@ -9,6 +11,7 @@ const ProductStatusCard = ({ product, setProduct }) => {
         Control product visibility on your storefront.
       </p>
 
+      {/* ─── ACTIVE/INACTIVE TOGGLE ────────────────────────────────────── */}
       <button
         type="button"
         onClick={() => setProduct((p) => ({ ...p, isActive: !p.isActive }))}
@@ -30,6 +33,16 @@ const ProductStatusCard = ({ product, setProduct }) => {
             className={`absolute top-0.5 bottom-0.5 w-4 rounded-full bg-white transition-all ${product.isActive ? "right-0.5" : "left-0.5"}`}></div>
         </div>
       </button>
+
+      {/* ─── REASSURANCE NOTE ──────────────────────────────────────────── */}
+      <div className="mt-4 flex items-start gap-2 text-[12px] text-[#878787] bg-[#f1f3f6] p-2.5 rounded-sm border border-[#e0e0e0] animate-in fade-in">
+        <Info size={14} className="shrink-0 text-[#878787] mt-0.5" />
+        <p>
+          {product.isActive
+            ? "This product is active and visible to customers on your storefront."
+            : "This product is currently hidden from the storefront. Customers cannot view or purchase it, but it remains safely in your database."}
+        </p>
+      </div>
     </div>
   );
 };

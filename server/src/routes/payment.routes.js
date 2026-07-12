@@ -9,9 +9,20 @@ const paymentController = require('../controllers/payment.controller');
 
 const router = Router();
 
-router.use(paymentLimiter);
+router.post(
+  '/razorpay/order',
+  paymentLimiter,
+  optionalAuth,
+  validate(createRazorpayOrderSchema),
+  paymentController.createRazorpayOrder
+);
 
-router.post('/razorpay/order', optionalAuth, validate(createRazorpayOrderSchema), paymentController.createRazorpayOrder);
-router.post('/razorpay/verify', optionalAuth, validate(verifyPaymentSchema), paymentController.verifyPayment);
+router.post(
+  '/razorpay/verify',
+  paymentLimiter,
+  optionalAuth,
+  validate(verifyPaymentSchema),
+  paymentController.verifyPayment
+);
 
 module.exports = router;

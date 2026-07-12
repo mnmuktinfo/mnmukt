@@ -16,16 +16,18 @@ const MobileStickySaveButton = ({
         className="w-full flex items-center justify-center gap-2 bg-[#2874F0] text-white py-3.5 rounded-sm font-medium text-[15px] active:scale-95 transition-all disabled:opacity-60 shadow-sm">
         {loading ? (
           <>
-            <Loader2 className="w-5 h-5 animate-spin" /> Saving…
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <span>Saving…</span>
           </>
         ) : success ? (
           <>
-            <CheckCircle2 className="w-5 h-5" /> Saved!
+            <CheckCircle2 className="w-5 h-5" />
+            <span>Saved!</span>
           </>
         ) : (
           <>
-            <Save className="w-5 h-5" />{" "}
-            {isEditing ? "Save Changes" : "Publish Product"}
+            <Save className="w-5 h-5" />
+            <span>{isEditing ? "Save Changes" : "Publish Product"}</span>
           </>
         )}
       </button>
