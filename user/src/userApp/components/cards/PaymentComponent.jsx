@@ -60,16 +60,16 @@ const METHODS = {
 ──────────────────────────────────────── */
 
 const PaymentSelector = ({
-  availableMethods = ["razorpay", "cod", "whatsapp"],
-  defaultMethod = "razorpay",
+  availableMethods = ["cashfree", "cod", "whatsapp"],
+  defaultMethod = "cashfree",
   onSelectPayment,
 }) => {
   const [selectedMethod, setSelectedMethod] = React.useState(defaultMethod);
 
   const paymentMethods = {
-    razorpay: {
-      id: "razorpay",
-      name: "Razorpay",
+    cashfree: {
+      id: "cashfree",
+      name: "Cashfree",
       description: "Secure online payment",
       subtext: "Credit Card, Debit Card, UPI, Wallets",
       icon: CreditCard,
@@ -182,7 +182,7 @@ const PaymentSelector = ({
       {/* Info Message */}
       <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
         <p className="text-xs text-gray-600 font-medium">
-          {selectedMethod === "razorpay"
+          {selectedMethod === "cashfree"
             ? "✓ Fastest & most secure. Supports all major payment methods."
             : selectedMethod === "cod"
               ? "✓ No upfront payment required. Pay when you receive your order."

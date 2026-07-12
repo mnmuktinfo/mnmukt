@@ -10,7 +10,7 @@ import {
   createOrderAsync,
   createPaymentOrderAsync,
   verifyPaymentAsync,
-  loadRazorpayScript,
+  loadCashfree,
   getErrorMessage,
 } from "../services/checkout/checkoutService";          
 import {
@@ -142,14 +142,14 @@ export const useCheckout = () => {
   );
 
   /* ========================================
-     RAZORPAY
+     CASHFREE
   ======================================== */
-  const performRazorpayPayment = useCallback(
+  const performCashfreePayment = useCallback(
     async (orderId, prefillData) => {
       setLoadingMessage(UI_MESSAGES.LOADING_PAYMENT);
 
-      const scriptLoaded = await loadRazorpayScript();
-      if (!scriptLoaded) {
+      const cashfree = await loadCashfree();
+      if (!cashfree) {
         throw new Error(ERROR_MESSAGES.PAYMENT_GATEWAY_FAILED);
       }
 
@@ -160,72 +160,18 @@ export const useCheckout = () => {
         customerEmail: prefillData?.email,
       });
 
-      return new Promise((resolve, reject) => {
-        try {
-          const razorpay = new window.Razorpay({
-            key: import.meta.env.VITE_RAZORPAY_KEY_ID || "",
-            amount: paymentOrder.amount,
-            currency: paymentOrder.currency,
-            order_id: paymentOrder.id,
-            name: import.meta.env.VITE_STORE_NAME || "Store",
-            description: `Order #${orderId}`,
-            prefill: {
-              name: prefillData?.name || "",
-              email: prefillData?.email || "",
-              contact: prefillData?.phone || "",
-            },
-            theme: { color: "#000000" },
-
-            handler: async (response) => {
-              try {
-                setLoadingMessage(UI_MESSAGES.VERIFYING_PAYMENT);
-
-                const verifyResult = await verifyPaymentAsync({
-                  orderId,
-                  razorpay_order_id: response.razorpay_order_id,
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_signature: response.razorpay_signature,
-                  customerEmail: prefillData?.email,
-                });
-
-                const verified = verifyResult?.data || {};
-
-                updateOrder(orderId, {
-                  orderStatus: verified.orderStatus || ORDER_STATUS.CONFIRMED,
-                  paymentStatus: verified.paymentStatus || PAYMENT_STATUS.PAID,
-                  paymentId: response.razorpay_payment_id,
-                  paymentVerifiedAt: new Date().toISOString(),
-                });
-
-                resolve({ success: true, orderId });
-              } catch (err) {
-                // Payment likely succeeded on Razorpay's side but our
-                // verification call failed (network blip, etc). Surface the
-                // error to the caller rather than leaving the promise
-                // hanging — the order stays "pending" and can be
-                // reconciled via getOrderStatus / webhook on reload.
-                reject(err);
-              } finally {
-                setLoadingMessage("");
-              }
-            },
-
-            modal: {
-              ondismiss: () => {
-                setLoadingMessage("");
-                reject(new Error(ERROR_MESSAGES.PAYMENT_CANCELLED));
-              },
-            },
-          });
-
-          razorpay.open();
-        } catch (err) {
-          setLoadingMessage("");
-          reject(err);
-        }
+      setLoadingMessage(UI_MESSAGES.VERIFYING_PAYMENT);
+      
+      // Cashfree hosted checkout redirects the user
+      await cashfree.checkout({
+        paymentSessionId: paymentOrder.payment_session_id,
+        redirectTarget: "_self"
       });
+
+      // The code below usually won't execute because the page redirects
+      setLoadingMessage("");
     },
-    [updateOrder],
+    [],
   );
 
   /* ========================================
@@ -235,7 +181,7 @@ export const useCheckout = () => {
     async ({
       items,
       shippingAddress,
-      paymentMethod = PAYMENT_GATEWAY.RAZORPAY,
+      paymentMethod = PAYMENT_GATEWAY.CASHFREE || "cashfree",
       customerNote = "",
       pricing,
       // shippingInfo is accepted for call-signature parity with callers that
@@ -267,8 +213,8 @@ export const useCheckout = () => {
           pricing,
         });
 
-        if (paymentMethod === PAYMENT_GATEWAY.RAZORPAY) {
-          await performRazorpayPayment(order.orderId, {
+        if (paymentMethod === PAYMENT_GATEWAY.CASHFREE || paymentMethod === "cashfree") {
+          await performCashfreePayment(order.orderId, {
             name: shippingAddress?.fullName || user?.name || address?.fullName,
             email: shippingAddress?.email || user?.email || address?.email,
             phone: shippingAddress?.phone || address?.phone,
@@ -291,7 +237,7 @@ export const useCheckout = () => {
         checkoutRef.current = false;
       }
     },
-    [user, address, performAddressValidation, performOrderCreation, performRazorpayPayment],
+    [user, address, performAddressValidation, performOrderCreation, performCashfreePayment],
   );
 
   const resetCheckout = useCallback(() => {

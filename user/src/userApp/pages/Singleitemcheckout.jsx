@@ -87,7 +87,7 @@ const SingleItemCheckout = () => {
   });
 
   const [formErrors, setFormErrors] = useState({});
-  const [paymentMethod, setPaymentMethod] = useState(PAYMENT_GATEWAY.RAZORPAY);
+  const [paymentMethod, setPaymentMethod] = useState(PAYMENT_GATEWAY.CASHFREE);
   const [couponCode, setCouponCode] = useState("");
   const [couponApplied, setCouponApplied] = useState(false);
   const [couponDiscount, setCouponDiscount] = useState(0);
@@ -468,7 +468,7 @@ const SingleItemCheckout = () => {
                     className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-600"
                   />
                   <span className="text-sm font-medium text-gray-900">
-                    Razorpay Secure (UPI, Cards, Int'l Cards, Wallets)
+                    Cashfree Secure (UPI, Cards, Int'l Cards, Wallets)
                   </span>
                 </div>
                 <div className="flex gap-1">
@@ -488,7 +488,7 @@ const SingleItemCheckout = () => {
                   strokeWidth={1}
                 />
                 <p>
-                  You'll be redirected to Razorpay Secure (UPI, Cards, Int'l
+                  You'll be redirected to Cashfree Secure (UPI, Cards, Int'l
                   Cards, Wallets) to complete your purchase.
                 </p>
               </div>

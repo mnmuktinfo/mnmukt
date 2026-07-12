@@ -60,7 +60,7 @@ export const PAYMENT_STATUS = Object.freeze({
    PAYMENT METHODS
 ================================================ */
 export const PAYMENT_GATEWAY = Object.freeze({
-  RAZORPAY: "razorpay",
+  CASHFREE: "cashfree",
   COD: "cod",
 });
 

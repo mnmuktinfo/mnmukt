@@ -18,7 +18,7 @@ const STATUS_LABELS = {
 const PAYMENT_METHOD_LABELS = {
   cod: "Cash on Delivery",
   whatsapp: "WhatsApp Payment",
-  razorpay: "Online Payment",
+  cashfree: "Online Payment",
   upi: "UPI Payment",
   online: "Online Payment",
 };

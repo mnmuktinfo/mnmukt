@@ -53,7 +53,7 @@ const AddressPage = () => {
   const [popupOpen, setPopupOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
 
-  const [paymentMethod, setPaymentMethod] = useState("razorpay");
+  const [paymentMethod, setPaymentMethod] = useState("cashfree");
 
   // Local state for UI feedback
   const [localError, setLocalError] = useState("");
@@ -265,7 +265,7 @@ const AddressPage = () => {
               Payment Method
             </h2>
             <PaymentSelector
-              availableMethods={["razorpay", "cod", "whatsapp"]}
+              availableMethods={["cashfree", "cod", "whatsapp"]}
               defaultMethod={paymentMethod}
               onSelectPayment={setPaymentMethod}
             />

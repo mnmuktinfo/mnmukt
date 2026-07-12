@@ -43,7 +43,7 @@ const formatPaymentMethod = (method) => {
   if (!method) return "Online";
   const m = method.toLowerCase();
   if (m === "cod") return "Cash on Delivery";
-  if (m === "razorpay") return "Razorpay (Online)";
+  if (m === "cashfree") return "Cashfree (Online)";
   if (m === "whatsapp") return "WhatsApp Payment";
   if (m === "upi") return "UPI (GPay/PhonePe)";
   if (m === "stripe") return "Stripe (Card)";

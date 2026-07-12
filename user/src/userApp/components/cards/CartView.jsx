@@ -254,8 +254,8 @@ const CartView = ({
               Secured by
             </span>
             <img
-              src="https://accounts.razorpay.com/assets/razorpay/logo-light.svg"
-              alt="Razorpay"
+              src="https://merchant.cashfree.com/merchants/cashfree_logo.svg"
+              alt="Cashfree"
               className="h-3 sm:h-3.5 object-contain grayscale opacity-70"
             />
           </div>

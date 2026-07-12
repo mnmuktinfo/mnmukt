@@ -206,7 +206,7 @@ const CheckoutAddressView = ({
         <div className="bg-white border-t border-[#e2e8f0] p-4 shadow-[0_-4px_10px_rgba(0,0,0,0.03)] z-10 flex-shrink-0">
           <div className="space-y-3">
             <button
-              onClick={() => onPayNow(PAYMENT_GATEWAY.RAZORPAY)}
+              onClick={() => onPayNow(PAYMENT_GATEWAY.CASHFREE)}
               disabled={isLoading || !hasItems}
               className="w-full py-3.5 bg-black hover:bg-[#222222] disabled:bg-gray-300 disabled:text-gray-500 text-white font-bold text-[13px] uppercase tracking-widest transition-colors flex justify-center items-center gap-2 rounded-none"
               type="button">

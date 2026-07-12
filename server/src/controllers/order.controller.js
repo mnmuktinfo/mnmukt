@@ -8,7 +8,7 @@ const logger = require("../utils/logger");
  * Expected shape of ../constants (adjust names to match your actual file):
  * ORDER_STATUS:   { PENDING, CONFIRMED, SHIPPED, OUT_FOR_DELIVERY, DELIVERED, CANCELLED, REFUNDED }
  * PAYMENT_STATUS: { PENDING, PAID, FAILED, REFUNDED }
- * PAYMENT_GATEWAY:{ RAZORPAY }   // COD removed — Razorpay is the only supported gateway
+ * PAYMENT_GATEWAY:{ CASHFREE }   // Cashfree is the only supported gateway
  * ACTOR_TYPE:     { SYSTEM, CUSTOMER, ADMIN }
  */
 const {
@@ -98,12 +98,11 @@ function mapPricingToSchema(pricing = {}) {
   };
 }
 
-// Razorpay-only now — gateway is always "razorpay", payment starts pending
-// and is flipped to "paid" in payment.controller.js after verification.
-function mapPaymentToSchema() {
+function mapPaymentToSchema(paymentMethod = "cashfree") {
+  const isCod = paymentMethod === PAYMENT_GATEWAY.COD || paymentMethod === "cod";
   return {
-    gateway: PAYMENT_GATEWAY.RAZORPAY,
-    status: PAYMENT_STATUS.PENDING,
+    gateway: isCod ? PAYMENT_GATEWAY.COD : PAYMENT_GATEWAY.CASHFREE || "cashfree",
+    status: isCod ? PAYMENT_STATUS.PENDING : PAYMENT_STATUS.PENDING,
     amountPaid: 0,
     currency: "INR",
     gatewayMeta: {},
@@ -138,7 +137,7 @@ async function findOwnedOrder(idOrOrderId, req) {
    CREATE ORDER (guest + logged-in)
    POST /api/v1/orders
 
-   Razorpay-only, manual shipping: this endpoint only creates the order
+   Cashfree-only, manual shipping: this endpoint only creates the order
    and marks it "awaiting payment". No courier is booked here — an admin
    adds shipment/tracking details later via PATCH /admin/:id/status once
    the order is actually ready to ship.
@@ -151,6 +150,7 @@ async function createOrder(req, res) {
     shippingAddress,
     customerNote,
     pricing,
+    paymentMethod,
   } = req.body;
 
   const itemsError = validateItems(items);
@@ -184,7 +184,7 @@ async function createOrder(req, res) {
     items: mapItemsToSchema(items),
     shippingAddress,
     pricing: mapPricingToSchema(pricing),
-    payment: mapPaymentToSchema(),
+    payment: mapPaymentToSchema(paymentMethod),
     customerNote,
     flags: { isGuest: resolvedIsGuest },
   });

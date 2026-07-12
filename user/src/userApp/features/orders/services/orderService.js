@@ -46,6 +46,7 @@ const handleApiError = (error, defaultMsg) => {
     console.error("ORDER API ERROR:", {
       status: error.response?.status,
       data: error.response?.data,
+      message: error.message,
     });
   }
   throw new Error(msg);
@@ -86,7 +87,7 @@ export const createOrder = async (orderData) => {
     const isGuest = !firebaseUser?.uid;
 
     const normalizedPaymentMethod = String(paymentMethod).trim().toLowerCase();
-    const allowedPaymentMethods = ["razorpay", "cod"];
+    const allowedPaymentMethods = ["cashfree", "cod"];
 
     if (!allowedPaymentMethods.includes(normalizedPaymentMethod)) {
       throw new Error(`Unsupported payment method: ${paymentMethod}`);

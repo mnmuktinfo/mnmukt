@@ -120,9 +120,7 @@ const createSchema = z
 
     pricing: pricingSchema,
 
-    // Only Razorpay is accepted right now. Switch back to
-    // z.enum([...]) if more gateways are added later.
-    paymentMethod: z.literal("razorpay"),
+    paymentMethod: z.enum(["cashfree", "cod"]),
 
     customerNote: z.string().trim().max(500).optional(),
 

@@ -21,6 +21,7 @@ const EmailVerificationHelp = lazy(
 const OrderConfirmationPage = lazy(
   () => import("./userApp/components/pop-up/OrderConfirmationPage"),
 );
+const PaymentStatus = lazy(() => import("./userApp/pages/PaymentStatus"));
 
 // Public Storefront (inside UserLayout)
 const HomePage = lazy(() => import("./userApp/pages/HomePage"));
@@ -173,6 +174,14 @@ const AppRoutes = () => {
           element={
             <Suspense fallback={<InlineLoader />}>
               <OrderConfirmationPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/payment/status"
+          element={
+            <Suspense fallback={<InlineLoader />}>
+              <PaymentStatus />
             </Suspense>
           }
         />

@@ -162,7 +162,7 @@ const CartDrawer = ({ isOpen, onClose }) => {
     setIsEditingAddress(false);
   };
 
-  const handleCheckout = async (paymentMethod = PAYMENT_GATEWAY.RAZORPAY) => {
+  const handleCheckout = async (paymentMethod = PAYMENT_GATEWAY.CASHFREE) => {
     const cartValidation = validateCartItems(cart);
 
     if (!cartValidation.isValid) {

@@ -21,7 +21,7 @@ export {
   createOrderAsync,
   createPaymentOrderAsync,
   verifyPaymentAsync,
-  loadRazorpayScript,
+  loadCashfree,
 } from "./payment.service";
 
 export {

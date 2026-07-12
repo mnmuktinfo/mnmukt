@@ -2,7 +2,7 @@
 // Single source of truth for all checkout-related constants, defaults, and shapes.
 
 export const PAYMENT_GATEWAY = Object.freeze({
-  RAZORPAY: "razorpay",
+  CASHFREE: "cashfree",
   COD: "cod",
 });
 
